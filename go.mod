@@ -2,12 +2,12 @@ module github.com/Teralytic/teralytic
 
 go 1.14
 
-replace github.com/Teralytic/oauth => ../oauth
+// replace github.com/Teralytic/oauth => ../oauth
 
-replace github.com/a8m/rql => ../rql
+replace github.com/a8m/rql => github.com/Teralytic/rql v1.2.1-dev.1
 
 require (
-	github.com/Teralytic/oauth v0.0.0-00010101000000-000000000000
+	github.com/Teralytic/oauth v1.0.0-dev.1
 	github.com/a8m/rql v1.2.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/caarlos0/env v3.5.0+incompatible
