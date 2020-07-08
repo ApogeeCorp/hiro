@@ -1,0 +1,14 @@
+version: "2.4"
+services:
+  db:
+    image: timescale/timescaledb-postgis:latest-pg12
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: teralytic
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - "db:/var/lib/postgresql/data"
+volumes:
+  db:
+    driver: local
