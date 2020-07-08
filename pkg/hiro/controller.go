@@ -1,21 +1,12 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 
-package teralytic
+package hiro
 
 import (
 	"sync"
@@ -42,7 +33,7 @@ type (
 func RegisterBackend(initFunc func(params map[string]interface{}, ctrl BackendController) (Backend, error)) {
 	// only one backend should be initialized
 	if backendInit != nil {
-		panic("teralytic backend already registered")
+		panic("backend already registered")
 	}
 
 	regOnce.Do(func() {
@@ -55,7 +46,7 @@ func Initialize(params map[string]interface{}, ctrl BackendController) (Backend,
 	var err error
 
 	if backendInit == nil {
-		panic("teralytic backend not registered")
+		panic("backend not registered")
 	}
 
 	initOnce.Do(func() {

@@ -21,7 +21,7 @@ const App = () => {
               login_uri="/login"
               client_id="Xazhwq3L6uDz4K9ZcsPWKT"
               scope="offline_access openid profile property:read"
-              audience="teralytic:api"
+              audience="hiro:api"
             />
           )}
         />

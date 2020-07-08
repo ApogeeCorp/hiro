@@ -1,19 +1,10 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 package server
 
 import (
@@ -27,10 +18,10 @@ import (
 
 const (
 	// Name the server name
-	Name = "Teralytic"
+	Name = "Hiro"
 
 	// Version is the binary version
-	Version = "2.0.0"
+	Version = "1.0.0"
 )
 
 var (

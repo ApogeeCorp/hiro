@@ -1,19 +1,10 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 
 package daemon
 
@@ -21,9 +12,9 @@ import (
 	"errors"
 	"net/http"
 
-	oauth "github.com/Teralytic/oauth/api/types"
-	"github.com/Teralytic/teralytic/api/server"
-	"github.com/Teralytic/teralytic/api/types"
+	"github.com/ModelRocket/hiro/api/server"
+	"github.com/ModelRocket/hiro/api/types"
+	oauth "github.com/ModelRocket/oauth/api/types"
 	"github.com/a8m/rql"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/ulule/deepcopier"
@@ -57,13 +48,13 @@ func (d *Daemon) ApplicationGet(client string) (*oauth.Application, error) {
 
 // AudienceGet should return an audience for the specified name
 func (d *Daemon) AudienceGet(name string) (*oauth.Audience, error) {
-	if name != "teralytic:api" {
+	if name != "hiro:api" {
 		return nil, errors.New("audience not found")
 	}
 
 	return &oauth.Audience{
-		Name:           "teralytic:api",
-		Description:    "Teralytic API",
+		Name:           "hiro:api",
+		Description:    "Hiro API",
 		Permissions:    append(server.Permissions, "openid", "profile", "offline_access"),
 		TokenAlgorithm: "RS256",
 		TokenLifetime:  3600,

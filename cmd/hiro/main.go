@@ -1,19 +1,10 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 
 package main
 
@@ -25,15 +16,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Teralytic/teralytic/api/server"
-	"github.com/Teralytic/teralytic/pkg/daemon"
+	"github.com/ModelRocket/hiro/api/server"
+	"github.com/ModelRocket/hiro/pkg/daemon"
 	"github.com/caarlos0/env/v6"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 
 	// Register the timescaledb backend
-	_ "github.com/Teralytic/teralytic/pkg/backend/timescale"
+	_ "github.com/ModelRocket/hiro/pkg/backend/postgres"
 )
 
 var (
@@ -45,8 +36,8 @@ var (
 )
 
 func main() {
-	app.Name = "teralytic"
-	app.Usage = "Teralytic Service"
+	app.Name = "hiro"
+	app.Usage = "Hiro API Service"
 	app.Action = daemonMain
 	app.Version = server.Version
 
@@ -55,7 +46,7 @@ func main() {
 			Name:    "config",
 			Usage:   "the configuration file",
 			Aliases: []string{"f"},
-			Value:   "/etc/teralytic/config.yaml",
+			Value:   "/etc/hiro/config.yaml",
 			EnvVars: []string{"CONFIG_FILE"},
 		},
 		&cli.StringFlag{
@@ -112,13 +103,13 @@ func daemonMain(c *cli.Context) error {
 
 	go func() {
 		if err := d.Run(); err != nil {
-			log.Fatalf("failed to start the teralytic daemon %+v", err)
+			log.Fatalf("failed to start the daemon %+v", err)
 		}
 	}()
-	log.Infof("teralytic daemon started")
+	log.Infof("daemon started")
 
 	<-done
-	log.Info("teralytic dameon shutting down...")
+	log.Info("dameon shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -126,7 +117,7 @@ func daemonMain(c *cli.Context) error {
 	if err := d.Shutdown(ctx); err != nil {
 		log.Fatalf("shutdown:%+v", err)
 	}
-	log.Infof("teralytic shutdown")
+	log.Infof("shutdown complete")
 
 	return nil
 }

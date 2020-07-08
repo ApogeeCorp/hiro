@@ -1,4 +1,4 @@
-# A Swagger 2.0 (a.k.a. OpenAPI) definition of the Teralytic API.
+# A Swagger 2.0 (a.k.a. OpenAPI) definition of the API.
 #
 # This is used for generating API documentation and the types used by the
 # client/server. See api/README.md for more information.
@@ -19,10 +19,10 @@ consumes:
   - "application/json"
 basePath: "/api/v2.0.0"
 info:
-  title: "Teralytic API"
+  title: "API"
   version: "2.0.0"
   description: |
-    The Teralytic API is served by the teralytic daemon. This api provides 
+    The API is served by the daemon. This api provides 
     all of the services necessary for authorization and applications.
 
     # Authentication
@@ -57,15 +57,14 @@ securityDefinitions:
   OAuth:
     type: oauth2
     flow: accessCode
-    authorizationUrl: https://auth.teralytic.io/oauth2/authorize
-    tokenUrl: https://auth.teralytic.io/oauth2/token
-    scopes:
-      property:read: Ready properies
+    authorizationUrl: https://auth.server.local/oauth2/authorize
+    tokenUrl: https://auth.server.local/oauth2/token
+    scopes: {}
 
 definitions:
   Application:
     allOf:
-      - $ref: "/go/src/github.com/Teralytic/oauth/api/swagger.yaml#/definitions/Application"
+      - $ref: "/go/src/github.com/ModelRocket/oauth/api/swagger.yaml#/definitions/Application"
       - type: "object"
         properties:
           id:
@@ -82,7 +81,7 @@ definitions:
 
   User:
     allOf:
-      - $ref: "/go/src/github.com/Teralytic/oauth/api/swagger.yaml#/definitions/User"
+      - $ref: "/go/src/github.com/ModelRocket/oauth/api/swagger.yaml#/definitions/User"
       - type: "object"
         properties:
           id:
@@ -102,73 +101,6 @@ definitions:
             description: "The last update date"
             format: "date-time"
 
-  Property:
-    description: "A property an addressable location owned by an organiztion"
-    type: "object"
-    required: ["Name"]
-    properties:
-      Id:
-        type: "string"
-        description: "The property id"
-        readOnly: true
-      Name:
-        type: "string"
-        description: "The property name"
-        x-nullable: false
-      Address:
-        type: "string"
-        description: |
-          The property address in the format:
-
-            1234 Main St.\n
-            Anwhere, PA 12345\n
-      Location:
-        description: "The property location in lng,lat format"
-        $ref: "#/definitions/Point"
-      CreatedAt:
-        type: "string"
-        description: "The property object creation time"
-        format: "date-time"
-        readOnly: true
-      UpdatedAt:
-        type: "string"
-        description: "The property object update time"
-        format: "date-time"
-        readOnly: true
-
-  Geometry:
-    type: "object"
-    description: A geoJSON geometry
-    discriminator: type
-    required: ["type"]
-    properties:
-      type:
-        type: "string"
-        enum:
-          - "Point"
-          - "LineString"
-          - "Polygon"
-          - "MultiPoint"
-          - "MultiLineString"
-          - "MultiPolygon"
-        description: "The geometry type"
-
-  Point2D:
-    type: "array"
-    maxItems: 2
-    minItems: 2
-    items:
-      type: "number"
-
-  Point:
-    type: object
-    description: "A geoJSON Point"
-    allOf:
-      - $ref: "#/definitions/Geometry"
-      - properties:
-          coordinates:
-            $ref: "#/definitions/Point2D"
-
   ErrorResponse:
     description: "A common error response"
     type: "object"
@@ -180,19 +112,16 @@ definitions:
         x-nullable: false
 
 paths:
-  /properties:
+  /hello:
     get:
-      description: |
-        Properties are physically distinct addressable locations.
-      operationId: "PropertyList"
-      tags: ["Property"]
+      description: "Hello World"
+      tags: ["Greeting"]
+      operationId: "HelloWorld"
       responses:
         200:
           description: "ok"
           schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Property"
+            type: "string"
         400:
           description: "bad parameter"
           schema:
@@ -205,5 +134,3 @@ paths:
           description: "internal server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
-      security:
-        - OAuth: ["property:read"]

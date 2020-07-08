@@ -1,21 +1,12 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 
-// Package daemon is the teralytic service manager
+// Package daemon is the service manager
 package daemon
 
 import (
@@ -29,15 +20,15 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Teralytic/oauth/pkg/oauth"
-	"github.com/Teralytic/teralytic/api/server"
-	"github.com/Teralytic/teralytic/pkg/teralytic"
+	"github.com/ModelRocket/hiro/api/server"
+	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/ModelRocket/oauth/pkg/oauth"
 	"github.com/a8m/rql"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/sirupsen/logrus"
 
-	oauthsrv "github.com/Teralytic/oauth/api/server"
-	"github.com/Teralytic/teralytic/api/types"
+	"github.com/ModelRocket/hiro/api/types"
+	oauthsrv "github.com/ModelRocket/oauth/api/server"
 )
 
 type (
@@ -46,7 +37,7 @@ type (
 	Daemon struct {
 		server     *server.Server
 		authServer *oauthsrv.Server
-		backend    teralytic.Backend
+		backend    hiro.Backend
 		config     Config
 		shutdown   chan int
 		wg         sync.WaitGroup
@@ -68,7 +59,7 @@ func New(c Config) (*Daemon, error) {
 		config:   c,
 	}
 
-	backend, err := teralytic.Initialize(c.Backend, d)
+	backend, err := hiro.Initialize(c.Backend, d)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +143,7 @@ func (d *Daemon) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// Log implements the teralytic.BackendController interface
+// Log implements the hiro.BackendController interface
 func (d *Daemon) Log() *logrus.Logger {
 	return d.config.Logger
 }
@@ -161,7 +152,7 @@ func (d *Daemon) generateServerKey() (*rsa.PrivateKey, error) {
 	var priv string
 
 	if err := d.backend.OptionGet("server:private_key", &priv); err != nil {
-		if err != teralytic.ErrOptionNotFound {
+		if err != hiro.ErrOptionNotFound {
 			return nil, err
 		}
 
@@ -205,8 +196,8 @@ func (d *Daemon) generateServerKey() (*rsa.PrivateKey, error) {
 
 func (d *Daemon) createServerApp() error {
 	app := &types.Application{
-		Name:          "Teralytic",
-		Description:   "Teralytic Soil Management and Research Tool",
+		Name:          "Hiro",
+		Description:   "Hiro API",
 		Type:          "web",
 		LoginUris:     []string{"/login"},
 		RedirectUris:  []string{"/", "/dashboard"},
@@ -217,12 +208,12 @@ func (d *Daemon) createServerApp() error {
 	}
 
 	if err := d.backend.ApplicationCreate(app); err != nil {
-		if err != teralytic.ErrObjectExists {
+		if err != hiro.ErrObjectExists {
 			return err
 		}
 		if err := d.backend.ApplicationUpdate(&rql.Query{
 			Filter: map[string]interface{}{
-				"name": "Teralytic",
+				"name": "Hiro",
 			},
 		}, app); err != nil {
 			return err
@@ -244,7 +235,7 @@ func (d *Daemon) createRootUser() error {
 	}
 
 	if err := d.backend.UserCreate(user, "password"); err != nil {
-		if err != teralytic.ErrObjectExists {
+		if err != hiro.ErrObjectExists {
 			return err
 		}
 		if err := d.backend.UserUpdate(&rql.Query{

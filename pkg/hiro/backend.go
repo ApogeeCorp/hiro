@@ -1,27 +1,18 @@
-//
-//  TERALYTIC CONFIDENTIAL
-//  _________________
-//   2020 TERALYTIC
-//   All Rights Reserved.
-//
-//   NOTICE:  All information contained herein is, and remains
-//   the property of TERALYTIC and its suppliers,
-//   if any.  The intellectual and technical concepts contained
-//   herein are proprietary to TERALYTIC
-//   and its suppliers and may be covered by U.S. and Foreign Patents,
-//   patents in process, and are protected by trade secret or copyright law.
-//   Dissemination of this information or reproduction of this material
-//   is strictly forbidden unless prior written permission is obtained
-//   from TERALYTIC.
-//
+/*
+ * Copyright (C) 2020 Model Rocket
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file in the root of this
+ * workspace for details.
+ */
 
-// Package teralytic defines the teralytic backend interface
-package teralytic
+// Package hiro defines the api backend interface
+package hiro
 
 import (
 	"errors"
 
-	"github.com/Teralytic/teralytic/api/types"
+	"github.com/ModelRocket/hiro/api/types"
 	"github.com/a8m/rql"
 )
 
@@ -34,7 +25,7 @@ var (
 )
 
 type (
-	// Backend is the teralytic API backend interface. Implementers provide the data persistence to the API server and clients
+	// Backend is the API backend interface. Implementers provide the data persistence to the API server and clients
 	Backend interface {
 		// OptionCreate will create a new option if it does not exist, existing options should not be updated
 		OptionCreate(name string, value interface{}) error

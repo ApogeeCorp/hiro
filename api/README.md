@@ -1,6 +1,6 @@
-# The Teralytic API
+# The API
 
-The Teralytic API is comprised of these components
+The API is comprised of these components
 
 - `api/swagger.yaml` The OpenAPI 2.0 API definition document.
 - `api/types` The generated API models shared by all components.

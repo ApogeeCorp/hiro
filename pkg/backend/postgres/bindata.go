@@ -6,7 +6,7 @@
 // sql/0030_user.sql
 // DO NOT EDIT!
 
-package timescale
+package postgres
 
 import (
 	"bytes"
@@ -86,7 +86,7 @@ func sql0000_initializeSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "sql/0000_initialize.sql", size: 1498, mode: os.FileMode(511), modTime: time.Unix(1593728948, 0)}
+	info := bindataFileInfo{name: "sql/0000_initialize.sql", size: 1498, mode: os.FileMode(511), modTime: time.Unix(1594246889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -106,7 +106,7 @@ func sql0010_optionsSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "sql/0010_options.sql", size: 332, mode: os.FileMode(511), modTime: time.Unix(1593732486, 0)}
+	info := bindataFileInfo{name: "sql/0010_options.sql", size: 332, mode: os.FileMode(511), modTime: time.Unix(1594246889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -126,7 +126,7 @@ func sql0020_applicationSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "sql/0020_application.sql", size: 1159, mode: os.FileMode(511), modTime: time.Unix(1594225230, 0)}
+	info := bindataFileInfo{name: "sql/0020_application.sql", size: 1159, mode: os.FileMode(511), modTime: time.Unix(1594246889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -146,7 +146,7 @@ func sql0030_userSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "sql/0030_user.sql", size: 872, mode: os.FileMode(511), modTime: time.Unix(1594154906, 0)}
+	info := bindataFileInfo{name: "sql/0030_user.sql", size: 872, mode: os.FileMode(511), modTime: time.Unix(1594246889, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

@@ -39,34 +39,24 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "The Teralytic API is served by the teralytic daemon. This api provides \nall of the services necessary for authorization and applications.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. The generation of these\ntokens is outside the spec of this document.\n\n# Versioning\n\nThis API supports versioning borrowed from the ` + "`" + `Docker` + "`" + ` project. Methods must be\ncalled with a version i.e (` + "`" + `/api/v2.0.0` + "`" + `). When a version change is made to an\noperation it will be noted in the CHANGELOG\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\"\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
-    "title": "Teralytic API",
+    "description": "The API is served by the daemon. This api provides \nall of the services necessary for authorization and applications.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. The generation of these\ntokens is outside the spec of this document.\n\n# Versioning\n\nThis API supports versioning borrowed from the ` + "`" + `Docker` + "`" + ` project. Methods must be\ncalled with a version i.e (` + "`" + `/api/v2.0.0` + "`" + `). When a version change is made to an\noperation it will be noted in the CHANGELOG\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\"\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
+    "title": "API",
     "version": "2.0.0"
   },
   "basePath": "/api/v2.0.0",
   "paths": {
-    "/properties": {
+    "/hello": {
       "get": {
-        "security": [
-          {
-            "OAuth": [
-              "property:read"
-            ]
-          }
-        ],
-        "description": "Properties are physically distinct addressable locations.\n",
+        "description": "Hello World",
         "tags": [
-          "Property"
+          "Greeting"
         ],
-        "operationId": "PropertyList",
+        "operationId": "HelloWorld",
         "responses": {
           "200": {
             "description": "ok",
             "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Property"
-              }
+              "type": "string"
             }
           },
           "400": {
@@ -209,91 +199,6 @@ func init() {
           "description": "The error message",
           "type": "string",
           "x-nullable": false
-        }
-      }
-    },
-    "Geometry": {
-      "description": "A geoJSON geometry",
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "description": "The geometry type",
-          "type": "string",
-          "enum": [
-            "Point",
-            "LineString",
-            "Polygon",
-            "MultiPoint",
-            "MultiLineString",
-            "MultiPolygon"
-          ]
-        }
-      },
-      "discriminator": "type"
-    },
-    "Point": {
-      "description": "A geoJSON Point",
-      "type": "object",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Geometry"
-        },
-        {
-          "properties": {
-            "coordinates": {
-              "$ref": "#/definitions/Point2D"
-            }
-          }
-        }
-      ]
-    },
-    "Point2D": {
-      "type": "array",
-      "maxItems": 2,
-      "minItems": 2,
-      "items": {
-        "type": "number"
-      }
-    },
-    "Property": {
-      "description": "A property an addressable location owned by an organiztion",
-      "type": "object",
-      "required": [
-        "Name"
-      ],
-      "properties": {
-        "Address": {
-          "description": "The property address in the format:\n\n  1234 Main St.\\n\n  Anwhere, PA 12345\\n\n",
-          "type": "string"
-        },
-        "CreatedAt": {
-          "description": "The property object creation time",
-          "type": "string",
-          "format": "date-time",
-          "readOnly": true
-        },
-        "Id": {
-          "description": "The property id",
-          "type": "string",
-          "readOnly": true
-        },
-        "Location": {
-          "description": "The property location in lng,lat format",
-          "$ref": "#/definitions/Point"
-        },
-        "Name": {
-          "description": "The property name",
-          "type": "string",
-          "x-nullable": false
-        },
-        "UpdatedAt": {
-          "description": "The property object update time",
-          "type": "string",
-          "format": "date-time",
-          "readOnly": true
         }
       }
     },
@@ -487,11 +392,8 @@ func init() {
     "OAuth": {
       "type": "oauth2",
       "flow": "accessCode",
-      "authorizationUrl": "https://auth.teralytic.io/oauth2/authorize",
-      "tokenUrl": "https://auth.teralytic.io/oauth2/token",
-      "scopes": {
-        "property:read": "Ready properies"
-      }
+      "authorizationUrl": "https://auth.server.local/oauth2/authorize",
+      "tokenUrl": "https://auth.server.local/oauth2/token"
     }
   },
   "tags": [
@@ -514,34 +416,24 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "The Teralytic API is served by the teralytic daemon. This api provides \nall of the services necessary for authorization and applications.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. The generation of these\ntokens is outside the spec of this document.\n\n# Versioning\n\nThis API supports versioning borrowed from the ` + "`" + `Docker` + "`" + ` project. Methods must be\ncalled with a version i.e (` + "`" + `/api/v2.0.0` + "`" + `). When a version change is made to an\noperation it will be noted in the CHANGELOG\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\"\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
-    "title": "Teralytic API",
+    "description": "The API is served by the daemon. This api provides \nall of the services necessary for authorization and applications.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. The generation of these\ntokens is outside the spec of this document.\n\n# Versioning\n\nThis API supports versioning borrowed from the ` + "`" + `Docker` + "`" + ` project. Methods must be\ncalled with a version i.e (` + "`" + `/api/v2.0.0` + "`" + `). When a version change is made to an\noperation it will be noted in the CHANGELOG\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\"\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
+    "title": "API",
     "version": "2.0.0"
   },
   "basePath": "/api/v2.0.0",
   "paths": {
-    "/properties": {
+    "/hello": {
       "get": {
-        "security": [
-          {
-            "OAuth": [
-              "property:read"
-            ]
-          }
-        ],
-        "description": "Properties are physically distinct addressable locations.\n",
+        "description": "Hello World",
         "tags": [
-          "Property"
+          "Greeting"
         ],
-        "operationId": "PropertyList",
+        "operationId": "HelloWorld",
         "responses": {
           "200": {
             "description": "ok",
             "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Property"
-              }
+              "type": "string"
             }
           },
           "400": {
@@ -684,91 +576,6 @@ func init() {
           "description": "The error message",
           "type": "string",
           "x-nullable": false
-        }
-      }
-    },
-    "Geometry": {
-      "description": "A geoJSON geometry",
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "description": "The geometry type",
-          "type": "string",
-          "enum": [
-            "Point",
-            "LineString",
-            "Polygon",
-            "MultiPoint",
-            "MultiLineString",
-            "MultiPolygon"
-          ]
-        }
-      },
-      "discriminator": "type"
-    },
-    "Point": {
-      "description": "A geoJSON Point",
-      "type": "object",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Geometry"
-        },
-        {
-          "properties": {
-            "coordinates": {
-              "$ref": "#/definitions/Point2D"
-            }
-          }
-        }
-      ]
-    },
-    "Point2D": {
-      "type": "array",
-      "maxItems": 2,
-      "minItems": 2,
-      "items": {
-        "type": "number"
-      }
-    },
-    "Property": {
-      "description": "A property an addressable location owned by an organiztion",
-      "type": "object",
-      "required": [
-        "Name"
-      ],
-      "properties": {
-        "Address": {
-          "description": "The property address in the format:\n\n  1234 Main St.\\n\n  Anwhere, PA 12345\\n\n",
-          "type": "string"
-        },
-        "CreatedAt": {
-          "description": "The property object creation time",
-          "type": "string",
-          "format": "date-time",
-          "readOnly": true
-        },
-        "Id": {
-          "description": "The property id",
-          "type": "string",
-          "readOnly": true
-        },
-        "Location": {
-          "description": "The property location in lng,lat format",
-          "$ref": "#/definitions/Point"
-        },
-        "Name": {
-          "description": "The property name",
-          "type": "string",
-          "x-nullable": false
-        },
-        "UpdatedAt": {
-          "description": "The property object update time",
-          "type": "string",
-          "format": "date-time",
-          "readOnly": true
         }
       }
     },
@@ -962,11 +769,8 @@ func init() {
     "OAuth": {
       "type": "oauth2",
       "flow": "accessCode",
-      "authorizationUrl": "https://auth.teralytic.io/oauth2/authorize",
-      "tokenUrl": "https://auth.teralytic.io/oauth2/token",
-      "scopes": {
-        "property:read": "Ready properies"
-      }
+      "authorizationUrl": "https://auth.server.local/oauth2/authorize",
+      "tokenUrl": "https://auth.server.local/oauth2/token"
     }
   },
   "tags": [

@@ -8,10 +8,6 @@ swagger flatten \
 swagger generate model -f api/swagger-flat.yaml \
 	-t api -m types -C api/swagger-gen.yaml \
 	-n ErrorResponse \
-	-n Geometry \
-	-n Point2D \
-	-n Point \
-	-n Property \
 	-n Application \
 	-n address \
 	-n profile \
@@ -20,7 +16,7 @@ swagger generate model -f api/swagger-flat.yaml \
 swagger generate operation -f api/swagger-flat.yaml \
 	-t api -a types -C api/swagger-gen.yaml \
 	-T api/templates --skip-responses --skip-url-builder \
-	-n PropertyList
+	-n HelloWorld
 
 # generate the embedde spec file
 swagger generate server -f api/swagger-flat.yaml \

@@ -4,7 +4,7 @@ module.exports = {
   entry: path.resolve(__dirname, 'src', 'index.jsx'),
   output: {
     path: path.resolve(__dirname, '../build'),
-    filename: 'teralytic.js',
+    filename: 'hiro.js',
   },
   resolve: {
     extensions: ['.js', '.jsx'],

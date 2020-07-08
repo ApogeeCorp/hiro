@@ -1,7 +1,7 @@
 .PHONY: api-gen
 api-gen: ## generate the api type structs
-	docker run --rm -v $(PWD)/..:/go/src/github.com/Teralytic \
-		-w /go/src/github.com/Teralytic/teralytic \
+	docker run --rm -v $(PWD)/..:/go/src/github.com/ModelRocket \
+		-w /go/src/github.com/ModelRocket/hiro \
 		--entrypoint hack/generate-swagger-api.sh \
 		-e GOPATH=/go \
 		quay.io/goswagger/swagger
@@ -9,7 +9,7 @@ api-gen: ## generate the api type structs
 .PHONY: db
 db: ## gereate embedded sql source
 	@echo "Generating embedded SQL scripts"
-	go generate ./pkg/backend/timescale
+	go generate ./pkg/backend/postgres
 
 .PHONY: api-docs
 api-docs: ## preview the API documentation
