@@ -17,10 +17,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+// Package oauth provides the base auth interfaces
+package oauth
 
-type (
-	// Backend is the hiro backend interface
-	Backend interface {
-	}
-)

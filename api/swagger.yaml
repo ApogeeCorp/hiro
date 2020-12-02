@@ -1,4 +1,4 @@
-# A Swagger 2.0 (a.k.a. OpenAPI) definition of the API.
+# A Swagger 2.0 (a.k.a. OpenAPI) definition of the hiro API.
 #
 # This is used for generating API documentation and the types used by the
 # client/server. See api/README.md for more information.
@@ -15,27 +15,29 @@ schemes:
   - "https"
 produces:
   - "application/json"
+  - "application/xml"
 consumes:
   - "application/json"
-basePath: "/api/v2.0.0"
+  - "application/x-www-form-urlencoded"
+
 info:
-  title: "API"
-  version: "2.0.0"
+  title: "Hiro API"
+  version: "1.0.0"
   description: |
-    The API is served by the daemon. This api provides 
-    all of the services necessary for authorization and applications.
+    The Hiro API is a foundational API for Model Rocket projects, projects extend this API
+    to provide their own services. This API provide the necessary structures and handlers
+    for OAuth 2.0 user authentication, autorization, and management.
 
     # Authentication
 
     With the exception of the authentication operations themselves (those tagged `Auth`), all api
-    calls require a valid `Bearer` token in the HTTP `Authorization` header. The generation of these
-    tokens is outside the spec of this document.
+    calls require a valid `Bearer` token in the HTTP `Authorization` header. These tokens are signed
+    and generated using the `hiro/oauth.Controller`.
 
-    # Versioning
+    # Object Identifier
 
-    This API supports versioning borrowed from the `Docker` project. Methods must be
-    called with a version i.e (`/api/v2.0.0`). When a version change is made to an
-    operation it will be noted in the CHANGELOG
+    Internally all objects are idenfied using a uuid. Externally, these ids are base58 encoded.
+    Calls to API operations should always use the base58 values.
 
     # Errors
 
@@ -44,62 +46,399 @@ info:
     format:
     ```
     {
-      "message": "object not found"
+      "message": "object not found",
+      "detail": "customer xyx does not exist",
     }
     ```
 
 tags:
-  - name: "Property"
+  - name: "Admin"
     description: |
-      Property methods are used to create and manage properties owned by the organization
+      Administrative operations provide lower level admin services like direct user creation.
+  - name: "User"
+    description: |
+      User operations provide services to the user like getting profile data and setting passwords.
+  - name: "Auth"
+    description: |
+      Auth operations provide signup, login and authorization services.
 
 securityDefinitions:
   OAuth:
     type: oauth2
     flow: accessCode
-    authorizationUrl: https://auth.server.local/oauth2/authorize
-    tokenUrl: https://auth.server.local/oauth2/token
-    scopes: {}
+    authorizationUrl: https://auth.server.local/api/1.0.0/oauth/authorize
+    tokenUrl: https://auth.server.local/api/1.0.0/oauth/token
+    scopes:
+      openid: "Access a user's identity"
+      profile: "Access a user's profile"
+      offline_access: "Used by clients to request permission to use refresh tokens"
+      email:verify: "Required to verify a user's email address"
+      audience:read: "Read audience objects"
+      audience:write: "Write audience objects"
+      application:read: "Read application objects"
+      application:write: "Write application objects"
+      user:read: "Read user objects"
+      user:write: "Write user objects"
 
 definitions:
+  Audience:
+    description: |
+      An audience is an API resource that applications can request permission to access on behalf of
+      a user or itself.
+    properties:
+      id:
+        type: "string"
+        description: "The unique audience id assigned by the server"
+      name:
+        type: "string"
+        description: "The audience name, which will be slugified on creation"
+      token_lifetime:
+        type: "integer"
+        description: "The lifetime for tokens created on behalf of this audience, in seconds"
+        format: "int64"
+        default: 3600
+        x-nullable: false
+      token_algorithm:
+        type: "string"
+        description: "The audience token signing algorithm"
+        enum: ["RS256", "HS256"]
+        default: "RS256"
+        x-nullable: false
+      token_secret:
+        type: "string"
+        description: "The signing secret used if the algorithm is HS256"
+      permissions:
+        $ref: "#/definitions/Permissions"
+      metadata:
+        $ref: "#/definitions/Metadata"
+      created_at:
+        type: "string"
+        description: "The application creation date"
+        format: "date-time"
+      updated_at:
+        type: "string"
+        description: "The last update date"
+        format: "date-time"
+
   Application:
-    allOf:
-      - $ref: "/go/src/github.com/ModelRocket/oauth/api/swagger.yaml#/definitions/Application"
-      - type: "object"
-        properties:
-          id:
-            type: "string"
-            description: "The application id"
-          created_at:
-            type: "string"
-            description: "The application creation date"
-            format: "date-time"
-          updated_at:
-            type: "string"
-            description: "The last update date"
-            format: "date-time"
+    description: |
+      Applications are API clients that access APIs managed by the integration
+      service. Applications may provide user authentication flows.
+      Applications are managed by the `oauth.Controller`. This library provides
+      an incomplete base definition for application clients.
+
+      ## API URLs
+      This is an array of the application's allowed application uris. These are checked
+      in the `/oauth/authorize` path to ensure the redirect is allowed by the application.
+      This path on redirect will receive the following query parameters:
+
+        - `auth_request`: An encoded and signed request value to be forwarded to various posts.
+
+      ## Redirect URIs
+      This is an array of the application's allowed redirect uris. These are checked
+      in the `/oauth/login` path to ensure the redirect is allowed by the application.
+      This path on redirect will receive the following query parameters:
+
+      - `code`: A signed authorization code that can be passed to the `/oauth/token` path.
+
+    type: "object"
+    properties:
+      id:
+        type: "string"
+        description: "The application id is an alias for client_id"
+      name:
+        type: "string"
+        description: "The application name"
+        x-nullable: false
+      description:
+        type: "string"
+        description: "The application description"
+        x-nullable: true
+      type:
+        type: "string"
+        description: "The application type"
+        enum: ["web", "native", "machine"]
+      client_id:
+        type: "string"
+        description: "The application client id used for oauth grants"
+        readOnly: true
+      client_secret:
+        type: "string"
+        description: "The application client secret used for oauth grants"
+        readOnly: true
+      app_uris:
+        $ref: "#/definitions/PermissionSet"
+      redirect_uris:
+        $ref: "#/definitions/PermissionSet"
+      allowed_grants:
+        $ref: "#/definitions/PermissionSet"
+      token_lifetime:
+        type: "integer"
+        description: |
+          The lifetime for identity tokens in seconds, provided the call requested the 
+          `openid` scopes.
+        format: "int64"
+      permissions:
+        $ref: "#/definitions/PermissionSet"
+      metadata:
+        $ref: "#/definitions/Metadata"
+      created_at:
+        type: "string"
+        description: "The application creation date"
+        format: "date-time"
+      updated_at:
+        type: "string"
+        description: "The last update date"
+        format: "date-time"
 
   User:
-    allOf:
-      - $ref: "/go/src/github.com/ModelRocket/oauth/api/swagger.yaml#/definitions/User"
-      - type: "object"
-        properties:
-          id:
-            type: "string"
-            description: "The user id"
-          metadata:
-            type: "object"
-            description: "User metadata"
-            additionalProperties:
-              type: "object"
-          created_at:
-            type: "string"
-            description: "The user creation date"
-            format: "date-time"
-          updated_at:
-            type: "string"
-            description: "The last update date"
-            format: "date-time"
+    description: |
+      A user is a user object
+    type: "object"
+    required: ["login"]
+    properties:
+      id:
+        type: "string"
+        description: "The user id"
+      login:
+        type: "string"
+        description: |
+          The user's login
+        x-nullable: false
+      permissions:
+        $ref: "#/definitions/PermissionSet"
+      roles:
+        $ref: "#/definitions/PermissionSet"
+      profile:
+        $ref: "#/definitions/Profile"
+      password_expires_at:
+        type: "string"
+        description: "The time the user password expirts"
+        format: "date-time"
+        x-nullable: false
+      metadata:
+        $ref: "#/definitions/Metadata"
+      created_at:
+        type: "string"
+        description: "The user creation date"
+        format: "date-time"
+      updated_at:
+        type: "string"
+        description: "The last update date"
+        format: "date-time"
+
+  Profile:
+    description: |
+      A profile object based on the [openid connect standard](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+    type: "object"
+    x-nullable: true
+    properties:
+      sub:
+        type: "string"
+        description: |
+          Subject - Identifier for the End-User at the Issuer.
+        x-go-name: "Subject"
+      name:
+        type: "string"
+        description: |
+          End-User's full name in displayable form including all name parts, possibly including titles and suffixes, 
+          ordered according to the End-User's locale and preferences.
+      given_name:
+        type: "string"
+        description: |
+          Given name(s) or first name(s) of the End-User. Note that in some cultures, people can have multiple given names; 
+          all can be present, with the names being separated by space characters.
+      family_name:
+        type: "string"
+        description: |
+          Surname(s) or last name(s) of the End-User. Note that in some cultures, people can have multiple family names or no family name; 
+          all can be present, with the names being separated by space characters.
+      middle_name:
+        type: "string"
+        description: |
+          Middle name(s) of the End-User. Note that in some cultures, people can have multiple middle names; 
+          all can be present, with the names being separated by space characters. Also note that in some cultures, middle names are not used.
+      nickname:
+        type: "string"
+        description: |
+          Casual name of the End-User that may or may not be the same as the given_name. For instance, 
+          a nickname value of Mike might be returned alongside a given_name value of Michael.
+      preferred_username:
+        type: "string"
+        description: |
+          Shorthand name by which the End-User wishes to be referred to at the RP, such as janedoe or j.doe. This value MAY be any valid 
+          JSON string including special characters such as @, /, or whitespace. The RP MUST NOT rely upon this value being unique.
+      profile:
+        type: "string"
+        description: |
+          URL of the End-User's profile page. The contents of this Web page SHOULD be about the End-User.
+        format: "uri"
+      picture:
+        type: "string"
+        description: |
+          URL of the End-User's profile picture. This URL MUST refer to an image file (for example, a PNG, JPEG, or GIF image file), 
+          rather than to a Web page containing an image. Note that this URL SHOULD specifically reference a profile photo of the 
+          End-User suitable for displaying when describing the End-User, rather than an arbitrary photo taken by the End-User.
+      website:
+        type: "string"
+        description: |
+          URL of the End-User's Web page or blog. This Web page SHOULD contain information published by the End-User or an 
+          organization that the End-User is affiliated with.
+      gender:
+        description: |
+          End-User's gender. Values defined by this specification are female and male. Other values MAY be used when neither 
+          of the defined values are applicable.
+        type: "string"
+      birthdate:
+        description: |
+          End-User's birthday, represented as an ISO 8601:2004 [ISO8601‑2004] YYYY-MM-DD format. The year MAY be 0000, indicating that it is omitted. 
+          To represent only the year, YYYY format is allowed. Note that depending on the underlying platform's date related function, providing just 
+          year can result in varying month and day, so the implementers need to take this factor into account to correctly process the dates."
+        type: "string"
+        format: "date"
+        x-nullable: true
+      zoneinfo:
+        description: |
+          String from zoneinfo [zoneinfo] time zone database representing the End-User's time zone. For example, Europe/Paris or America/Los_Angeles.
+        type: "string"
+      locale:
+        description: |
+          End-User's locale, represented as a BCP47 [RFC5646] language tag. This is typically an ISO 639-1 Alpha-2 [ISO639‑1] language code in lowercase 
+          and an ISO 3166-1 Alpha-2 [ISO3166‑1] country code in uppercase, separated by a dash. For example, en-US or fr-CA. As a compatibility note, 
+          some implementations have used an underscore as the separator rather than a dash, for example, en_US; Relying Parties MAY choose to accept 
+          this locale syntax as well.
+        type: "string"
+        default: "en-US"
+      email:
+        description: "The user's email address"
+        type: "string"
+        format: "email"
+      email_verified:
+        description: |
+          True if the End-User's e-mail address has been verified; otherwise false. When this Claim Value is true, this means that the OP 
+          took affirmative steps to ensure that this e-mail address was controlled by the End-User at the time the verification was performed. 
+          The means by which an e-mail address is verified is context-specific, and dependent upon the trust framework or contractual agreements 
+          within which the parties are operating.
+        type: boolean
+      phone_number:
+        description: "The user's phone number in E.164 format"
+        type: "string"
+      phone_number_verified:
+        description: |
+          True if the End-User's phone number has been verified; otherwise false. When this Claim Value is true, this means that the OP 
+          took affirmative steps to ensure that this phone number was controlled by the End-User at the time the verification was performed. 
+          The means by which a phone number is verified is context-specific, and dependent upon the trust framework or contractual agreements 
+          within which the parties are operating. When true, the phone_number Claim MUST be in E.164 format and any extensions MUST be 
+          represented in RFC 3966 format."
+        type: boolean
+      address:
+        $ref: "#/definitions/Address"
+      updated_at:
+        type: "integer"
+        description: |
+          Time the End-User's information was last updated. Its value is a JSON number representing the number of seconds from 1970-01-01T0:0:0Z
+          as measured in UTC until the date/time.
+        format: "int64"
+
+  Address:
+    description: "OpenID address claim as defined in section 5.1.1 of the connect core 1.0 specification"
+    type: "object"
+    properties:
+      formatted:
+        type: "string"
+        description: |
+          Full mailing address, formatted for display or use on a mailing label. This field MAY contain multiple lines, separated by newlines. 
+          Newlines can be represented either as a carriage return/line feed pair ("\r\n") or as a single line feed character ("\n").
+        x-nullable: true
+      street_address:
+        type: "string"
+        description: |
+          Full street address component, which MAY include house number, street name, Post Office Box, and multi-line extended street address 
+          information. This field MAY contain multiple lines, separated by newlines. Newlines can be represented either as a carriage return/line 
+          feed pair ("\r\n") or as a single line feed character ("\n").
+        x-nullable: true
+      locality:
+        type: "string"
+        description: "City or locality component."
+        x-nullable: true
+      region:
+        type: "string"
+        description: "State, province, prefecture, or region component."
+        x-nullable: true
+      postal_code:
+        type: "string"
+        description: "Zip code or postal code component."
+        x-nullable: true
+      country:
+        type: "string"
+        description: "Country name component."
+        x-nullable: true
+
+  BearerToken:
+    description: |
+      BearerTokens are returned by the `/oauth/token` method. These token always include
+      an `access_token` which can be used to access api methods from a related service.
+      These are the only objects managed by the api itself. The integration is expected
+      to implement the `oauth.Controller` interface.
+    type: "object"
+    required: ["token_type", "access_token", "expires_in"]
+    properties:
+      id_token:
+        type: "string"
+        description: |
+          The idenity token contains claims about the users identity. This token is
+          returned if the `openid` scope was granted.
+          If the `profile` scope was granted, this will contain the user profile.
+          These scopes are outside of the context of this library, it is up to the
+          provider to maintain these scopes.
+      access_token:
+        description: "The token to be used for authorization"
+        type: "string"
+        x-nullable: false
+      refresh_token:
+        type: "string"
+        description: |
+          The refresh token maybe used to generate a new access token so client
+          and user credentials do not have to traverse the wire again.
+          The is provided if the `offline_access` scope is request.
+          This scopes are outside of the context of this library, it is up to the
+          provider to maintain these scopes.
+      token_type:
+        description: "The token type, always Bearer"
+        type: "string"
+        enum: ["bearer"]
+        x-nullable: false
+      expires_in:
+        description: "The time from `now` that the token expires"
+        type: "integer"
+        format: "int64"
+        x-nullable: false
+    additionalProperties:
+      type: "object"
+      description: "Additional properties added by the platform"
+      additionalProperties:
+        type: "object"
+
+  Permissions:
+    description: |
+      Permissions are used for both OAuth scopes and API permission lists.
+    type: array
+    items:
+      type: "string"
+    x-omitempty: true
+
+  PermissionSet:
+    description: |
+      A set of permissions grouped by audience.
+    type: "object"
+    additionalProperties:
+      $ref: "#/definitions/Permissions"
+
+  Metadata:
+    description: "Metadata is a basic hash type"
+    type: "object"
+    additionalProperties:
+      type: "object"
 
   ErrorResponse:
     description: "A common error response"
@@ -110,18 +449,62 @@ definitions:
         type: "string"
         description: "The error message"
         x-nullable: false
+      detail:
+        type: "string"
+        description: "The error detail"
+
+  Option:
+    description: "An audience configuration option"
+    type: "object"
+    discriminator: "name"
+    properties:
+      name:
+        type: "string"
+        description: "The option name"
+      audience:
+        type: "string"
+        description: "The audience the option belongs to"
 
 paths:
-  /hello:
+  /audience:
     get:
-      description: "Hello World"
-      tags: ["Greeting"]
-      operationId: "HelloWorld"
+      description: |
+        Query for a list of audiences.
+      operationId: "AudienceList"
+      tags: ["Hiro"]
+      consumes: ["application/json"]
+      produces: ["application/json"]
+      parameters:
+        - name: "offset"
+          description: "The query offset"
+          type: "integer"
+          format: "uint64"
+          in: "query"
+        - name: "limit"
+          description: "The response limit"
+          type: "integer"
+          format: "uint64"
+          in: "query"
+          default: 1000
+        - name: "type"
+          description: "The application type"
+          type: "array"
+          in: "query"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "preload"
+          description: "Preload child objects of the application, permissions, etc."
+          type: "boolean"
+          in: "query"
+          required: false
       responses:
         200:
           description: "ok"
           schema:
-            type: "string"
+            type: "array"
+            items:
+              $ref: "#/definitions/Audience"
         400:
           description: "bad parameter"
           schema:
@@ -134,3 +517,582 @@ paths:
           description: "internal server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth:
+            - "audience:read"
+
+  /oauth/login:
+    post:
+      description: |
+        Authenticates a user the `oauth.Controller` interface.
+      operationId: "Login"
+      tags: ["Auth"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "login"
+          type: "string"
+          description: "The user login"
+          in: "formData"
+          required: true
+        - name: "password"
+          type: "string"
+          description: "The user password"
+          in: "formData"
+          required: true
+        - name: "request_token"
+          type: "string"
+          description: |
+            "The authorization request token"
+          in: "formData"
+          required: true
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /logout:
+    get:
+      description: |
+        Log out and destroy the current browser session
+      operationId: "Logout"
+      tags: ["Auth"]
+      parameters:
+        - name: "redirect_uri"
+          type: "string"
+          description: "The uri to redirect to after logout"
+          in: "query"
+        - name: "client_id"
+          type: "string"
+          description: "The client id"
+          in: "query"
+          required: true
+        - name: "audience"
+          in: "query"
+          type: "string"
+          required: true
+        - name: "state"
+          type: "string"
+          description: "Logout state"
+          in: "query"
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /signup:
+    post:
+      description: |
+        Register a user the `oauth.Controller` interface.
+
+        The library must be initialized using the `WithAllowSignup(true)` option.
+      operationId: "Signup"
+      tags: ["Auth"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "login"
+          type: "string"
+          description: "The user's login"
+          in: "formData"
+          required: true
+        - name: "password"
+          type: "string"
+          description: "The user's password"
+          in: "formData"
+          required: true
+        - name: "email"
+          type: "string"
+          description: "The user's email address"
+          format: "email"
+          in: "formData"
+          required: true
+        - name: "name"
+          type: "string"
+          description: "The user's full name"
+          in: "formData"
+        - name: "invite_code"
+          type: "string"
+          description: |
+            Inivitation codes allow for users to sign up when public sign up is disabled.
+          in: "formData"
+        - name: "request_token"
+          type: "string"
+          description: |
+            "The authorization request token"
+          in: "formData"
+          required: true
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /verify:
+    get:
+      description: |
+        Verify is used to verify user email addresses.
+      operationId: "Verify"
+      tags: ["User"]
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["email:verify"]
+
+  /passwordSet:
+    post:
+      description: "Set a user's password"
+      operationId: "PasswordSet"
+      tags: ["User"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "login"
+          description: "The user's login"
+          in: "formData"
+          type: "string"
+          required: true
+        - name: "password"
+          type: "string"
+          description: "The new password"
+          in: "formData"
+          required: true
+        - name: "reset_code"
+          type: "string"
+          description: "The reset verification code"
+          in: "formData"
+          required: true
+        - name: "code_verifier"
+          description: "The PKCE code verifier"
+          in: "formData"
+          type: "string"
+          required: true
+        - name: "redirect_uri"
+          type: "string"
+          description: "The uri to redirect to after password reset"
+          in: "formData"
+          format: "uri"
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /passwordReset:
+    post:
+      description: |
+        The password reset flow will call the `oauth.Controller.UserResetPassword` method. 
+
+        This method should send the user a reset password link with a unique reset code that can 
+        be used to call `oauth.Controller.UserSetPassword`.
+      operationId: "PasswordReset"
+      tags: ["User"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "login"
+          description: "The user's login"
+          in: "formData"
+          type: "string"
+          required: true
+        - name: "code_verifier"
+          description: "The PKCE code verifier"
+          in: "formData"
+          type: "string"
+          required: true
+        - name: "request_token"
+          description: |
+            "The authorization request token"
+          in: "formData"
+          type: "string"
+          required: true
+        - name: "redirect_uri"
+          type: "string"
+          description: "The uri to redirect to after password reset request"
+          in: "formData"
+          format: "uri"
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /authorize:
+    get:
+      description: |
+        Gererates an oauth authorization request for login and redirects the browser to the login form.
+
+        This method will redirect the browser to `app_uri` with an encoded `request_token` parameter, which will present the user with a form.
+
+          `app_uri` and `redirect_uri` must be registered with the api client.
+
+        The form could post back to `/login` or `/signup` which will perform the final redirect to `redirect_api` with the authorization code.
+
+        Errors will be delivered to `redirect_uri` with two query parameters:
+
+
+          - `error=<error name>` (i.e. `bad_request`, etc) 
+          - `error_description=<error detail>`
+      operationId: "Authorize"
+      tags: ["Auth"]
+      parameters:
+        - name: "response_type"
+          in: "query"
+          description: "The authorization code response type"
+          type: "string"
+          enum: ["code"]
+          required: true
+        - name: "client_id"
+          in: "query"
+          description: "The client id"
+          type: "string"
+          required: true
+        - name: "audience"
+          in: "query"
+          type: "string"
+          required: true
+        - name: "app_uri"
+          in: query
+          description: "The URL to which the authentication server redirects the browser for action"
+          type: "string"
+          required: false
+        - name: "redirect_uri"
+          in: "query"
+          description: "The URL to which the authentication server redirects the browser after authorization has been granted by the user"
+          type: "string"
+          required: false
+        - name: "scope"
+          in: "query"
+          description: |
+            The requested scopes, if empty will request all the user permissions.
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "ssv"
+        - name: "state"
+          in: "query"
+          description: "Opaque state returned the redirect uri"
+          type: "string"
+        - name: "code_challenge_method"
+          in: "query"
+          description: |
+            The method used to generate the challenge. The PKCE RFC defines two methods, S256 and plain; 
+            however, the authentication serivce supports only S256.
+          type: "string"
+          enum: ["S256"]
+          default: "S256"
+        - name: "code_challenge"
+          in: "query"
+          description: "The generated challenge from the code_verifier."
+          type: "string"
+          required: true
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              type: "string"
+              description: "The location redirect header"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /token:
+    post:
+      description: |
+        Returns a BearerToken to be used to grant access to the Audience api methods
+      operationId: "Token"
+      tags: ["Auth"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "grant_type"
+          type: "string"
+          description: "The authorization grant type"
+          in: "formData"
+          enum:
+            [
+              "authorization_code",
+              "refresh_token",
+              "client_credentials",
+              "password",
+            ]
+          required: true
+        - name: "client_id"
+          type: "string"
+          description: "The client id"
+          in: "formData"
+          required: true
+        - name: "username"
+          type: "string"
+          description: "The username for password grants"
+          in: "formData"
+        - name: "password"
+          type: "string"
+          description: "The password for password grants"
+          in: "formData"
+        - name: "client_secret"
+          type: "string"
+          description: "The client secret"
+          in: "formData"
+          required: false
+        - name: "audience"
+          type: "string"
+          description: "The reqest audience for client_credentials flows"
+          in: "formData"
+          required: true
+        - name: "scope"
+          type: "array"
+          description: "The scopes"
+          in: "formData"
+          items:
+            type: "string"
+          collectionFormat: "ssv"
+        - name: "refresh_token"
+          type: "string"
+          description: "The refresh token"
+          in: "formData"
+        - name: "refresh_verifier"
+          type: "string"
+          description: |
+            Verifier nonce used to validate a refresh token request. This is the base64
+            raw url encoded value of the original nonce generated by the client.
+          in: "formData"
+        - name: "refresh_nonce"
+          type: "string"
+          description: |
+            The new refresh token nonce is the S256 of a client generated value as defined
+            in the PKCE standard, similar to that used in the authorization flow.
+
+            When requesting `offline_access` the client will generate a nonce value and
+            pass the base64 raw url encoded value of the S256 of this nonce.
+
+            Each subsequent `offline_access` request in the `refresh_token` flow requires
+            a new verifier.
+          in: "formData"
+        - name: "code"
+          type: "string"
+          description: "The authorization code"
+          in: "formData"
+        - name: "code_verifier"
+          type: "string"
+          description: "The PKCE code verifier"
+          in: "formData"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/BearerToken"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /.well-known/jwks.json:
+    get:
+      description: |
+        Return the jwks which includes the rsa public key and ids for the service
+      operationId: "PublicKeyGet"
+      tags: ["Auth"]
+      parameters:
+        - name: "audience"
+          description: "The audience for the request"
+          type: "string"
+          in: "query"
+          required: false
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "string"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /userPrincipal:
+    get:
+      description: |
+        Get the current user principal object from the controller. This is opaque to the oauth layer.
+      operationId: "UserPrincipalGet"
+      tags: ["User"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "object"
+            additionalProperties:
+              type: "object"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["openid", "profile"]
+
+  /userInfo:
+    get:
+      description: |
+        Get the current user profile data
+      operationId: "UserInfoGet"
+      tags: ["User"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Profile"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["openid", "profile"]
+    put:
+      description: |
+        Update the user's info
+      operationId: "UserInfoUpdate"
+      tags: ["Auth"]
+      parameters:
+        - name: "profile"
+          description: "The new profile"
+          in: "body"
+          schema:
+            $ref: "#/definitions/Profile"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Profile"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["openid", "profile"]

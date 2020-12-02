@@ -17,10 +17,25 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+package db
 
-type (
-	// Backend is the hiro backend interface
-	Backend interface {
+import (
+	"database/sql"
+
+	migrate "github.com/rubenv/sql-migrate"
+)
+
+//go:generate go-bindata -pkg=db ./sql/
+var (
+	migrations = &migrate.AssetMigrationSource{
+		Asset:    Asset,
+		AssetDir: AssetDir,
+		Dir:      "sql",
 	}
 )
+
+// Migrate processes the database migrations
+func Migrate(db *sql.DB, dialect string, dir migrate.MigrationDirection) (int, error) {
+	migrate.SetTable("db_migrations")
+	return migrate.Exec(db, dialect, migrations, dir)
+}

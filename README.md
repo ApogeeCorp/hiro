@@ -1,27 +1,37 @@
 # Hiro
 
-Hiro provides a common architecture for API services with an extensible backed interface.
+Model Rocket Hiro Project
+
+This project is used by Model Rocket client projects to provide a common foundation for custom platforms. 
+
+`hiro` is not meant to be used as a standalone project.
 
 Developing with the project requires `go 1.14` or greater.
 
-## Default Backend Sevices
+## Project Layout
 
-The default backend is Postgres. To start this backend you need the latest Docker installed.
+This project follows the [Standard go Project Layout](https://github.com/golang-standards/project-layout)
 
-```bash
-$ docker-compose -f ./deployments/hiro/docker-compose.yml up
 ```
+~~~
+├── api/                        // API definitions and services
+│   └── server/                 // The hiro server implementation
+|   └── swagger.yaml            // The api definition source
+|   └── swagger-gen.yaml        // goswagger configuration
+├── cmd/                        // Project executables
+|   └── hiro/                   // The hiro tool
+├── db/                         // The default database components
+|   └── sql /                   // Postgres SQL scripts
+├── deployments/                // Container and orchestration
+|   └── hiro/                   // Atomic backend deployments
+|       └── docker-compose.yml  // Docker compose script for backend services
+├── pkg/                        // Library packages
+|   └── hiro/                   // The hiro backend implementation
+|   └── oauth/                  // The base oauth implementation
+|   └── null/                   // SQL null helpers
+|   └── ptr/                    // Pointer helpers
+├── LICENSE                     // The project license
+├── Makefile                    // The project Makefile
 
-This will instantiate a local Postgres intance and prepare it for the api service.
-
-## Running the service
-
-There a few environment variables this service relies on. The following will connect to the
-local Postgres and start the service on port 9000, with debug logging enabled.
-
-```bash
-$ export SERVER_ADDR="0.0.0.0:9000"
-$ export LOG_LEVEL="debug"
-$ export DB_SOURCE="postgres://postgres:password@localhost:5432/hiro?sslmode=disable"
-$ go run ./cmd/hiro
+~~~
 ```

@@ -1,18 +1,4 @@
 layout:
-  models:
-    - name: definition
-      source: asset:model
-      target: "{{ joinFilePath .Target .ModelPackage }}"
-      file_name: "{{ (snakize (pascalize .Name)) }}.go"
-  operations:
-    - name: handler
-      source: asset:serverOperation
-      target: "{{ joinFilePath .Target .APIPackage .Package }}"
-      file_name: "{{ (snakize (pascalize .Name)) }}.go"
-    - name: parameters
-      source: asset:serverParameter
-      target: "{{ joinFilePath .Target .APIPackage .Package }}"
-      file_name: "{{ (snakize (pascalize .Name)) }}_parameters.go"
   application:
     - name: embedded_spec
       source: embedded_spec.gotmpl

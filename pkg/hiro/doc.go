@@ -17,10 +17,5 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Package hiro is a foundational component for Model Rocket platform API services
 package hiro
-
-type (
-	// Backend is the hiro backend interface
-	Backend interface {
-	}
-)

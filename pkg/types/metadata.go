@@ -17,10 +17,42 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+package types
+
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+)
 
 type (
-	// Backend is the hiro backend interface
-	Backend interface {
-	}
+	// Metadata Metadata is a basic hash type
+	Metadata map[string]interface{}
 )
+
+// Validate validates this map
+func (m Metadata) Validate() error {
+	return nil
+}
+
+// Value returns Map as a value that can be stored as json in the database
+func (m Metadata) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+
+// Scan reads a json value from the database into a Map
+func (m Metadata) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+
+	return nil
+}

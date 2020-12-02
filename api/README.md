@@ -1,18 +1,16 @@
-# The API
+# The Hiro API
 
-The API is comprised of these components
+The Hiro API is comprised of these components
 
 - `api/swagger.yaml` The OpenAPI 2.0 API definition document.
-- `api/types` The generated API models shared by all components.
-- `api/server` The REST API server that implements the spec operations.
-- `pkg/client` The REST API client that implements a go library for accessing the API from other projects.
+- `api/swagger-gen.yaml` Swagger generation configuration.
+- `api/spec` The embedded api spec generated using the Makefile: `make api-gen`
 
 ## API Generation
 
-Generating the API types is handled by the `Makefile` which executes `hack/generate-swagger-api.sh` via
-the `quay.io/goswagger/swagger:latest` Docker container for [goswagger](https://goswagger.io/). The
-generation script relies on `api/swagger-gen.yaml` to handle some minor customizationa of the code
-building.
+The Atomic Open API 2.0 Spec is embedded into the server for simpler integration. The models and associated structs managed manually
+due to the generated types being too complex. If new types or adjustments are necessary, both the `swagger.yaml` and appropriate
+models in `pkg/hiro` must be updated.
 
 After making changes to `api/swagger.yaml` you need to run the following in the workspace root:
 
@@ -24,8 +22,6 @@ After making changes to `api/swagger.yaml` you need to run the following in the 
 
 To view API docs you run `make api-docs`. This will start a service on [localhost](http://localhost:8002).
 
-## Consumable API
+# API Server
 
-The spec at `api/swagger.yaml` include remote specs from other components. The generation script will
-produce `api/swagger-flat.yaml` that can be used by external resources and is exposed at the `api/<version>/swagger.json`
-endpoint.
+The primary purpose of the API Server is to parse, validate, and authorize request and marshal response values and errors.

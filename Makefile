@@ -2,14 +2,11 @@
 api-gen: ## generate the api type structs
 	docker run --rm -v $(PWD)/..:/go/src/github.com/ModelRocket \
 		-w /go/src/github.com/ModelRocket/hiro \
-		--entrypoint hack/generate-swagger-api.sh \
+		--entrypoint scripts/generate-swagger-api.sh \
 		-e GOPATH=/go \
-		quay.io/goswagger/swagger
+		libatomic/go-swagger
 
-.PHONY: db
-db: ## gereate embedded sql source
-	@echo "Generating embedded SQL scripts"
-	go generate ./pkg/backend/postgres
+API_DOCS_PORT ?= 8002
 
 .PHONY: api-docs
 api-docs: ## preview the API documentation
@@ -19,3 +16,7 @@ api-docs: ## preview the API documentation
 		-e SPEC_URL=swagger/swagger.yaml \
 		-p $(API_DOCS_PORT):80 \
 		redocly/redoc
+
+.PHONY: db
+db: 
+	go generate ./db

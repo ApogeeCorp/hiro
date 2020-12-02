@@ -1,123 +1,90 @@
 /*
- * Copyright (C) 2020 Model Rocket
+ * This file is part of the Atomic Stack (https://github.com/libatomic/atomic).
+ * Copyright (c) 2020 Atomic Publishing.
  *
- * This software may be modified and distributed under the terms
- * of the MIT license.  See the LICENSE file in the root of this
- * workspace for details.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package main
 
 import (
-	"context"
-	"io/ioutil"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"github.com/ModelRocket/hiro/api/server"
-	"github.com/ModelRocket/hiro/pkg/daemon"
-	"github.com/caarlos0/env/v6"
-	"github.com/sirupsen/logrus"
+	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/apex/log"
+
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
-
-	// Register the timescaledb backend
-	_ "github.com/ModelRocket/hiro/pkg/backend/postgres"
 )
 
 var (
 	app = cli.NewApp()
-
-	log = logrus.StandardLogger()
-
-	config daemon.Config
 )
 
 func main() {
 	app.Name = "hiro"
-	app.Usage = "Hiro API Service"
-	app.Action = daemonMain
-	app.Version = server.Version
+	app.Usage = "Hiro Tool"
+	app.Version = "1.0.0"
 
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{
-			Name:    "config",
-			Usage:   "the configuration file",
-			Aliases: []string{"f"},
-			Value:   "/etc/hiro/config.yaml",
-			EnvVars: []string{"CONFIG_FILE"},
-		},
 		&cli.StringFlag{
 			Name:    "log-level",
 			Usage:   "set the logging level",
 			Value:   "info",
 			EnvVars: []string{"LOG_LEVEL"},
 		},
+		&cli.StringFlag{
+			Name:    "db",
+			Usage:   "specify the database path",
+			EnvVars: []string{"DB_SOURCE"},
+		},
+		&cli.StringFlag{
+			Name:    "aud",
+			Usage:   "specify the hiro audience to use",
+			EnvVars: []string{"HIRO_AUDIENCE"},
+		},
+	}
+
+	app.Commands = []*cli.Command{
+		{
+			Name:   "init",
+			Usage:  "Initialize a hiro instance",
+			Action: initialize,
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
-		data, err := ioutil.ReadFile(c.String("config"))
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
-
-		// load config from the file
-		if data != nil {
-			if err := yaml.Unmarshal(data, &config); err != nil {
-				return err
-			}
-		}
-
-		// bring in the env overrides
-		if err := env.Parse(&config); err != nil {
-			return err
-		}
-
-		if config.LogLevel != "" {
-			if level, err := logrus.ParseLevel(config.LogLevel); err == nil {
+		if logLevel := c.String("log-level"); logLevel != "" {
+			if level, err := log.ParseLevel(logLevel); err == nil {
 				log.SetLevel(level)
 			}
 		}
-
-		config.Logger = log
 
 		return nil
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatalln(err)
+		log.Fatal(err.Error())
 	}
 }
 
-func daemonMain(c *cli.Context) error {
-	d, err := daemon.New(config)
-	if err != nil {
-		return err
-	}
+func initialize(c *cli.Context) error {
+	_, err := hiro.New(
+		hiro.WithDBSource(c.String("db")),
+		hiro.Automigrate(),
+		hiro.Initialize(),
+		hiro.WithAudience(types.ID(c.String("aud"))),
+	)
 
-	done := make(chan os.Signal, 1)
-
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		if err := d.Run(); err != nil {
-			log.Fatalf("failed to start the daemon %+v", err)
-		}
-	}()
-	log.Infof("daemon started")
-
-	<-done
-	log.Info("dameon shutting down...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := d.Shutdown(ctx); err != nil {
-		log.Fatalf("shutdown:%+v", err)
-	}
-	log.Infof("shutdown complete")
-
-	return nil
+	return err
 }
