@@ -17,19 +17,23 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+package oauth
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
@@ -38,7 +42,26 @@ type (
 		algorithm TokenAlgorithm
 		key       interface{}
 	}
+
+	// TokenAlgorithm is a token algorithm type
+	TokenAlgorithm string
 )
+
+const (
+	// TokenLifetimeMinimum is the minimum token lifetime
+	TokenLifetimeMinimum = time.Minute
+
+	// TokenAlgorithmRS256 is the RSA 256 token algorithm
+	TokenAlgorithmRS256 TokenAlgorithm = "RS256"
+
+	// TokenAlgorithmHS256 is the HMAC with SHA-256 token algorithm
+	TokenAlgorithmHS256 TokenAlgorithm = "HS256"
+)
+
+// ValidateWithContext handles validation for TokenAlgorithm types
+func (a TokenAlgorithm) ValidateWithContext(ctx context.Context) error {
+	return validation.Validate(string(a), validation.In(TokenAlgorithmRS256, TokenAlgorithmHS256))
+}
 
 // GenerateTokenSecret generates an RSA256 token and returns the encoded string value
 func GenerateTokenSecret(alg TokenAlgorithm) (TokenSecret, error) {
@@ -63,7 +86,7 @@ func GenerateTokenSecret(alg TokenAlgorithm) (TokenSecret, error) {
 		token.key = key
 
 	default:
-		return token, fmt.Errorf("%w: unexpected token algorithm %s", ErrInputValidation, alg)
+		return token, fmt.Errorf("unexpected token algorithm %s", alg)
 	}
 
 	return token, nil
@@ -81,7 +104,7 @@ func (t *TokenSecret) Scan(value interface{}) error {
 		encoded = string(v)
 
 	default:
-		return fmt.Errorf("%w: unexpected input for TokenSecretRSA", ErrInputValidation)
+		return errors.New("unexpected input for TokenSecretRSA")
 	}
 
 	d, err := base64.RawURLEncoding.DecodeString(encoded)
@@ -126,7 +149,7 @@ func (t TokenSecret) Value() (driver.Value, error) {
 		data = key
 
 	default:
-		return nil, fmt.Errorf("%w: unexpected token key type %#v", ErrInputValidation, key)
+		return nil, fmt.Errorf("unexpected token key type %#v", key)
 	}
 
 	return base64.RawURLEncoding.EncodeToString(data), nil

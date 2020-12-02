@@ -35,56 +35,41 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID             types.ID          `json:"id" db:"id"`
-		Name           string            `json:"name" db:"name"`
-		Description    *string           `json:"description,omitempty" db:"description"`
-		TokenLifetime  time.Duration     `json:"token_lifetime" db:"token_lifetime"`
-		TokenAlgorithm TokenAlgorithm    `json:"token_algorithm" db:"token_algorithm"`
-		TokenSecret    TokenSecret       `json:"token_secret,omitempty" db:"token_secret"`
-		CreatedAt      time.Time         `json:"created_at" db:"created_at"`
-		UpdatedAt      *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata       types.Metadata    `json:"metadata,omitempty" db:"metadata"`
-		Permissions    oauth.Permissions `json:"permissions,omitempty" db:"permissions"`
+		ID             types.ID             `json:"id" db:"id"`
+		Name           string               `json:"name" db:"name"`
+		Description    *string              `json:"description,omitempty" db:"description"`
+		TokenLifetime  time.Duration        `json:"token_lifetime" db:"token_lifetime"`
+		TokenAlgorithm oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
+		TokenSecret    oauth.TokenSecret    `json:"token_secret,omitempty" db:"token_secret"`
+		CreatedAt      time.Time            `json:"created_at" db:"created_at"`
+		UpdatedAt      *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata       types.Metadata       `json:"metadata,omitempty" db:"metadata"`
+		Permissions    oauth.Permissions    `json:"permissions,omitempty" db:"permissions"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name           string            `json:"name"`
-		Description    *string           `json:"description,omitempty"`
-		TokenLifetime  time.Duration     `json:"token_lifetime,omitempty"`
-		TokenAlgorithm TokenAlgorithm    `json:"token_algorithm,omitempty"`
-		TokenSecret    TokenSecret       `json:"token_secret,omitempty"`
-		Permissions    oauth.Permissions `json:"permissions,omitempty"`
-		Metadata       Metadata          `json:"metadata,omitempty"`
+		Name           string               `json:"name"`
+		Description    *string              `json:"description,omitempty"`
+		TokenLifetime  time.Duration        `json:"token_lifetime,omitempty"`
+		TokenAlgorithm oauth.TokenAlgorithm `json:"token_algorithm,omitempty"`
+		TokenSecret    oauth.TokenSecret    `json:"token_secret,omitempty"`
+		Permissions    oauth.Permissions    `json:"permissions,omitempty"`
+		Metadata       Metadata             `json:"metadata,omitempty"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
 	AudienceGetInput struct {
 		AudienceID *types.ID `json:"audience_id,omitempty"`
 		Name       *string   `json:"name,omitempty"`
-		Preload    bool      `json:"preload"`
 	}
-
-	// TokenAlgorithm is a token algorithm type
-	TokenAlgorithm string
-)
-
-const (
-	// TokenLifetimeMinimum is the minimum token lifetime
-	TokenLifetimeMinimum = time.Minute
-
-	// TokenAlgorithmRS256 is the RSA 256 token algorithm
-	TokenAlgorithmRS256 TokenAlgorithm = "RS256"
-
-	// TokenAlgorithmHS256 is the HMAC with SHA-256 token algorithm
-	TokenAlgorithmHS256 TokenAlgorithm = "HS256"
 )
 
 // ValidateWithContext handles validation of the AudienceCreateInput struct
 func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Length(3, 64)),
-		validation.Field(&a.TokenLifetime, validation.Required, validation.Min(TokenLifetimeMinimum)),
+		validation.Field(&a.TokenLifetime, validation.Required, validation.Min(oauth.TokenLifetimeMinimum)),
 		validation.Field(&a.TokenAlgorithm, validation.Required),
 		validation.Field(&a.TokenSecret, validation.Required),
 		validation.Field(&a.Permissions, validation.Required),
@@ -97,11 +82,6 @@ func (a AudienceGetInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.AudienceID, validation.When(a.Name == nil, validation.Required).Else(validation.Nil)),
 		validation.Field(&a.Name, validation.When(a.AudienceID == nil, validation.Required).Else(validation.Nil)),
 	)
-}
-
-// ValidateWithContext handles validation for TokenAlgorithm types
-func (a TokenAlgorithm) ValidateWithContext(ctx context.Context) error {
-	return validation.Validate(string(a), validation.In(TokenAlgorithmRS256, TokenAlgorithmHS256))
 }
 
 // AudienceCreate create a new permission object
@@ -196,33 +176,5 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 		return nil, parseSQLError(err)
 	}
 
-	if params.Preload {
-		if err := aud.Preload(h.Context(ctx)); err != nil {
-			return nil, err
-		}
-	}
-
 	return aud, nil
-}
-
-// Preload preloads the audience child objects from the database
-func (a *Audience) Preload(ctx context.Context) error {
-	h := FromContext(ctx)
-	if h == nil {
-		return ErrNotFound
-	}
-
-	db := h.DB(ctx)
-
-	if err := db.SelectContext(
-		ctx,
-		&a.Permissions,
-		`SELECT * 
-		 FROM audience_permissions 
-		 WHERE audience_id=$1`,
-		a.ID); err != nil {
-		return parseSQLError(err)
-	}
-
-	return nil
 }

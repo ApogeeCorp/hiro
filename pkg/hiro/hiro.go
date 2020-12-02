@@ -28,6 +28,7 @@ import (
 	"github.com/ModelRocket/hiro/api/spec"
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/apex/log"
@@ -144,7 +145,7 @@ func New(opts ...Option) (*Hiro, error) {
 		}
 		h.aud = aud
 	} else if h.initialize {
-		secret, err := GenerateTokenSecret(TokenAlgorithmRS256)
+		secret, err := oauth.GenerateTokenSecret(oauth.TokenAlgorithmRS256)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to generate token secret", err)
 		}
@@ -152,7 +153,7 @@ func New(opts ...Option) (*Hiro, error) {
 		aud, err := h.AudienceCreate(context.Background(), AudienceCreateInput{
 			Name:           "hiro",
 			TokenLifetime:  time.Hour,
-			TokenAlgorithm: TokenAlgorithmRS256,
+			TokenAlgorithm: oauth.TokenAlgorithmRS256,
 			TokenSecret:    secret,
 			Permissions:    Permissions,
 		})

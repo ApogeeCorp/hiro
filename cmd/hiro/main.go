@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/apex/log"
 
 	"github.com/urfave/cli/v2"
@@ -83,7 +82,6 @@ func initialize(c *cli.Context) error {
 		hiro.WithDBSource(c.String("db")),
 		hiro.Automigrate(),
 		hiro.Initialize(),
-		hiro.WithAudience(types.ID(c.String("aud"))),
 	)
 
 	return err
