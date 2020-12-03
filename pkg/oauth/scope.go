@@ -25,17 +25,17 @@ import (
 	"errors"
 )
 
-// Permissions are used for both OAuth scopes and API ACL lists.
-type Permissions []string
+// Scope are used for both OAuth scopes and API ACL lists.
+type Scope []string
 
-// MakePermissions returns a Permissions from the string scopes
-func MakePermissions(s ...string) Permissions {
-	return Permissions(s)
+// MakeScope returns a Permissions from the string scopes
+func MakeScope(s ...string) Scope {
+	return Scope(s)
 }
 
 // Contains return true if the scope contains the value
-func (p Permissions) Contains(value string) bool {
-	for _, v := range p {
+func (s Scope) Contains(value string) bool {
+	for _, v := range s {
 		if v == value {
 			return true
 		}
@@ -45,9 +45,9 @@ func (p Permissions) Contains(value string) bool {
 }
 
 // Every returns true if every element is contained in the scope
-func (p Permissions) Every(elements ...string) bool {
+func (s Scope) Every(elements ...string) bool {
 	for _, elem := range elements {
-		if !p.Contains(elem) {
+		if !s.Contains(elem) {
 			return false
 		}
 	}
@@ -55,9 +55,9 @@ func (p Permissions) Every(elements ...string) bool {
 }
 
 // Some returns true if at least one of the elements is contained in the scope
-func (p Permissions) Some(elements ...string) bool {
+func (s Scope) Some(elements ...string) bool {
 	for _, elem := range elements {
-		if p.Contains(elem) {
+		if s.Contains(elem) {
 			return true
 		}
 	}
@@ -65,10 +65,10 @@ func (p Permissions) Some(elements ...string) bool {
 }
 
 // Without returns the scope excluding the elements
-func (p Permissions) Without(elements ...string) Permissions {
-	r := make(Permissions, 0)
-	for _, v := range p {
-		if !Permissions(elements).Contains(v) {
+func (s Scope) Without(elements ...string) Scope {
+	r := make(Scope, 0)
+	for _, v := range s {
+		if !Scope(elements).Contains(v) {
 			r = append(r, v)
 		}
 	}
@@ -76,19 +76,38 @@ func (p Permissions) Without(elements ...string) Permissions {
 	return r
 }
 
+// Unique returns a scope withonly unique values
+func (s Scope) Unique() Scope {
+	keys := make(map[string]bool)
+	list := []string{}
+
+	for _, entry := range s {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
+}
+
+// MarshalJSON handles json marshaling of this type
+func (s Scope) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(s.Unique()))
+}
+
 // Value returns Permissions as a value that can be stored as json in the database
-func (p Permissions) Value() (driver.Value, error) {
-	return json.Marshal(p)
+func (s Scope) Value() (driver.Value, error) {
+	return json.Marshal(s)
 }
 
 // Scan reads a json value from the database into a Permissions
-func (p Permissions) Scan(value interface{}) error {
+func (s *Scope) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
 	}
 
-	if err := json.Unmarshal(b, &p); err != nil {
+	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
 

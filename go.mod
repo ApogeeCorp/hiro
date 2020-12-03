@@ -8,11 +8,11 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/fatih/structs v1.1.0
 	github.com/go-openapi/errors v0.19.8
 	github.com/go-openapi/loads v0.19.7
 	github.com/go-openapi/strfmt v0.19.11
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
-	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/context v1.1.1
 	github.com/gorilla/handlers v1.5.1
@@ -20,9 +20,9 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gosimple/slug v1.9.0
 	github.com/jmoiron/sqlx v1.2.0
-	github.com/kr/pretty v0.2.0
+	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23 // indirect
+	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/lib/pq v1.2.0
-	github.com/libatomic/api v1.0.30
 	github.com/mr-tron/base58 v1.2.0
 	github.com/ory/dockertest/v3 v3.6.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible

@@ -9,9 +9,7 @@ CREATE TABLE IF NOT EXISTS hiro.audiences(
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
-    token_lifetime BIGINT NOT NULL DEFAULT(3600),
-    token_algorithm TOKEN_ALGORITHM,
-    token_secret TEXT NOT NULL,
+    token JSONB NOT NULL,
     permissions JSONB NOT NULL,
     metadata JSONB
 );

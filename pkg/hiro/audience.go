@@ -25,9 +25,11 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/gosimple/slug"
 )
@@ -35,27 +37,33 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID             types.ID             `json:"id" db:"id"`
-		Name           string               `json:"name" db:"name"`
-		Description    *string              `json:"description,omitempty" db:"description"`
-		TokenLifetime  time.Duration        `json:"token_lifetime" db:"token_lifetime"`
-		TokenAlgorithm oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
-		TokenSecret    oauth.TokenSecret    `json:"token_secret,omitempty" db:"token_secret"`
-		CreatedAt      time.Time            `json:"created_at" db:"created_at"`
-		UpdatedAt      *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata       types.Metadata       `json:"metadata,omitempty" db:"metadata"`
-		Permissions    oauth.Permissions    `json:"permissions,omitempty" db:"permissions"`
+		ID          types.ID       `json:"id" db:"id"`
+		Name        string         `json:"name" db:"name"`
+		Description *string        `json:"description,omitempty" db:"description"`
+		TokenSecret *oauth.Token   `json:"token_secret,omitempty" db:"token_secret"`
+		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
+		Permissions oauth.Scope    `json:"permissions,omitempty" db:"permissions"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name           string               `json:"name"`
-		Description    *string              `json:"description,omitempty"`
-		TokenLifetime  time.Duration        `json:"token_lifetime,omitempty"`
-		TokenAlgorithm oauth.TokenAlgorithm `json:"token_algorithm,omitempty"`
-		TokenSecret    oauth.TokenSecret    `json:"token_secret,omitempty"`
-		Permissions    oauth.Permissions    `json:"permissions,omitempty"`
-		Metadata       Metadata             `json:"metadata,omitempty"`
+		Name        string       `json:"name"`
+		Description *string      `json:"description,omitempty"`
+		TokenSecret *oauth.Token `json:"token_secret,omitempty"`
+		Permissions oauth.Scope  `json:"permissions,omitempty"`
+		Metadata    Metadata     `json:"metadata,omitempty"`
+	}
+
+	// AudienceUpdateInput is the audience update request
+	AudienceUpdateInput struct {
+		AudienceID  types.ID     `json:"audience_id" structs:"-"`
+		Name        *string      `json:"name" structs:"name,omitempty"`
+		Description *string      `json:"description,omitempty" structs:"description,omitempty"`
+		TokenSecret *oauth.Token `json:"token_secret,omitempty" structs:"token_secret,omitempty"`
+		Permissions oauth.Scope  `json:"permissions,omitempty" structs:"permissions,omitempty"`
+		Metadata    Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -63,16 +71,35 @@ type (
 		AudienceID *types.ID `json:"audience_id,omitempty"`
 		Name       *string   `json:"name,omitempty"`
 	}
+
+	// AudienceListInput is the audience list request
+	AudienceListInput struct {
+		Limit  *uint64 `json:"limit,omitempty"`
+		Offset *uint64 `json:"offset,omitempty"`
+	}
+
+	// AudienceDeleteInput is the audience delete request input
+	AudienceDeleteInput struct {
+		AudienceID string `json:"audience_id"`
+	}
 )
 
 // ValidateWithContext handles validation of the AudienceCreateInput struct
 func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Length(3, 64)),
-		validation.Field(&a.TokenLifetime, validation.Required, validation.Min(oauth.TokenLifetimeMinimum)),
-		validation.Field(&a.TokenAlgorithm, validation.Required),
 		validation.Field(&a.TokenSecret, validation.Required),
 		validation.Field(&a.Permissions, validation.Required),
+	)
+}
+
+// ValidateWithContext handles validation of the AudienceUpdateInput struct
+func (a AudienceUpdateInput) ValidateWithContext(ctx context.Context) error {
+	return validation.ValidateStruct(&a,
+		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.Name, validation.NilOrNotEmpty, validation.Length(3, 64)),
+		validation.Field(&a.TokenSecret, validation.NilOrNotEmpty),
+		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 	)
 }
 
@@ -84,47 +111,65 @@ func (a AudienceGetInput) ValidateWithContext(ctx context.Context) error {
 	)
 }
 
+// ValidateWithContext handles validation of the AudienceListInput struct
+func (a AudienceListInput) ValidateWithContext(context.Context) error {
+	return nil
+}
+
+// ValidateWithContext handles validation of the ApplicationDeleteInput
+func (a AudienceDeleteInput) ValidateWithContext(ctx context.Context) error {
+	return validation.ValidateStruct(&a,
+		validation.Field(&a.AudienceID, validation.Required),
+	)
+}
+
 // AudienceCreate create a new permission object
 func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
 	var aud Audience
 
+	log := api.Log(ctx).WithField("operation", "AudienceCreate").WithField("name", params.Name)
+
 	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
+		log.Debugf("creating new audience")
+
 		stmt, args, err := sq.Insert("hiro.audiences").
 			Columns(
 				"name",
 				"description",
-				"token_lifetime",
-				"token_algorithm",
 				"token_secret",
 				"permissions",
 				"metadata").
 			Values(
 				slug.Make(params.Name),
 				null.String(params.Description),
-				params.TokenLifetime,
-				params.TokenAlgorithm,
 				params.TokenSecret,
 				params.Permissions,
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
 			Suffix(`
-			ON CONFLICT (name) DO UPDATE SET description=?, token_lifetime=?, permissions=?, metadata=? RETURNING *`,
+			ON CONFLICT (name) DO UPDATE SET description=?, token_secret=?, permissions=?, metadata=? RETURNING *`,
 				null.String(params.Description),
-				params.TokenLifetime,
+				params.TokenSecret,
 				params.Permissions,
 				null.JSON(params.Metadata),
 			).
 			ToSql()
 		if err != nil {
+			log.Error(err.Error())
+
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
 
 		if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
+			log.Error(err.Error())
+
 			return parseSQLError(err)
 		}
 
@@ -133,6 +178,64 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 		return nil, err
 	}
 
+	log.Debugf("audience %s created", aud.ID)
+
+	return &aud, nil
+}
+
+// AudienceUpdate updates an application by id, including child objects
+func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error) {
+	var aud Audience
+
+	log := api.Log(ctx).WithField("operation", "AudienceUpdate").WithField("id", params.AudienceID)
+
+	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+
+		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
+	}
+
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
+		log.Debugf("updating audience")
+
+		q := sq.Update("hiro.audiences").
+			PlaceholderFormat(sq.Dollar)
+
+		updates := structs.Map(params)
+
+		if _, ok := updates["token_secret"]; ok {
+			updates["token_secret"] = sq.Expr(fmt.Sprintf("COALESCE(token_secret, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
+		}
+
+		if _, ok := updates["metadata"]; ok {
+			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
+		}
+
+		if len(updates) > 0 {
+			stmt, args, err := q.Where(sq.Eq{"id": params.AudienceID}).
+				SetMap(updates).
+				Suffix("RETURNING *").
+				ToSql()
+			if err != nil {
+				log.Error(err.Error())
+
+				return fmt.Errorf("%w: failed to build query statement", err)
+			}
+
+			if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
+				log.Error(err.Error())
+
+				return parseSQLError(err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	log.Debugf("audience %s updated", aud.Name)
+
 	return &aud, nil
 }
 
@@ -140,7 +243,13 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error) {
 	var suffix string
 
+	log := api.Log(ctx).WithField("operation", "AudienceGet").
+		WithField("id", params.AudienceID).
+		WithField("name", params.Name)
+
 	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
@@ -166,6 +275,8 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 		Suffix(suffix).
 		ToSql()
 	if err != nil {
+		log.Error(err.Error())
+
 		return nil, parseSQLError(err)
 	}
 
@@ -173,8 +284,68 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 
 	row := db.QueryRowxContext(ctx, stmt, args...)
 	if err := row.StructScan(aud); err != nil {
+		log.Error(err.Error())
+
 		return nil, parseSQLError(err)
 	}
 
 	return aud, nil
+}
+
+// AudienceList returns a listing of audiences
+func (h *Hiro) AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error) {
+	log := api.Log(ctx).WithField("operation", "AudienceList")
+
+	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
+	}
+
+	db := h.DB(ctx)
+
+	query := sq.Select("*").
+		From("hiro.audiences")
+
+	if params.Limit != nil {
+		query = query.Limit(*params.Limit)
+	}
+
+	if params.Offset != nil {
+		query = query.Offset(*params.Offset)
+	}
+
+	stmt, args, err := query.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	auds := make([]*Audience, 0)
+	if err := db.SelectContext(ctx, &auds, stmt, args...); err != nil {
+		return nil, parseSQLError(err)
+	}
+
+	return auds, nil
+}
+
+// AudienceDelete deletes an audience by id
+func (h *Hiro) AudienceDelete(ctx context.Context, params AudienceDeleteInput) error {
+	log := api.Log(ctx).WithField("operation", "AudienceDelete").WithField("article", params.AudienceID)
+
+	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+		return fmt.Errorf("%w: %s", ErrInputValidation, err)
+	}
+
+	db := h.DB(ctx)
+	if _, err := sq.Delete("hiro.audiences").
+		Where(
+			sq.Eq{"id": params.AudienceID},
+		).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to delete application %s: %s", params.AudienceID, err)
+		return parseSQLError(err)
+	}
+
+	return nil
 }

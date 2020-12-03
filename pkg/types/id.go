@@ -21,6 +21,7 @@ package types
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -58,7 +59,7 @@ func (id ID) Validate() error {
 
 // MarshalJSON handles json marshaling of this type
 func (id ID) MarshalJSON() ([]byte, error) {
-	return []byte(id.String()), nil
+	return json.Marshal(id.String())
 }
 
 // UnmarshalJSON handles the unmarshaling of this type

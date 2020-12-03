@@ -54,8 +54,8 @@ var (
 	// Roles is the list of atomic roles by name
 	Roles = []string{"admin", "user"}
 
-	// Permissions is the server api permissions from the spec doc
-	Permissions = make([]string, 0)
+	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
+	Scopes = make([]string, 0)
 
 	passwordValidationEnabled = true
 
@@ -63,13 +63,13 @@ var (
 )
 
 func init() {
-	for _, def := range spec.SpecDoc.Spec().SecurityDefinitions {
-		if def.Type != "oauth2" {
+	for key, def := range spec.SpecDoc.Spec().SecurityDefinitions {
+		if def.Type != "oauth2" || key != "Hiro" {
 			continue
 		}
 
 		for scope := range def.Scopes {
-			Permissions = append(Permissions, scope)
+			Scopes = append(Scopes, scope)
 		}
 	}
 }

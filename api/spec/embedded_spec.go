@@ -41,16 +41,47 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "The Hiro API is a foundational API for Model Rocket projects, projects extend this API\nto provide their own services. This API provide the necessary structures and handlers\nfor OAuth 2.0 user authentication, autorization, and management.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. These tokens are\ngenerated using the ` + "`" + `libatomic/oauth` + "`" + ` processor.\n\n# Object Identifier\n\nInternally all objects are idenfied using a uuid. Externally, these ids are base58 encoded.\nCalls to API operations should always use the base58 values.\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\",\n  \"detail\": \"customer xyx does not exist\",\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
+    "description": "The Hiro API is a foundational API for Model Rocket projects, projects extend this API\nto provide their own services. This API provide the necessary structures and handlers\nfor OAuth 2.0 user authentication, autorization, and management.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. These tokens are signed\nand generated using the ` + "`" + `hiro/oauth.Controller` + "`" + `.\n\n# Object Identifier\n\nInternally all objects are idenfied using a uuid. Externally, these ids are base58 encoded.\nCalls to API operations should always use the base58 values.\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\",\n  \"detail\": \"customer xyx does not exist\",\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
     "title": "Hiro API",
     "version": "1.0.0"
   },
   "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "Return the jwks which includes the rsa public key and ids for the service\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "PublicKeyGet",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The audience for the request",
+            "name": "audience",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/audience": {
       "get": {
         "security": [
           {
-            "OAuth": [
+            "Hiro": [
               "audience:read"
             ]
           }
@@ -129,6 +160,786 @@ func init() {
           }
         }
       }
+    },
+    "/authorize": {
+      "get": {
+        "description": "Gererates an oauth authorization request for login and redirects the browser to the login form.\n\nThis method will redirect the browser to ` + "`" + `app_uri` + "`" + ` with an encoded ` + "`" + `request_token` + "`" + ` parameter, which will present the user with a form.\n\n  ` + "`" + `app_uri` + "`" + ` and ` + "`" + `redirect_uri` + "`" + ` must be registered with the api client.\n\nThe form could post back to ` + "`" + `/login` + "`" + ` or ` + "`" + `/signup` + "`" + ` which will perform the final redirect to ` + "`" + `redirect_api` + "`" + ` with the authorization code.\n\nErrors will be delivered to ` + "`" + `redirect_uri` + "`" + ` with two query parameters:\n\n\n  - ` + "`" + `error=\u003cerror name\u003e` + "`" + ` (i.e. ` + "`" + `bad_request` + "`" + `, etc) \n  - ` + "`" + `error_description=\u003cerror detail\u003e` + "`" + `\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Authorize",
+        "parameters": [
+          {
+            "enum": [
+              "code"
+            ],
+            "type": "string",
+            "description": "The authorization code response type",
+            "name": "response_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "audience",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The URL to which the authentication server redirects the browser for action",
+            "name": "app_uri",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The URL to which the authentication server redirects the browser after authorization has been granted by the user",
+            "name": "redirect_uri",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "ssv",
+            "description": "The requested scopes, if empty will request all the user permissions.\n",
+            "name": "scope",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Opaque state returned the redirect uri",
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "enum": [
+              "S256"
+            ],
+            "type": "string",
+            "default": "S256",
+            "description": "The method used to generate the challenge. The PKCE RFC defines two methods, S256 and plain; \nhowever, the authentication serivce supports only S256.\n",
+            "name": "code_challenge_method",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The generated challenge from the code_verifier.",
+            "name": "code_challenge",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "The location redirect header"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/logout": {
+      "get": {
+        "description": "Log out and destroy the current browser session\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Logout",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The uri to redirect to after logout",
+            "name": "redirect_uri",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "audience",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Logout state",
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/oauth/login": {
+      "post": {
+        "description": "Authenticates a user the ` + "`" + `oauth.Controller` + "`" + ` interface.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Login",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/passwordReset": {
+      "post": {
+        "description": "The password reset flow will call the ` + "`" + `oauth.Controller.UserResetPassword` + "`" + ` method. \n\nThis method should send the user a reset password link with a unique reset code that can \nbe used to call ` + "`" + `oauth.Controller.UserSetPassword` + "`" + `.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "User"
+        ],
+        "operationId": "PasswordReset",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "uri",
+            "description": "The uri to redirect to after password reset request",
+            "name": "redirect_uri",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/passwordSet": {
+      "post": {
+        "description": "Set a user's password",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "User"
+        ],
+        "operationId": "PasswordSet",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The new password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The reset verification code",
+            "name": "reset_code",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "uri",
+            "description": "The uri to redirect to after password reset",
+            "name": "redirect_uri",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/signup": {
+      "post": {
+        "description": "Register a user the ` + "`" + `oauth.Controller` + "`" + ` interface.\n\nThe library must be initialized using the ` + "`" + `WithAllowSignup(true)` + "`" + ` option.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Signup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user's password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "email",
+            "description": "The user's email address",
+            "name": "email",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user's full name",
+            "name": "name",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "Inivitation codes allow for users to sign up when public sign up is disabled.\n",
+            "name": "invite_code",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/token": {
+      "post": {
+        "description": "Returns a BearerToken to be used to grant access to the Audience api methods\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Token",
+        "parameters": [
+          {
+            "enum": [
+              "authorization_code",
+              "refresh_token",
+              "client_credentials",
+              "password"
+            ],
+            "type": "string",
+            "description": "The authorization grant type",
+            "name": "grant_type",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The username for password grants",
+            "name": "username",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The password for password grants",
+            "name": "password",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The application secret",
+            "name": "app_secret",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The reqest audience for client_credentials flows",
+            "name": "audience",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "ssv",
+            "description": "The scopes",
+            "name": "scope",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The refresh token",
+            "name": "refresh_token",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "Verifier nonce used to validate a refresh token request. This is the base64\nraw url encoded value of the original nonce generated by the client.\n",
+            "name": "refresh_verifier",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The new refresh token nonce is the S256 of a client generated value as defined\nin the PKCE standard, similar to that used in the authorization flow.\n\nWhen requesting ` + "`" + `offline_access` + "`" + ` the client will generate a nonce value and\npass the base64 raw url encoded value of the S256 of this nonce.\n\nEach subsequent ` + "`" + `offline_access` + "`" + ` request in the ` + "`" + `refresh_token` + "`" + ` flow requires\na new verifier.\n",
+            "name": "refresh_nonce",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The authorization code",
+            "name": "code",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/BearerToken"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/userInfo": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Get the current user profile data\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "UserInfoGet",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Update the user's info\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "UserInfoUpdate",
+        "parameters": [
+          {
+            "description": "The new profile",
+            "name": "profile",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/userPrincipal": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Get the current user principal object from the controller. This is opaque to the oauth layer.\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "UserPrincipalGet",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/verify": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "verify"
+            ]
+          }
+        ],
+        "description": "Verify is used to verify user email addresses.\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "Verify",
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -178,16 +989,6 @@ func init() {
         "app_uris": {
           "$ref": "#/definitions/PermissionSet"
         },
-        "client_id": {
-          "description": "The application client id used for oauth grants",
-          "type": "string",
-          "readOnly": true
-        },
-        "client_secret": {
-          "description": "The application client secret used for oauth grants",
-          "type": "string",
-          "readOnly": true
-        },
         "created_at": {
           "description": "The application creation date",
           "type": "string",
@@ -199,7 +1000,7 @@ func init() {
           "x-nullable": true
         },
         "id": {
-          "description": "The application id is an alias for client_id",
+          "description": "The unique application id",
           "type": "string"
         },
         "metadata": {
@@ -215,6 +1016,11 @@ func init() {
         },
         "redirect_uris": {
           "$ref": "#/definitions/PermissionSet"
+        },
+        "secret": {
+          "description": "The application secret key used for oauth grants",
+          "type": "string",
+          "readOnly": true
         },
         "token_lifetime": {
           "description": "The lifetime for identity tokens in seconds, provided the call requested the \n` + "`" + `openid` + "`" + ` scopes.\n",
@@ -238,7 +1044,7 @@ func init() {
       }
     },
     "Audience": {
-      "description": "An audience is an API instance that applications can request permission to access on behalf of\na user or itself.\n",
+      "description": "An audience is an API resource that applications can request permission to access on behalf of\na user or itself.\n",
       "properties": {
         "created_at": {
           "description": "The application creation date",
@@ -253,7 +1059,7 @@ func init() {
           "$ref": "#/definitions/Metadata"
         },
         "name": {
-          "description": "The audience name",
+          "description": "The audience name, which will be slugified on creation",
           "type": "string"
         },
         "permissions": {
@@ -356,6 +1162,21 @@ func init() {
       "additionalProperties": {
         "type": "object"
       }
+    },
+    "Option": {
+      "description": "An audience configuration option",
+      "type": "object",
+      "properties": {
+        "audience": {
+          "description": "The audience the option belongs to",
+          "type": "string"
+        },
+        "name": {
+          "description": "The option name",
+          "type": "string"
+        }
+      },
+      "discriminator": "name"
     },
     "PermissionSet": {
       "description": "A set of permissions grouped by audience.\n",
@@ -513,7 +1334,7 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "OAuth": {
+    "Hiro": {
       "type": "oauth2",
       "flow": "accessCode",
       "authorizationUrl": "https://auth.server.local/api/1.0.0/oauth/authorize",
@@ -523,12 +1344,22 @@ func init() {
         "application:write": "Write application objects",
         "audience:read": "Read audience objects",
         "audience:write": "Write audience objects",
-        "email:verify": "Required to verify a user's email address",
+        "token:read": "Read token objects",
+        "token:write": "Write token objects",
+        "user:read": "Read user objects",
+        "user:write": "Write user objects"
+      }
+    },
+    "OAuth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://auth.server.local/api/1.0.0/oauth/authorize",
+      "tokenUrl": "https://auth.server.local/api/1.0.0/oauth/token",
+      "scopes": {
         "offline_access": "Used by clients to request permission to use refresh tokens",
         "openid": "Access a user's identity",
         "profile": "Access a user's profile",
-        "user:read": "Read user objects",
-        "user:write": "Write user objects"
+        "verify": "Required to verify a user's email address"
       }
     }
   },
@@ -562,16 +1393,47 @@ func init() {
   ],
   "swagger": "2.0",
   "info": {
-    "description": "The Hiro API is a foundational API for Model Rocket projects, projects extend this API\nto provide their own services. This API provide the necessary structures and handlers\nfor OAuth 2.0 user authentication, autorization, and management.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. These tokens are\ngenerated using the ` + "`" + `libatomic/oauth` + "`" + ` processor.\n\n# Object Identifier\n\nInternally all objects are idenfied using a uuid. Externally, these ids are base58 encoded.\nCalls to API operations should always use the base58 values.\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\",\n  \"detail\": \"customer xyx does not exist\",\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
+    "description": "The Hiro API is a foundational API for Model Rocket projects, projects extend this API\nto provide their own services. This API provide the necessary structures and handlers\nfor OAuth 2.0 user authentication, autorization, and management.\n\n# Authentication\n\nWith the exception of the authentication operations themselves (those tagged ` + "`" + `Auth` + "`" + `), all api\ncalls require a valid ` + "`" + `Bearer` + "`" + ` token in the HTTP ` + "`" + `Authorization` + "`" + ` header. These tokens are signed\nand generated using the ` + "`" + `hiro/oauth.Controller` + "`" + `.\n\n# Object Identifier\n\nInternally all objects are idenfied using a uuid. Externally, these ids are base58 encoded.\nCalls to API operations should always use the base58 values.\n\n# Errors\n\nThe API uses standard HTTP status codes to indicate the success or failure\nof the API call. The body of the response will be JSON in the following\nformat:\n` + "`" + `` + "`" + `` + "`" + `\n{\n  \"message\": \"object not found\",\n  \"detail\": \"customer xyx does not exist\",\n}\n` + "`" + `` + "`" + `` + "`" + `\n",
     "title": "Hiro API",
     "version": "1.0.0"
   },
   "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "Return the jwks which includes the rsa public key and ids for the service\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "PublicKeyGet",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The audience for the request",
+            "name": "audience",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/audience": {
       "get": {
         "security": [
           {
-            "OAuth": [
+            "Hiro": [
               "audience:read"
             ]
           }
@@ -650,6 +1512,786 @@ func init() {
           }
         }
       }
+    },
+    "/authorize": {
+      "get": {
+        "description": "Gererates an oauth authorization request for login and redirects the browser to the login form.\n\nThis method will redirect the browser to ` + "`" + `app_uri` + "`" + ` with an encoded ` + "`" + `request_token` + "`" + ` parameter, which will present the user with a form.\n\n  ` + "`" + `app_uri` + "`" + ` and ` + "`" + `redirect_uri` + "`" + ` must be registered with the api client.\n\nThe form could post back to ` + "`" + `/login` + "`" + ` or ` + "`" + `/signup` + "`" + ` which will perform the final redirect to ` + "`" + `redirect_api` + "`" + ` with the authorization code.\n\nErrors will be delivered to ` + "`" + `redirect_uri` + "`" + ` with two query parameters:\n\n\n  - ` + "`" + `error=\u003cerror name\u003e` + "`" + ` (i.e. ` + "`" + `bad_request` + "`" + `, etc) \n  - ` + "`" + `error_description=\u003cerror detail\u003e` + "`" + `\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Authorize",
+        "parameters": [
+          {
+            "enum": [
+              "code"
+            ],
+            "type": "string",
+            "description": "The authorization code response type",
+            "name": "response_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "audience",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The URL to which the authentication server redirects the browser for action",
+            "name": "app_uri",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The URL to which the authentication server redirects the browser after authorization has been granted by the user",
+            "name": "redirect_uri",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "ssv",
+            "description": "The requested scopes, if empty will request all the user permissions.\n",
+            "name": "scope",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "Opaque state returned the redirect uri",
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "enum": [
+              "S256"
+            ],
+            "type": "string",
+            "default": "S256",
+            "description": "The method used to generate the challenge. The PKCE RFC defines two methods, S256 and plain; \nhowever, the authentication serivce supports only S256.\n",
+            "name": "code_challenge_method",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The generated challenge from the code_verifier.",
+            "name": "code_challenge",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "The location redirect header"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/logout": {
+      "get": {
+        "description": "Log out and destroy the current browser session\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Logout",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The uri to redirect to after logout",
+            "name": "redirect_uri",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "audience",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Logout state",
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/oauth/login": {
+      "post": {
+        "description": "Authenticates a user the ` + "`" + `oauth.Controller` + "`" + ` interface.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Login",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/passwordReset": {
+      "post": {
+        "description": "The password reset flow will call the ` + "`" + `oauth.Controller.UserResetPassword` + "`" + ` method. \n\nThis method should send the user a reset password link with a unique reset code that can \nbe used to call ` + "`" + `oauth.Controller.UserSetPassword` + "`" + `.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "User"
+        ],
+        "operationId": "PasswordReset",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "uri",
+            "description": "The uri to redirect to after password reset request",
+            "name": "redirect_uri",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/passwordSet": {
+      "post": {
+        "description": "Set a user's password",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "User"
+        ],
+        "operationId": "PasswordSet",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The new password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The reset verification code",
+            "name": "reset_code",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "uri",
+            "description": "The uri to redirect to after password reset",
+            "name": "redirect_uri",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/signup": {
+      "post": {
+        "description": "Register a user the ` + "`" + `oauth.Controller` + "`" + ` interface.\n\nThe library must be initialized using the ` + "`" + `WithAllowSignup(true)` + "`" + ` option.\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Signup",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "The user's login",
+            "name": "login",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user's password",
+            "name": "password",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "email",
+            "description": "The user's email address",
+            "name": "email",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The user's full name",
+            "name": "name",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "Inivitation codes allow for users to sign up when public sign up is disabled.\n",
+            "name": "invite_code",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "\"The authorization request token\"\n",
+            "name": "request_token",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/token": {
+      "post": {
+        "description": "Returns a BearerToken to be used to grant access to the Audience api methods\n",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Token",
+        "parameters": [
+          {
+            "enum": [
+              "authorization_code",
+              "refresh_token",
+              "client_credentials",
+              "password"
+            ],
+            "type": "string",
+            "description": "The authorization grant type",
+            "name": "grant_type",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The application id",
+            "name": "app_id",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "The username for password grants",
+            "name": "username",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The password for password grants",
+            "name": "password",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The application secret",
+            "name": "app_secret",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The reqest audience for client_credentials flows",
+            "name": "audience",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "ssv",
+            "description": "The scopes",
+            "name": "scope",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The refresh token",
+            "name": "refresh_token",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "Verifier nonce used to validate a refresh token request. This is the base64\nraw url encoded value of the original nonce generated by the client.\n",
+            "name": "refresh_verifier",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The new refresh token nonce is the S256 of a client generated value as defined\nin the PKCE standard, similar to that used in the authorization flow.\n\nWhen requesting ` + "`" + `offline_access` + "`" + ` the client will generate a nonce value and\npass the base64 raw url encoded value of the S256 of this nonce.\n\nEach subsequent ` + "`" + `offline_access` + "`" + ` request in the ` + "`" + `refresh_token` + "`" + ` flow requires\na new verifier.\n",
+            "name": "refresh_nonce",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The authorization code",
+            "name": "code",
+            "in": "formData"
+          },
+          {
+            "type": "string",
+            "description": "The PKCE code verifier",
+            "name": "code_verifier",
+            "in": "formData"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/BearerToken"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/userInfo": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Get the current user profile data\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "UserInfoGet",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Update the user's info\n",
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "UserInfoUpdate",
+        "parameters": [
+          {
+            "description": "The new profile",
+            "name": "profile",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "$ref": "#/definitions/Profile"
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/userPrincipal": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "openid",
+              "profile"
+            ]
+          }
+        ],
+        "description": "Get the current user principal object from the controller. This is opaque to the oauth layer.\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "UserPrincipalGet",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/verify": {
+      "get": {
+        "security": [
+          {
+            "OAuth": [
+              "verify"
+            ]
+          }
+        ],
+        "description": "Verify is used to verify user email addresses.\n",
+        "tags": [
+          "User"
+        ],
+        "operationId": "Verify",
+        "responses": {
+          "302": {
+            "description": "found",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "format": "uri",
+                "description": "The redirect URI for the auth request"
+              }
+            }
+          },
+          "400": {
+            "description": "bad parameter",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -699,16 +2341,6 @@ func init() {
         "app_uris": {
           "$ref": "#/definitions/PermissionSet"
         },
-        "client_id": {
-          "description": "The application client id used for oauth grants",
-          "type": "string",
-          "readOnly": true
-        },
-        "client_secret": {
-          "description": "The application client secret used for oauth grants",
-          "type": "string",
-          "readOnly": true
-        },
         "created_at": {
           "description": "The application creation date",
           "type": "string",
@@ -720,7 +2352,7 @@ func init() {
           "x-nullable": true
         },
         "id": {
-          "description": "The application id is an alias for client_id",
+          "description": "The unique application id",
           "type": "string"
         },
         "metadata": {
@@ -736,6 +2368,11 @@ func init() {
         },
         "redirect_uris": {
           "$ref": "#/definitions/PermissionSet"
+        },
+        "secret": {
+          "description": "The application secret key used for oauth grants",
+          "type": "string",
+          "readOnly": true
         },
         "token_lifetime": {
           "description": "The lifetime for identity tokens in seconds, provided the call requested the \n` + "`" + `openid` + "`" + ` scopes.\n",
@@ -759,7 +2396,7 @@ func init() {
       }
     },
     "Audience": {
-      "description": "An audience is an API instance that applications can request permission to access on behalf of\na user or itself.\n",
+      "description": "An audience is an API resource that applications can request permission to access on behalf of\na user or itself.\n",
       "properties": {
         "created_at": {
           "description": "The application creation date",
@@ -774,7 +2411,7 @@ func init() {
           "$ref": "#/definitions/Metadata"
         },
         "name": {
-          "description": "The audience name",
+          "description": "The audience name, which will be slugified on creation",
           "type": "string"
         },
         "permissions": {
@@ -877,6 +2514,21 @@ func init() {
       "additionalProperties": {
         "type": "object"
       }
+    },
+    "Option": {
+      "description": "An audience configuration option",
+      "type": "object",
+      "properties": {
+        "audience": {
+          "description": "The audience the option belongs to",
+          "type": "string"
+        },
+        "name": {
+          "description": "The option name",
+          "type": "string"
+        }
+      },
+      "discriminator": "name"
     },
     "PermissionSet": {
       "description": "A set of permissions grouped by audience.\n",
@@ -1034,7 +2686,7 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "OAuth": {
+    "Hiro": {
       "type": "oauth2",
       "flow": "accessCode",
       "authorizationUrl": "https://auth.server.local/api/1.0.0/oauth/authorize",
@@ -1044,12 +2696,22 @@ func init() {
         "application:write": "Write application objects",
         "audience:read": "Read audience objects",
         "audience:write": "Write audience objects",
-        "email:verify": "Required to verify a user's email address",
+        "token:read": "Read token objects",
+        "token:write": "Write token objects",
+        "user:read": "Read user objects",
+        "user:write": "Write user objects"
+      }
+    },
+    "OAuth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://auth.server.local/api/1.0.0/oauth/authorize",
+      "tokenUrl": "https://auth.server.local/api/1.0.0/oauth/token",
+      "scopes": {
         "offline_access": "Used by clients to request permission to use refresh tokens",
         "openid": "Access a user's identity",
         "profile": "Access a user's profile",
-        "user:read": "Read user objects",
-        "user:write": "Write user objects"
+        "verify": "Required to verify a user's email address"
       }
     }
   },

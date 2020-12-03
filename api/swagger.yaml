@@ -72,13 +72,22 @@ securityDefinitions:
       openid: "Access a user's identity"
       profile: "Access a user's profile"
       offline_access: "Used by clients to request permission to use refresh tokens"
-      email:verify: "Required to verify a user's email address"
+      verify: "Required to verify a user's email address"
+
+  Hiro:
+    type: oauth2
+    flow: accessCode
+    authorizationUrl: https://auth.server.local/api/1.0.0/oauth/authorize
+    tokenUrl: https://auth.server.local/api/1.0.0/oauth/token
+    scopes:
       audience:read: "Read audience objects"
       audience:write: "Write audience objects"
       application:read: "Read application objects"
       application:write: "Write application objects"
       user:read: "Read user objects"
       user:write: "Write user objects"
+      token:read: "Read token objects"
+      token:write: "Write token objects"
 
 definitions:
   Audience:
@@ -514,7 +523,7 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
       security:
-        - OAuth:
+        - Hiro:
             - "audience:read"
 
   /oauth/login:
@@ -692,7 +701,7 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
       security:
-        - OAuth: ["email:verify"]
+        - OAuth: ["verify"]
 
   /passwordSet:
     post:
