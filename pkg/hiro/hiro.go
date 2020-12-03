@@ -22,15 +22,11 @@ package hiro
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/ModelRocket/hiro/api/spec"
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -46,8 +42,6 @@ type (
 		timeout       time.Duration
 		retryInterval time.Duration
 		log           log.Interface
-		aud           *Audience
-		audID         types.ID
 	}
 
 	// Option defines a backend option
@@ -136,44 +130,6 @@ func New(opts ...Option) (*Hiro, error) {
 		}
 	}
 
-	if h.audID.Valid() {
-		aud, err := h.AudienceGet(context.Background(), AudienceGetInput{
-			AudienceID: &h.audID,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to load hiro audience %s", err, h.audID)
-		}
-		h.aud = aud
-	} else if h.initialize {
-		secret, err := oauth.GenerateTokenSecret(oauth.TokenAlgorithmRS256)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to generate token secret", err)
-		}
-
-		aud, err := h.AudienceCreate(context.Background(), AudienceCreateInput{
-			Name:           "hiro",
-			TokenLifetime:  time.Hour,
-			TokenAlgorithm: oauth.TokenAlgorithmRS256,
-			TokenSecret:    secret,
-			Permissions:    Permissions,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to create hiro audience", err)
-		}
-		h.aud = aud
-
-	} else {
-		aud, err := h.AudienceGet(context.Background(), AudienceGetInput{
-			Name: ptr.String("hiro"),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to load default hiro audience", err)
-		}
-		h.aud = aud
-	}
-
-	h.log.Infof("using audience %s [%s]", h.aud.Name, h.aud.ID)
-
 	return h, nil
 }
 
@@ -223,24 +179,9 @@ func WithDBSource(source string) Option {
 	}
 }
 
-// WithAudience sets the audience id
-func WithAudience(id types.ID) Option {
-	return func(h *Hiro) {
-		h.audID = id
-	}
-}
-
 // Automigrate will perform the database initialization, creating tables and indexes.
 func Automigrate() Option {
 	return func(h *Hiro) {
 		h.automigrate = true
-	}
-}
-
-// Initialize performs the instance initialization which will create the hiro audience,
-// a default application and admin user if they do not exist.
-func Initialize() Option {
-	return func(h *Hiro) {
-		h.initialize = true
 	}
 }

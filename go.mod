@@ -20,6 +20,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gosimple/slug v1.9.0
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/kr/pretty v0.2.0
 	github.com/lib/pq v1.2.0
 	github.com/libatomic/api v1.0.30
 	github.com/mr-tron/base58 v1.2.0

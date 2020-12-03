@@ -145,7 +145,7 @@ definitions:
     properties:
       id:
         type: "string"
-        description: "The application id is an alias for client_id"
+        description: "The unique application id"
       name:
         type: "string"
         description: "The application name"
@@ -158,13 +158,9 @@ definitions:
         type: "string"
         description: "The application type"
         enum: ["web", "native", "machine"]
-      client_id:
+      secret:
         type: "string"
-        description: "The application client id used for oauth grants"
-        readOnly: true
-      client_secret:
-        type: "string"
-        description: "The application client secret used for oauth grants"
+        description: "The application secret key used for oauth grants"
         readOnly: true
       app_uris:
         $ref: "#/definitions/PermissionSet"
@@ -577,9 +573,9 @@ paths:
           type: "string"
           description: "The uri to redirect to after logout"
           in: "query"
-        - name: "client_id"
+        - name: "app_id"
           type: "string"
-          description: "The client id"
+          description: "The application id"
           in: "query"
           required: true
         - name: "audience"
@@ -829,9 +825,9 @@ paths:
           type: "string"
           enum: ["code"]
           required: true
-        - name: "client_id"
+        - name: "app_id"
           in: "query"
-          description: "The client id"
+          description: "The application id"
           type: "string"
           required: true
         - name: "audience"
@@ -913,9 +909,9 @@ paths:
               "password",
             ]
           required: true
-        - name: "client_id"
+        - name: "app_id"
           type: "string"
-          description: "The client id"
+          description: "The application id"
           in: "formData"
           required: true
         - name: "username"
@@ -926,9 +922,9 @@ paths:
           type: "string"
           description: "The password for password grants"
           in: "formData"
-        - name: "client_secret"
+        - name: "app_secret"
           type: "string"
-          description: "The client secret"
+          description: "The application secret"
           in: "formData"
           required: false
         - name: "audience"

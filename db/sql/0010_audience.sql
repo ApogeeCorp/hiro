@@ -3,7 +3,7 @@
 
 CREATE TYPE TOKEN_ALGORITHM AS ENUM ('HS256', 'RS256');
 
-CREATE TABLE IF NOT EXISTS audiences(
+CREATE TABLE IF NOT EXISTS hiro.audiences(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS audiences(
 );
 
 CREATE TRIGGER update_timestamp
-  BEFORE UPDATE ON audiences
+  BEFORE UPDATE ON hiro.audiences
   FOR EACH ROW
   EXECUTE PROCEDURE update_timestamp("updated_at");
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied
-DROP TABLE audiences;
+DROP TABLE hiro.audiences;

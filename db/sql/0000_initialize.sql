@@ -1,5 +1,6 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
+CREATE SCHEMA IF NOT EXISTS hiro;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
 CREATE EXTENSION IF NOT EXISTS "hstore";

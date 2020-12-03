@@ -93,7 +93,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 	}
 
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
-		stmt, args, err := sq.Insert("audiences").
+		stmt, args, err := sq.Insert("hiro.audiences").
 			Columns(
 				"name",
 				"description",
@@ -151,7 +151,7 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 	}
 
 	query := sq.Select("*").
-		From("audiences").
+		From("hiro.audiences").
 		PlaceholderFormat(sq.Dollar)
 
 	if params.AudienceID != nil {

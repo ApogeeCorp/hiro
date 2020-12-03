@@ -37,5 +37,6 @@ var (
 // Migrate processes the database migrations
 func Migrate(db *sql.DB, dialect string, dir migrate.MigrationDirection) (int, error) {
 	migrate.SetTable("db_migrations")
+	migrate.SetSchema("hiro")
 	return migrate.Exec(db, dialect, migrations, dir)
 }
