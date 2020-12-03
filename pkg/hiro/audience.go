@@ -80,7 +80,7 @@ type (
 
 	// AudienceDeleteInput is the audience delete request input
 	AudienceDeleteInput struct {
-		AudienceID string `json:"audience_id"`
+		AudienceID types.ID `json:"audience_id"`
 	}
 )
 
@@ -341,6 +341,7 @@ func (h *Hiro) AudienceDelete(ctx context.Context, params AudienceDeleteInput) e
 		Where(
 			sq.Eq{"id": params.AudienceID},
 		).
+		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete application %s: %s", params.AudienceID, err)

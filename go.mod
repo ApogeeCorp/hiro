@@ -8,6 +8,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/structs v1.1.0
 	github.com/go-openapi/errors v0.19.8
 	github.com/go-openapi/loads v0.19.7
@@ -21,8 +22,10 @@ require (
 	github.com/gosimple/slug v1.9.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23 // indirect
+	github.com/kr/pretty v0.2.0
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/lib/pq v1.2.0
+	github.com/manifoldco/promptui v0.8.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/ory/dockertest/v3 v3.6.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
