@@ -29,7 +29,7 @@ import (
 
 var (
 	// ErrDuplicateObject is returned where there is unique constraint violation
-	ErrDuplicateObject = errors.New("duplicate object violation")
+	ErrDuplicateObject = errors.New("duplicate object")
 
 	// ErrInputValidation is returned when a object validation fails
 	ErrInputValidation = errors.New("request validation")
@@ -55,7 +55,8 @@ func parseSQLError(err error) error {
 
 	if pe, ok := err.(*pq.Error); ok {
 		switch pe.Code.Name() {
-
+		case "unique_violation":
+			return fmt.Errorf("%w [%s.%s]: %s", ErrDuplicateObject, pe.Schema, pe.Table, pe.Detail)
 		}
 	}
 

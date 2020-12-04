@@ -18,11 +18,11 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 
 	"github.com/urfave/cli/v2"
@@ -53,113 +53,8 @@ func main() {
 	}
 
 	app.Commands = []*cli.Command{
-		{
-			Name:    "audience",
-			Aliases: []string{"aud"},
-			Usage:   "Audience management",
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:  "id",
-					Usage: "The audience id for commands that require it",
-				},
-			},
-			Subcommands: []*cli.Command{
-				{
-					Name:  "create",
-					Usage: "Create a new audience",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:  "name",
-							Usage: "The audience name",
-							Value: "hiro",
-						},
-						&cli.StringFlag{
-							Name:  "description",
-							Usage: "The audience description",
-							Value: "The default hiro audience",
-						},
-						&cli.DurationFlag{
-							Name:  "token_lifetime",
-							Usage: "The oauth token lifetime in seconds for the audience",
-							Value: time.Minute * 60,
-						},
-						&cli.StringFlag{
-							Name:  "token_algorithm",
-							Usage: "Specify the oauth token algorithm",
-							Value: string(oauth.TokenAlgorithmRS256),
-						},
-						&cli.StringSliceFlag{
-							Name:  "permissions",
-							Usage: "Specifiy the audience permissions",
-							Value: cli.NewStringSlice(append(oauth.Scopes, hiro.Scopes...)...),
-						},
-						&cli.PathFlag{
-							Name:      "token_rsa",
-							Usage:     "Specify an rsa token as a pem file",
-							TakesFile: true,
-						},
-						&cli.StringFlag{
-							Name:  "token_hmac",
-							Usage: "Specify an hmac key as a string",
-						},
-					},
-					Action: audienceCreate,
-				},
-				{
-					Name:   "get",
-					Usage:  "Get an audience by id",
-					Action: audienceGet,
-				},
-				{
-					Name:    "list",
-					Aliases: []string{"ls"},
-					Usage:   "List all audiences",
-					Action:  audienceList,
-				},
-				{
-					Name:    "delete",
-					Aliases: []string{"rm"},
-					Usage:   "Delete an audience by id",
-					Action:  audienceDelete,
-				},
-				{
-					Name:  "update",
-					Usage: "Update and existing audience",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:  "name",
-							Usage: "The audience name",
-						},
-						&cli.StringFlag{
-							Name:  "description",
-							Usage: "The audience description",
-						},
-						&cli.DurationFlag{
-							Name:  "token_lifetime",
-							Usage: "The oauth token lifetime in seconds for the audience",
-						},
-						&cli.StringFlag{
-							Name:  "token_algorithm",
-							Usage: "Specify the oauth token algorithm",
-						},
-						&cli.StringSliceFlag{
-							Name:  "permissions",
-							Usage: "Specifiy the audience permissions",
-						},
-						&cli.PathFlag{
-							Name:      "token_rsa",
-							Usage:     "Specify an rsa token as a pem file",
-							TakesFile: true,
-						},
-						&cli.StringFlag{
-							Name:  "token_hmac",
-							Usage: "Specify an hmac key as a string",
-						},
-					},
-					Action: audienceUpdate,
-				},
-			},
-		},
+		audienceCommand,
+		applicationCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -185,4 +80,13 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err.Error())
 	}
+}
+
+func dumpValue(v interface{}) {
+	b, err := json.MarshalIndent(v, "", "    ")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(string(b))
 }

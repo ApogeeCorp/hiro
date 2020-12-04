@@ -17,38 +17,37 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+package oauth
 
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"net/http"
-
-	"github.com/go-openapi/errors"
-	"github.com/go-openapi/strfmt"
+	"errors"
 )
 
-// Metadata Metadata is a basic hash type
-type Metadata map[string]interface{}
+type (
+	// Permissions represents a map between an audiece and a scope
+	Permissions map[string]Scope
+)
 
-// Validate validates this map
-func (m Metadata) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// Value returns Map as a value that can be stored as json in the database
-func (m Metadata) Value() (driver.Value, error) {
-	return json.Marshal(m)
-}
-
-// Scan reads a json value from the database into a Map
-func (m Metadata) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New(http.StatusInternalServerError, "type assertion to []byte failed")
+// Value returns PermissionSet as a value that can be stored as json in the database
+func (p Permissions) Value() (driver.Value, error) {
+	perms := make(Permissions)
+	for k, v := range p {
+		perms[k] = v.Unique()
 	}
 
-	if err := json.Unmarshal(b, &m); err != nil {
+	return json.Marshal(perms)
+}
+
+// Scan reads a json value from the database into a PermissionSet
+func (p Permissions) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	if err := json.Unmarshal(b, &p); err != nil {
 		return err
 	}
 

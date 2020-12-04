@@ -181,8 +181,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "query",
             "required": true
           },
@@ -285,8 +285,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "query",
             "required": true
           },
@@ -656,8 +656,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "formData",
             "required": true
           },
@@ -675,8 +675,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application secret",
-            "name": "app_secret",
+            "description": "The client secret",
+            "name": "client_secret",
             "in": "formData"
           },
           {
@@ -1533,8 +1533,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "query",
             "required": true
           },
@@ -1637,8 +1637,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "query",
             "required": true
           },
@@ -2008,8 +2008,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application id",
-            "name": "app_id",
+            "description": "The client id",
+            "name": "client_id",
             "in": "formData",
             "required": true
           },
@@ -2027,8 +2027,8 @@ func init() {
           },
           {
             "type": "string",
-            "description": "The application secret",
-            "name": "app_secret",
+            "description": "The client secret",
+            "name": "client_secret",
             "in": "formData"
           },
           {

@@ -40,30 +40,30 @@ type (
 		ID          types.ID       `json:"id" db:"id"`
 		Name        string         `json:"name" db:"name"`
 		Description *string        `json:"description,omitempty" db:"description"`
-		TokenSecret *oauth.Token   `json:"token_secret,omitempty" db:"token_secret"`
+		TokenSecret *oauth.Token   `json:"token,omitempty" db:"token"`
 		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
 		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
 		Permissions oauth.Scope    `json:"permissions,omitempty" db:"permissions"`
+		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name        string       `json:"name"`
-		Description *string      `json:"description,omitempty"`
-		TokenSecret *oauth.Token `json:"token_secret,omitempty"`
-		Permissions oauth.Scope  `json:"permissions,omitempty"`
-		Metadata    Metadata     `json:"metadata,omitempty"`
+		Name        string         `json:"name"`
+		Description *string        `json:"description,omitempty"`
+		TokenSecret *oauth.Token   `json:"token,omitempty"`
+		Permissions oauth.Scope    `json:"permissions,omitempty"`
+		Metadata    types.Metadata `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID  types.ID     `json:"audience_id" structs:"-"`
-		Name        *string      `json:"name" structs:"name,omitempty"`
-		Description *string      `json:"description,omitempty" structs:"description,omitempty"`
-		TokenSecret *oauth.Token `json:"token_secret,omitempty" structs:"token_secret,omitempty"`
-		Permissions oauth.Scope  `json:"permissions,omitempty" structs:"permissions,omitempty"`
-		Metadata    Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		AudienceID  types.ID       `json:"audience_id" structs:"-"`
+		Name        *string        `json:"name" structs:"name,omitempty"`
+		Description *string        `json:"description,omitempty" structs:"description,omitempty"`
+		TokenSecret *oauth.Token   `json:"token,omitempty" structs:"token,omitempty"`
+		Permissions oauth.Scope    `json:"permissions,omitempty" structs:"permissions,omitempty"`
+		Metadata    types.Metadata `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -87,7 +87,7 @@ type (
 // ValidateWithContext handles validation of the AudienceCreateInput struct
 func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.Name, validation.Length(3, 64)),
+		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.TokenSecret, validation.Required),
 		validation.Field(&a.Permissions, validation.Required),
 	)
@@ -142,7 +142,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 			Columns(
 				"name",
 				"description",
-				"token_secret",
+				"token",
 				"permissions",
 				"metadata").
 			Values(
@@ -153,13 +153,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
-			Suffix(`
-			ON CONFLICT (name) DO UPDATE SET description=?, token_secret=?, permissions=?, metadata=? RETURNING *`,
-				null.String(params.Description),
-				params.TokenSecret,
-				params.Permissions,
-				null.JSON(params.Metadata),
-			).
+			Suffix(`RETURNING *`).
 			ToSql()
 		if err != nil {
 			log.Error(err.Error())
@@ -203,8 +197,8 @@ func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (
 
 		updates := structs.Map(params)
 
-		if _, ok := updates["token_secret"]; ok {
-			updates["token_secret"] = sq.Expr(fmt.Sprintf("COALESCE(token_secret, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
+		if _, ok := updates["token"]; ok {
+			updates["token"] = sq.Expr(fmt.Sprintf("COALESCE(token, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
 		}
 
 		if _, ok := updates["metadata"]; ok {

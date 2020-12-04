@@ -582,9 +582,9 @@ paths:
           type: "string"
           description: "The uri to redirect to after logout"
           in: "query"
-        - name: "app_id"
+        - name: "client_id"
           type: "string"
-          description: "The application id"
+          description: "The client id"
           in: "query"
           required: true
         - name: "audience"
@@ -834,9 +834,9 @@ paths:
           type: "string"
           enum: ["code"]
           required: true
-        - name: "app_id"
+        - name: "client_id"
           in: "query"
-          description: "The application id"
+          description: "The client id"
           type: "string"
           required: true
         - name: "audience"
@@ -918,9 +918,9 @@ paths:
               "password",
             ]
           required: true
-        - name: "app_id"
+        - name: "client_id"
           type: "string"
-          description: "The application id"
+          description: "The client id"
           in: "formData"
           required: true
         - name: "username"
@@ -931,9 +931,9 @@ paths:
           type: "string"
           description: "The password for password grants"
           in: "formData"
-        - name: "app_secret"
+        - name: "client_secret"
           type: "string"
-          description: "The application secret"
+          description: "The client secret"
           in: "formData"
           required: false
         - name: "audience"

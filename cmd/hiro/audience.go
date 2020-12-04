@@ -19,7 +19,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,11 +35,96 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	audienceCreateFlags = []cli.Flag{
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "The audience name",
+		},
+		&cli.StringFlag{
+			Name:  "description",
+			Usage: "The audience description",
+		},
+		&cli.DurationFlag{
+			Name:  "token_lifetime",
+			Usage: "The oauth token lifetime in seconds for the audience",
+		},
+		&cli.StringFlag{
+			Name:  "token_algorithm",
+			Usage: "Specify the oauth token algorithm",
+			Value: string(oauth.TokenAlgorithmRS256),
+		},
+		&cli.StringSliceFlag{
+			Name:  "permissions",
+			Usage: "Specifiy the audience permissions",
+		},
+		&cli.PathFlag{
+			Name:      "token_rsa",
+			Usage:     "Specify an rsa token as a pem file",
+			TakesFile: true,
+		},
+		&cli.StringFlag{
+			Name:  "token_hmac",
+			Usage: "Specify an hmac key as a string",
+		},
+	}
+
+	audienceCommand = &cli.Command{
+		Name:    "audience",
+		Aliases: []string{"aud"},
+		Usage:   "Audience management",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "id",
+				Usage: "The audience id for querying by id",
+			},
+			&cli.StringFlag{
+				Name:  "name",
+				Usage: "The audience name for querying by",
+			},
+		},
+		Subcommands: []*cli.Command{
+			{
+				Name:   "create",
+				Usage:  "Create a new audience",
+				Flags:  audienceCreateFlags,
+				Action: audienceCreate,
+			},
+			{
+				Name:   "get",
+				Usage:  "Get an audience by id",
+				Action: audienceGet,
+			},
+			{
+				Name:    "list",
+				Aliases: []string{"ls"},
+				Usage:   "List all audiences",
+				Action:  audienceList,
+			},
+			{
+				Name:    "delete",
+				Aliases: []string{"rm"},
+				Usage:   "Delete an audience by id",
+				Action:  audienceDelete,
+			},
+			{
+				Name:   "update",
+				Usage:  "Update and existing audience",
+				Flags:  audienceCreateFlags,
+				Action: audienceUpdate,
+			},
+		},
+	}
+)
+
 func audienceCreate(c *cli.Context) error {
 	var secret *oauth.Token
 	var err error
 
 	lifetime := time.Duration(c.Duration("token_lifetime"))
+	if lifetime == 0 {
+		lifetime = time.Hour
+	}
 
 	if h := c.String("token_hmac"); h != "" {
 		secret, err = oauth.NewTokenSecret(oauth.TokenAlgorithmHS256, []byte(h), lifetime)
@@ -67,13 +152,22 @@ func audienceCreate(c *cli.Context) error {
 		secret = s
 	}
 
+	perms := c.StringSlice("permissions")
+	if len(perms) == 0 {
+		perms = append(hiro.Scopes, oauth.DefaultScope...)
+	}
+
 	aud, err := h.AudienceCreate(context.Background(), hiro.AudienceCreateInput{
 		Name:        c.String("name"),
 		Description: ptr.NilString(c.String("description")),
 		TokenSecret: secret,
-		Permissions: oauth.Scope(c.StringSlice("permissions")),
+		Permissions: oauth.Scope(perms),
 	})
 	if err != nil {
+		if errors.Is(err, hiro.ErrDuplicateObject) {
+			fmt.Printf("Audience with name %s already exists\n", c.String("name"))
+			return nil
+		}
 		return err
 	}
 
@@ -85,11 +179,15 @@ func audienceCreate(c *cli.Context) error {
 }
 
 func audienceGet(c *cli.Context) error {
-	id := types.ID(c.String("id"))
+	var params hiro.AudienceGetInput
 
-	aud, err := h.AudienceGet(context.Background(), hiro.AudienceGetInput{
-		AudienceID: &id,
-	})
+	if id := types.ID(c.String("id")); id.Valid() {
+		params.AudienceID = &id
+	} else if name := c.String("name"); name != "" {
+		params.Name = &name
+	}
+
+	aud, err := h.AudienceGet(context.Background(), params)
 	if err != nil {
 		return err
 	}
@@ -213,13 +311,4 @@ func audienceUpdate(c *cli.Context) error {
 	dumpValue(aud)
 
 	return err
-}
-
-func dumpValue(v interface{}) {
-	b, err := json.MarshalIndent(v, "", "    ")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(b))
 }

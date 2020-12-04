@@ -21,22 +21,29 @@
 package oauth
 
 import (
-	"github.com/ModelRocket/hiro/api/spec"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
-var (
-	// DefaultScope is the spec defined oauth 2.0 scopes
-	DefaultScope = make([]string, 0)
+type (
+	// ClientType is an oauth client type
+	ClientType string
 )
 
-func init() {
-	for key, def := range spec.SpecDoc.Spec().SecurityDefinitions {
-		if def.Type != "oauth2" || key != "OAuth" {
-			continue
-		}
+const (
 
-		for scope := range def.Scopes {
-			DefaultScope = append(DefaultScope, scope)
-		}
-	}
+	// ClientTypeWeb defines a web based client type
+	// 	Web based clients are restricted from passing client_secret values
+	// 	and using password grants
+	ClientTypeWeb ClientType = "web"
+
+	// ClientTypeNative defines a native application client type
+	ClientTypeNative ClientType = "native"
+
+	// ClientTypeMachine defines a machine to machine client type
+	ClientTypeMachine ClientType = "machine"
+)
+
+// Validate handles validation for ClientType
+func (c ClientType) Validate() error {
+	return validation.Validate(string(c), validation.In("web", "native", "machine"))
 }
