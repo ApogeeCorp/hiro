@@ -28,6 +28,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
@@ -161,7 +162,7 @@ func audienceCreate(c *cli.Context) error {
 		Name:        c.String("name"),
 		Description: ptr.NilString(c.String("description")),
 		TokenSecret: secret,
-		Permissions: oauth.Scope(perms),
+		Permissions: oauth.ScopeList(perms),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -246,7 +247,7 @@ func audienceList(c *cli.Context) error {
 		list = append(list, entry{
 			ID:          a.ID,
 			Name:        a.Name,
-			Description: ptr.SafeString(a.Description),
+			Description: safe.String(a.Description),
 			CreatedAt:   humanize.Time(a.CreatedAt),
 		})
 	}
@@ -298,7 +299,7 @@ func audienceUpdate(c *cli.Context) error {
 	}
 
 	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = oauth.Scope(perms)
+		params.Permissions = oauth.ScopeList(perms)
 	}
 
 	aud, err := h.AudienceUpdate(context.Background(), params)

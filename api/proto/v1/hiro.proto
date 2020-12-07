@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+option go_package = "github.com/ModelRocket/hiro/pkg/hiro/pb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+package hiro;
+
+service Hiro {
+    rpc AudienceGet(AudienceGetRequest) returns (Audience);
+}
+
+message AudienceGetRequest {
+    oneof query {
+        string id = 1;
+        string name = 2;
+    }
+}
+
+message Audience {
+    message Token {
+        string algorithm = 1;
+        int64 lifetime = 2;
+        string key = 3;
+    }
+
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    Token token_secret = 4;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
+    repeated string permissions = 7;
+    google.protobuf.Struct metadata = 8;
+}
+

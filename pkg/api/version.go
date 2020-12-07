@@ -29,12 +29,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type key int
+type (
+	// Versioner provides a version
+	Versioner interface {
+		Name() string
+		Version() string
+	}
+)
 
-const verKey key = 0
+var (
+	contextKeyVersion = contextKey("api:version")
+)
 
-func (s *Server) versionMiddleware() func(http.Handler) http.Handler {
-	apiVer, _ := semver.ParseTolerant(s.version)
+// VersionMiddleware enforces versioning in the request path
+func VersionMiddleware(v Versioner, header ...string) func(http.Handler) http.Handler {
+	apiVer, _ := semver.ParseTolerant(v.Version())
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,20 +68,26 @@ func (s *Server) versionMiddleware() func(http.Handler) http.Handler {
 
 			r.URL.Path = strings.Replace(r.URL.Path, ver, pathVer.String(), 1)
 
-			context.Set(r, verKey, ver)
+			context.Set(r, contextKeyVersion, ver)
 
-			w.Header().Set("Server", fmt.Sprintf("%s/%s", s.name, s.serverVersion))
+			hdr := "Server"
+
+			if len(header) > 0 {
+				hdr = header[0]
+			}
+
+			w.Header().Set(hdr, fmt.Sprintf("%s/%s", v.Name(), v.Version()))
 
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// RequestVersion returns the request version or the server version if not found
-func (s *Server) RequestVersion(r *http.Request) string {
-	ver := s.version
+// RequestVersion returns the request version in the context
+func RequestVersion(r *http.Request) string {
+	var ver string
 
-	if val, ok := context.GetOk(r, verKey); ok {
+	if val, ok := context.GetOk(r, contextKeyVersion); ok {
 		ver = val.(string)
 	}
 

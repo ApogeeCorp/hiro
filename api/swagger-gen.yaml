@@ -1,6 +1,0 @@
-layout:
-  application:
-    - name: embedded_spec
-      source: embedded_spec.gotmpl
-      target: "{{ joinFilePath .Target .ServerPackage }}"
-      file_name: "embedded_spec.go"

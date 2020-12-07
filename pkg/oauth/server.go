@@ -19,37 +19,11 @@
 
 package oauth
 
-import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
-)
+import "github.com/ModelRocket/hiro/pkg/api"
 
 type (
-	// Permissions represents a map between an audiece and a scope
-	Permissions map[string]Scope
+	// Server is an oauth http server
+	Server struct {
+		*api.Server
+	}
 )
-
-// Value returns PermissionSet as a value that can be stored as json in the database
-func (p Permissions) Value() (driver.Value, error) {
-	perms := make(Permissions)
-	for k, v := range p {
-		perms[k] = v.Unique()
-	}
-
-	return json.Marshal(perms)
-}
-
-// Scan reads a json value from the database into a PermissionSet
-func (p Permissions) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if err := json.Unmarshal(b, &p); err != nil {
-		return err
-	}
-
-	return nil
-}

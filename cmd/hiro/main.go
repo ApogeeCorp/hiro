@@ -35,8 +35,9 @@ var (
 
 func main() {
 	app.Name = "hiro"
-	app.Usage = "Hiro Tool"
+	app.Usage = "Hiro Platform Toolkit"
 	app.Version = "1.0.0"
+	app.Action = serverMain
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -49,6 +50,18 @@ func main() {
 			Name:    "db",
 			Usage:   "specify the database path",
 			EnvVars: []string{"DB_SOURCE"},
+		},
+		&cli.StringFlag{
+			Name:    "rpc-addr",
+			Usage:   "specify the rpc server listen address",
+			Value:   "0.0.0.0:9001",
+			EnvVars: []string{"RPC_ADDR"},
+		},
+		&cli.StringFlag{
+			Name:    "http-addr",
+			Usage:   "specify the http server listen address",
+			Value:   "0.0.0.0:9002",
+			EnvVars: []string{"HTTP_ADDR"},
 		},
 	}
 

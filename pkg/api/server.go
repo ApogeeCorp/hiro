@@ -34,6 +34,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -51,44 +52,27 @@ import (
 )
 
 type (
-	// Authorizer performs an autorization and returns a context or error on failure
+	// Authorizer performs an authorization and returns a context or error on failure
 	Authorizer func(r *http.Request) (context.Context, error)
 
 	// Server is an http server that provides basic REST funtionality
 	Server struct {
-		log           log.Interface
-		router        *mux.Router
-		apiRouter     *mux.Router
-		addr          string
-		listener      net.Listener
-		srv           *http.Server
-		lock          sync.Mutex
-		basePath      string
-		name          string
-		version       string
-		serverVersion string
-		versioning    bool
-		corsOrigin    []string
-		cache         *bigcache.BigCache
-		cacheTTL      time.Duration
+		log        log.Interface
+		router     *mux.Router
+		addr       string
+		listener   net.Listener
+		srv        *http.Server
+		lock       sync.Mutex
+		basePath   string
+		name       string
+		version    string
+		corsOrigin []string
+		cache      *bigcache.BigCache
+		cacheTTL   time.Duration
 	}
 
-	routeOption struct {
-		method      string
-		params      interface{}
-		validate    bool
-		contextFunc ContextFunc
-		authorizers []Authorizer
-		cache       bool
-	}
-
-	// RouteOption defines route options
-	RouteOption func(*routeOption)
-
-	// Parameters interface handles binding requests
-	Parameters interface {
-		Validate() error
-	}
+	// HandlerFunc is a generic handler server operations
+	HandlerFunc func(http.ResponseWriter, *http.Request) Responder
 
 	// ContextFunc adds context to a request
 	ContextFunc func(context.Context) context.Context
@@ -106,47 +90,41 @@ type (
 )
 
 var (
-	contextKeyLogger = contextKey("logger")
+	contextKeyLogger = contextKey("api:logger")
 
-	contextKeyRequest = contextKey("request")
-
-	contextKeyBody = contextKey("body")
+	contextKeyRequest = contextKey("api:request")
 )
 
 // NewServer creates a new server object
 func NewServer(opts ...Option) *Server {
 	const (
 		defaultAddr     = "127.0.0.1:9000"
-		defaultBasePath = "/api/{version}"
-		defaultName     = "Atomic"
-		defaultVersion  = "1.0.0"
 		defaultCacheTTL = time.Hour
+		defaultVersion  = "1.0.0"
 	)
 
 	s := &Server{
-		log:        log.Log,
-		router:     mux.NewRouter(),
-		addr:       defaultAddr,
-		name:       defaultName,
-		version:    defaultVersion,
-		versioning: false,
-		basePath:   defaultBasePath,
-		cacheTTL:   defaultCacheTTL,
+		log:      log.Log,
+		router:   mux.NewRouter(),
+		addr:     defaultAddr,
+		cacheTTL: defaultCacheTTL,
+		version:  defaultVersion,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	s.apiRouter = s.router.PathPrefix(s.basePath).Subrouter()
-
-	s.apiRouter.Use(s.LogMiddleware())
-
-	if s.versioning {
-		s.apiRouter.Use(s.versionMiddleware())
+	if s.basePath != "" {
+		s.router = s.router.PathPrefix(s.basePath).Subrouter()
 	}
 
-	s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
+	s.router.Use(s.LogMiddleware())
+	s.router.Use(VersionMiddleware(s))
+
+	if s.cacheTTL > 0 {
+		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
+	}
 
 	return s
 }
@@ -170,9 +148,7 @@ func (s *Server) Serve() error {
 			handlers.AllowedOrigins(s.corsOrigin),
 			handlers.AllowedMethods([]string{"OPTIONS", "HEAD", "GET", "POST", "PUT", "DELETE"}),
 			handlers.ExposedHeaders([]string{
-				"X-Total-Count",
-				"X-Atom-Link",
-				"X-Last-Entry-Date",
+				"X-API-Version",
 				"Server",
 				"Content-Length",
 				"Content-Range",
@@ -235,37 +211,50 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return err
 }
 
-// Handler returns the server http handler
-func (s *Server) Handler() http.Handler {
-	return s.router
+// Router returns an api router at the specified base path
+func (s *Server) Router(basePath string, opts ...RouterOption) *Router {
+	const (
+		defaultVersion = "1.0.0"
+	)
+
+	r := &Router{
+		basePath:   basePath,
+		version:    defaultVersion,
+		versioning: true,
+		name:       s.name,
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	if r.versioning {
+		r.basePath = path.Join(r.basePath, "{version}")
+	}
+
+	r.Router = s.router.PathPrefix(r.basePath).Subrouter()
+
+	if r.versioning {
+		r.Use(VersionMiddleware(r, "X-API-Version"))
+	}
+
+	return r
 }
 
-// Router returns the server router
-func (s *Server) Router() *mux.Router {
-	return s.router
-}
-
+// ServeHTTP implements the http.Handler interface
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-// AddRoute adds a route in the clear
-func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption) {
-	opt := &routeOption{
-		method: http.MethodGet,
-	}
-
-	for _, o := range opts {
-		o(opt)
-	}
-
-	s.apiRouter.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) routeHandler(route *Route) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var resp interface{}
 
-		cache := opt.cache
+		cache := route.caching
 		trace := cast.ToBool(os.Getenv("HTTP_TRACE_ENABLE"))
 
-		if r.Header.Get("Cache-Control") == "no-cache" {
+		// disable caching if the header says so or its disabled via 0 ttl
+		if r.Header.Get("Cache-Control") == "no-cache" || s.cache == nil {
 			cache = false
 		}
 
@@ -328,16 +317,18 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 					s.log.Error(err.Error())
 					s.WriteError(w, http.StatusInternalServerError, err)
 				}
+
 			case *http.Response:
 				t.Header.Write(w)
 				t.Write(w)
+
 			case error:
 				s.WriteError(w, http.StatusInternalServerError, t)
 			}
 		}()
 
-		if len(opt.authorizers) > 0 && opt.authorizers[0] != nil {
-			for _, a := range opt.authorizers {
+		if len(route.authorizers) > 0 && route.authorizers[0] != nil {
+			for _, a := range route.authorizers {
 				ctx, err := a(r)
 				if err != nil {
 					if r, ok := err.(Responder); ok {
@@ -373,25 +364,26 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 		rc.r = r
 
 		// Add any additional context from the caller
-		if opt.contextFunc != nil {
-			r = r.WithContext(opt.contextFunc(r.Context()))
+		if route.contextFunc != nil {
+			r = r.WithContext(route.contextFunc(r.Context()))
 		}
 
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyRequest, rc))
 		rc.r = r
 
-		if h, ok := handler.(func(http.ResponseWriter, *http.Request) Responder); ok {
+		// check for standard HandlerFunc or http.HandlerFunc handlers
+		if h, ok := route.handler.(HandlerFunc); ok {
 			resp = h(w, r)
 			return
-		} else if h, ok := handler.(func(http.ResponseWriter, *http.Request)); ok {
+		} else if h, ok := route.handler.(http.HandlerFunc); ok {
 			h(w, r)
 			return
 		}
 
 		var pv reflect.Value
 
-		if opt.params != nil {
-			pt := reflect.TypeOf(opt.params)
+		if route.params != nil {
+			pt := reflect.TypeOf(route.params)
 			if pt.Kind() == reflect.Ptr {
 				pt = pt.Elem()
 			}
@@ -451,7 +443,6 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 						s.WriteError(w, http.StatusBadRequest, err)
 						return
 					}
-					r = r.WithContext(context.WithValue(r.Context(), contextKeyBody, data))
 
 					r.Body = ioutil.NopCloser(bytes.NewReader(data))
 
@@ -483,9 +474,15 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 				}
 			}
 
-			if opt.validate {
-				if v, ok := params.(Parameters); ok {
+			if route.validation {
+				if v, ok := params.(validation.Validatable); ok {
 					if err := v.Validate(); err != nil {
+						s.log.Error(err.Error())
+						s.WriteError(w, http.StatusBadRequest, err)
+						return
+					}
+				} else if v, ok := params.(validation.ValidatableWithContext); ok {
+					if err := v.ValidateWithContext(r.Context()); err != nil {
 						s.log.Error(err.Error())
 						s.WriteError(w, http.StatusBadRequest, err)
 						return
@@ -498,7 +495,7 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 			pv = reflect.Zero(reflect.TypeOf((*interface{})(nil)).Elem())
 		}
 
-		fn := reflect.ValueOf(handler)
+		fn := reflect.ValueOf(route.handler)
 		args := []reflect.Value{}
 
 		// support optional context as first parameter
@@ -523,8 +520,14 @@ func (s *Server) AddRoute(path string, handler interface{}, opts ...RouteOption)
 		if len(rval) > 0 {
 			resp = rval[0].Interface()
 		}
+	}
+}
 
-	}).Methods(opt.method)
+// AddRoutes adds a routes to the router
+func (s *Server) AddRoutes(routes ...*Route) {
+	for _, r := range routes {
+		s.router.Methods(r.methods...).Path(r.path).HandlerFunc(s.routeHandler(r))
+	}
 }
 
 // WriteJSON writes out json
@@ -560,6 +563,16 @@ func (s *Server) WriteError(w http.ResponseWriter, status int, err error) {
 	s.WriteJSON(w, status, out)
 }
 
+// Version implements the Versioner interface
+func (s *Server) Version() string {
+	return s.version
+}
+
+// Name implements the Versioner interface
+func (s *Server) Name() string {
+	return s.name
+}
+
 // WithLog specifies a new logger
 func WithLog(l log.Interface) Option {
 	return func(s *Server) {
@@ -581,11 +594,6 @@ func WithRouter(router *mux.Router) Option {
 	return func(s *Server) {
 		if router != nil {
 			s.router = router
-			s.apiRouter = s.router.PathPrefix(s.basePath).Subrouter()
-
-			if s.versioning {
-				s.apiRouter.Use(s.versionMiddleware())
-			}
 		}
 	}
 }
@@ -606,6 +614,13 @@ func WithListener(l net.Listener) Option {
 	}
 }
 
+// WithVersion sets the specific version for the server
+func WithVersion(v string) Option {
+	return func(s *Server) {
+		s.version = v
+	}
+}
+
 // WithBasepath sets the router basepath for the api
 func WithBasepath(base string) Option {
 	return func(s *Server) {
@@ -613,23 +628,8 @@ func WithBasepath(base string) Option {
 	}
 }
 
-// WithVersioning enables versioning that will enforce a versioned path
-// and optionally set the Server header to the serverVersion
-func WithVersioning(version string, serverVersion ...string) Option {
-	return func(s *Server) {
-		s.versioning = true
-		s.version = version
-
-		if len(serverVersion) > 0 {
-			s.serverVersion = serverVersion[0]
-		} else {
-			s.serverVersion = version
-		}
-	}
-}
-
-// WithName specifies the server name
-func WithName(name string) Option {
+// WithServerName specifies the server name
+func WithServerName(name string) Option {
 	return func(s *Server) {
 		s.name = name
 	}
@@ -639,48 +639,6 @@ func WithName(name string) Option {
 func WithCache(ttl time.Duration) Option {
 	return func(s *Server) {
 		s.cacheTTL = ttl
-	}
-}
-
-// WithMethod sets the method for the route option
-func WithMethod(m string) RouteOption {
-	return func(r *routeOption) {
-		r.method = m
-	}
-}
-
-// WithParams sets the params for the route option
-func WithParams(p interface{}) RouteOption {
-	return func(r *routeOption) {
-		r.params = p
-	}
-}
-
-// WithContextFunc sets the context handler for the route option
-func WithContextFunc(f ContextFunc) RouteOption {
-	return func(r *routeOption) {
-		r.contextFunc = f
-	}
-}
-
-// WithValidation sets the parameter validation
-func WithValidation(v bool) RouteOption {
-	return func(o *routeOption) {
-		o.validate = true
-	}
-}
-
-// WithAuthorizers sets the authorizers
-func WithAuthorizers(a ...Authorizer) RouteOption {
-	return func(r *routeOption) {
-		r.authorizers = a
-	}
-}
-
-// WithCaching enables content caching for the route
-func WithCaching() RouteOption {
-	return func(r *routeOption) {
-		r.cache = true
 	}
 }
 
@@ -713,9 +671,13 @@ func Request(ctx context.Context) (*http.Request, http.ResponseWriter) {
 	return nil, nil
 }
 
-// RequestBody returns the raw request body
-func RequestBody(ctx context.Context) []byte {
-	return ctx.Value(contextKeyBody).([]byte)
+// Version returns the request version from the context
+func Version(ctx context.Context) string {
+	l := ctx.Value(contextKeyRequest)
+	if r, ok := l.(*requestContext); ok {
+		return RequestVersion(r.r)
+	}
+	return ""
 }
 
 // Log returns the server log

@@ -22,9 +22,7 @@ package ptr
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"net/http"
-
-	"github.com/go-openapi/errors"
+	"errors"
 )
 
 // JSON is json pointer
@@ -57,7 +55,7 @@ func (j *JSON) Scan(value interface{}) error {
 	}
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.New(http.StatusInternalServerError, "type assertion to []byte failed")
+		return errors.New("type assertion to []byte failed")
 	}
 
 	if err := json.Unmarshal(b, &j.RawMessage); err != nil {

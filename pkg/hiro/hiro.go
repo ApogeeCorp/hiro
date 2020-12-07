@@ -24,9 +24,9 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/ModelRocket/hiro/api/spec"
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -51,28 +51,25 @@ type (
 )
 
 var (
-	// Roles is the list of atomic roles by name
+	// Roles is the list of hiro roles by name
 	Roles = []string{"admin", "user"}
 
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
-	Scopes = make([]string, 0)
+	Scopes = oauth.ScopeList{
+		"audience:read",
+		"audience:write",
+		"application:read",
+		"application:write",
+		"user:read",
+		"user:write",
+		"token:read",
+		"token:write",
+	}
 
 	passwordValidationEnabled = true
 
 	contextKeyHiro contextKey = "hiro:context"
 )
-
-func init() {
-	for key, def := range spec.SpecDoc.Spec().SecurityDefinitions {
-		if def.Type != "oauth2" || key != "Hiro" {
-			continue
-		}
-
-		for scope := range def.Scopes {
-			Scopes = append(Scopes, scope)
-		}
-	}
-}
 
 // New returns a new hiro backend
 func New(opts ...Option) (*Hiro, error) {

@@ -43,7 +43,7 @@ type (
 		TokenSecret *oauth.Token   `json:"token,omitempty" db:"token"`
 		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
 		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
-		Permissions oauth.Scope    `json:"permissions,omitempty" db:"permissions"`
+		Permissions oauth.ScopeList    `json:"permissions,omitempty" db:"permissions"`
 		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
 	}
 
@@ -52,7 +52,7 @@ type (
 		Name        string         `json:"name"`
 		Description *string        `json:"description,omitempty"`
 		TokenSecret *oauth.Token   `json:"token,omitempty"`
-		Permissions oauth.Scope    `json:"permissions,omitempty"`
+		Permissions oauth.ScopeList    `json:"permissions,omitempty"`
 		Metadata    types.Metadata `json:"metadata,omitempty"`
 	}
 
@@ -62,7 +62,7 @@ type (
 		Name        *string        `json:"name" structs:"name,omitempty"`
 		Description *string        `json:"description,omitempty" structs:"description,omitempty"`
 		TokenSecret *oauth.Token   `json:"token,omitempty" structs:"token,omitempty"`
-		Permissions oauth.Scope    `json:"permissions,omitempty" structs:"permissions,omitempty"`
+		Permissions oauth.ScopeList    `json:"permissions,omitempty" structs:"permissions,omitempty"`
 		Metadata    types.Metadata `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 

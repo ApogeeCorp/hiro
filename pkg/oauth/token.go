@@ -169,6 +169,7 @@ func (t *Token) UnmarshalJSON(data []byte) error {
 	val := struct {
 		Algorithm  TokenAlgorithm `json:"algorithm"`
 		EncodedKey string         `json:"key"`
+		Lifetime   time.Duration  `json:"lifetime"`
 	}{}
 
 	if err := json.Unmarshal(data, &val); err != nil {
@@ -177,7 +178,8 @@ func (t *Token) UnmarshalJSON(data []byte) error {
 
 	t.Algorithm = val.Algorithm
 	t.Key = val.EncodedKey
-
+	t.Lifetime = val.Lifetime
+	
 	if err := t.Algorithm.Validate(); err != nil {
 		return err
 	}

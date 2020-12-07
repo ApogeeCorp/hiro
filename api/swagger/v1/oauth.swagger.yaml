@@ -21,18 +21,16 @@ consumes:
   - "application/x-www-form-urlencoded"
 
 info:
-  title: "Hiro API"
+  title: "OAuth 2.0 API"
   version: "1.0.0"
   description: |
-    The Hiro API is a foundational API for Model Rocket projects, projects extend this API
-    to provide their own services. This API provide the necessary structures and handlers
-    for OAuth 2.0 user authentication, autorization, and management.
+    This API provides the necessary structures and handlers for OAuth 2.0 user authentication.
 
     # Authentication
 
     With the exception of the authentication operations themselves (those tagged `Auth`), all api
     calls require a valid `Bearer` token in the HTTP `Authorization` header. These tokens are signed
-    and generated using the `hiro/oauth.Controller`.
+    and generated using the `oauth.Controller` interface.
 
     # Object Identifier
 
@@ -47,14 +45,11 @@ info:
     ```
     {
       "message": "object not found",
-      "detail": "customer xyx does not exist",
+      "detail": "user does not exist",
     }
     ```
 
 tags:
-  - name: "Admin"
-    description: |
-      Administrative operations provide lower level admin services like direct user creation.
   - name: "User"
     description: |
       User operations provide services to the user like getting profile data and setting passwords.
@@ -66,172 +61,16 @@ securityDefinitions:
   OAuth:
     type: oauth2
     flow: accessCode
-    authorizationUrl: https://auth.server.local/api/1.0.0/oauth/authorize
-    tokenUrl: https://auth.server.local/api/1.0.0/oauth/token
+    authorizationUrl: https://auth.server.local/oauth/authorize
+    tokenUrl: https://auth.server.local/api/token
     scopes:
       openid: "Access a user's identity"
       profile: "Access a user's profile"
       offline_access: "Used by clients to request permission to use refresh tokens"
-      verify: "Required to verify a user's email address"
-
-  Hiro:
-    type: oauth2
-    flow: accessCode
-    authorizationUrl: https://auth.server.local/api/1.0.0/oauth/authorize
-    tokenUrl: https://auth.server.local/api/1.0.0/oauth/token
-    scopes:
-      audience:read: "Read audience objects"
-      audience:write: "Write audience objects"
-      application:read: "Read application objects"
-      application:write: "Write application objects"
-      user:read: "Read user objects"
-      user:write: "Write user objects"
-      token:read: "Read token objects"
-      token:write: "Write token objects"
+      verify:email: "Required to verify a user's email address"
+      verify:phone: "Required to verify a user's phone number"
 
 definitions:
-  Audience:
-    description: |
-      An audience is an API resource that applications can request permission to access on behalf of
-      a user or itself.
-    properties:
-      id:
-        type: "string"
-        description: "The unique audience id assigned by the server"
-      name:
-        type: "string"
-        description: "The audience name, which will be slugified on creation"
-      token_lifetime:
-        type: "integer"
-        description: "The lifetime for tokens created on behalf of this audience, in seconds"
-        format: "int64"
-        default: 3600
-        x-nullable: false
-      token_algorithm:
-        type: "string"
-        description: "The audience token signing algorithm"
-        enum: ["RS256", "HS256"]
-        default: "RS256"
-        x-nullable: false
-      token_secret:
-        type: "string"
-        description: "The signing secret used if the algorithm is HS256"
-      permissions:
-        $ref: "#/definitions/Permissions"
-      metadata:
-        $ref: "#/definitions/Metadata"
-      created_at:
-        type: "string"
-        description: "The application creation date"
-        format: "date-time"
-      updated_at:
-        type: "string"
-        description: "The last update date"
-        format: "date-time"
-
-  Application:
-    description: |
-      Applications are API clients that access APIs managed by the integration
-      service. Applications may provide user authentication flows.
-      Applications are managed by the `oauth.Controller`. This library provides
-      an incomplete base definition for application clients.
-
-      ## API URLs
-      This is an array of the application's allowed application uris. These are checked
-      in the `/oauth/authorize` path to ensure the redirect is allowed by the application.
-      This path on redirect will receive the following query parameters:
-
-        - `auth_request`: An encoded and signed request value to be forwarded to various posts.
-
-      ## Redirect URIs
-      This is an array of the application's allowed redirect uris. These are checked
-      in the `/oauth/login` path to ensure the redirect is allowed by the application.
-      This path on redirect will receive the following query parameters:
-
-      - `code`: A signed authorization code that can be passed to the `/oauth/token` path.
-
-    type: "object"
-    properties:
-      id:
-        type: "string"
-        description: "The unique application id"
-      name:
-        type: "string"
-        description: "The application name"
-        x-nullable: false
-      description:
-        type: "string"
-        description: "The application description"
-        x-nullable: true
-      type:
-        type: "string"
-        description: "The application type"
-        enum: ["web", "native", "machine"]
-      secret:
-        type: "string"
-        description: "The application secret key used for oauth grants"
-        readOnly: true
-      app_uris:
-        $ref: "#/definitions/PermissionSet"
-      redirect_uris:
-        $ref: "#/definitions/PermissionSet"
-      allowed_grants:
-        $ref: "#/definitions/PermissionSet"
-      token_lifetime:
-        type: "integer"
-        description: |
-          The lifetime for identity tokens in seconds, provided the call requested the 
-          `openid` scopes.
-        format: "int64"
-      permissions:
-        $ref: "#/definitions/PermissionSet"
-      metadata:
-        $ref: "#/definitions/Metadata"
-      created_at:
-        type: "string"
-        description: "The application creation date"
-        format: "date-time"
-      updated_at:
-        type: "string"
-        description: "The last update date"
-        format: "date-time"
-
-  User:
-    description: |
-      A user is a user object
-    type: "object"
-    required: ["login"]
-    properties:
-      id:
-        type: "string"
-        description: "The user id"
-      login:
-        type: "string"
-        description: |
-          The user's login
-        x-nullable: false
-      permissions:
-        $ref: "#/definitions/PermissionSet"
-      roles:
-        $ref: "#/definitions/PermissionSet"
-      profile:
-        $ref: "#/definitions/Profile"
-      password_expires_at:
-        type: "string"
-        description: "The time the user password expirts"
-        format: "date-time"
-        x-nullable: false
-      metadata:
-        $ref: "#/definitions/Metadata"
-      created_at:
-        type: "string"
-        description: "The user creation date"
-        format: "date-time"
-      updated_at:
-        type: "string"
-        description: "The last update date"
-        format: "date-time"
-
   Profile:
     description: |
       A profile object based on the [openid connect standard](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
@@ -424,27 +263,6 @@ definitions:
       additionalProperties:
         type: "object"
 
-  Permissions:
-    description: |
-      Permissions are used for both OAuth scopes and API permission lists.
-    type: array
-    items:
-      type: "string"
-    x-omitempty: true
-
-  PermissionSet:
-    description: |
-      A set of permissions grouped by audience.
-    type: "object"
-    additionalProperties:
-      $ref: "#/definitions/Permissions"
-
-  Metadata:
-    description: "Metadata is a basic hash type"
-    type: "object"
-    additionalProperties:
-      type: "object"
-
   ErrorResponse:
     description: "A common error response"
     type: "object"
@@ -458,75 +276,8 @@ definitions:
         type: "string"
         description: "The error detail"
 
-  Option:
-    description: "An audience configuration option"
-    type: "object"
-    discriminator: "name"
-    properties:
-      name:
-        type: "string"
-        description: "The option name"
-      audience:
-        type: "string"
-        description: "The audience the option belongs to"
-
 paths:
-  /audience:
-    get:
-      description: |
-        Query for a list of audiences.
-      operationId: "AudienceList"
-      tags: ["Hiro"]
-      consumes: ["application/json"]
-      produces: ["application/json"]
-      parameters:
-        - name: "offset"
-          description: "The query offset"
-          type: "integer"
-          format: "uint64"
-          in: "query"
-        - name: "limit"
-          description: "The response limit"
-          type: "integer"
-          format: "uint64"
-          in: "query"
-          default: 1000
-        - name: "type"
-          description: "The application type"
-          type: "array"
-          in: "query"
-          items:
-            type: "string"
-          collectionFormat: "csv"
-        - name: "preload"
-          description: "Preload child objects of the application, permissions, etc."
-          type: "boolean"
-          in: "query"
-          required: false
-      responses:
-        200:
-          description: "ok"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Audience"
-        400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-      security:
-        - Hiro:
-            - "audience:read"
-
-  /oauth/login:
+  /login:
     post:
       description: |
         Authenticates a user the `oauth.Controller` interface.
@@ -814,17 +565,18 @@ paths:
       description: |
         Gererates an oauth authorization request for login and redirects the browser to the login form.
 
-        This method will redirect the browser to `app_uri` with an encoded `request_token` parameter, which will present the user with a form.
+        This method will redirect the browser to `app_uri` with an encoded `request_token` parameter.
+        This uri should present the user with a login or signup form.
 
-          `app_uri` and `redirect_uri` must be registered with the api client.
+          Both `app_uri` and `redirect_uri` must be registered with the api client.
 
-        The form could post back to `/login` or `/signup` which will perform the final redirect to `redirect_api` with the authorization code.
+        The form could post back to `/login` or `/signup` which will perform the final redirect to `redirect_api` with 
+        the authorization code.
 
-        Errors will be delivered to `redirect_uri` with two query parameters:
-
-
+        Errors will be delivered to `app_uri` with two query parameters:
           - `error=<error name>` (i.e. `bad_request`, etc) 
           - `error_description=<error detail>`
+
       operationId: "Authorize"
       tags: ["Auth"]
       parameters:
@@ -1018,34 +770,6 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
 
-  /userPrincipal:
-    get:
-      description: |
-        Get the current user principal object from the controller. This is opaque to the oauth layer.
-      operationId: "UserPrincipalGet"
-      tags: ["User"]
-      responses:
-        200:
-          description: "ok"
-          schema:
-            type: "object"
-            additionalProperties:
-              type: "object"
-        400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-      security:
-        - OAuth: ["openid", "profile"]
-
   /userInfo:
     get:
       description: |
@@ -1073,7 +797,7 @@ paths:
         - OAuth: ["openid", "profile"]
     put:
       description: |
-        Update the user's info
+        Update the user's profile
       operationId: "UserInfoUpdate"
       tags: ["Auth"]
       parameters:

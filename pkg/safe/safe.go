@@ -17,12 +17,17 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ptr
+// Package safe returns a safe scalar value from a possible nil pointer
+package safe
 
-import "github.com/spf13/cast"
+import (
+	"time"
 
-// SafeString handles nil pointers to always return a valid string
-func SafeString(s interface{}, def ...string) string {
+	"github.com/spf13/cast"
+)
+
+// String handles nil pointers to always return a valid string
+func String(s interface{}, def ...string) string {
 	val := cast.ToString(s)
 	if val == "" && len(def) > 0 {
 		return def[0]
@@ -30,8 +35,8 @@ func SafeString(s interface{}, def ...string) string {
 	return val
 }
 
-// SafeBool returns a safe bool from the value
-func SafeBool(b interface{}, def ...bool) bool {
+// Bool returns a safe bool from the value
+func Bool(b interface{}, def ...bool) bool {
 	switch t := b.(type) {
 	case bool:
 		return t
@@ -48,8 +53,8 @@ func SafeBool(b interface{}, def ...bool) bool {
 	return cast.ToBool(b)
 }
 
-// SafeInt64 returns a safe int64 from the value or default if nil
-func SafeInt64(i interface{}, def ...int64) int64 {
+// Int64 returns a safe int64 from the value or default if nil
+func Int64(i interface{}, def ...int64) int64 {
 	switch t := i.(type) {
 	case int64:
 		return t
@@ -66,7 +71,18 @@ func SafeInt64(i interface{}, def ...int64) int64 {
 	return cast.ToInt64(i)
 }
 
-// SafeStrEqual compares to values as strings safely
-func SafeStrEqual(s1, s2 interface{}) bool {
-	return SafeString(s1) == SafeString(s2)
+// StrEqual compares to values as strings safely
+func StrEqual(s1, s2 interface{}) bool {
+	return String(s1) == String(s2)
+}
+
+// Time returns a safe time
+func Time(t interface{}, def ...time.Time) time.Time {
+	val := cast.ToTime(t)
+
+	if val.IsZero() && len(def) > 0 {
+		return def[0]
+	}
+
+	return val
 }

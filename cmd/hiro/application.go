@@ -27,6 +27,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
@@ -116,14 +117,14 @@ var (
 )
 
 type (
-	permArg  oauth.Permissions
+	permArg  oauth.ScopeSet
 	grantArg oauth.Grants
 )
 
 func applicationCreate(c *cli.Context) error {
 	var err error
 
-	perms := oauth.Permissions(c.Generic("permissions").(permArg))
+	perms := oauth.ScopeSet(c.Generic("permissions").(permArg))
 	grants := oauth.Grants(c.Generic("grants").(grantArg))
 
 	app, err := h.ApplicationCreate(context.Background(), hiro.ApplicationCreateInput{
@@ -217,7 +218,7 @@ func applicationList(c *cli.Context) error {
 		list = append(list, entry{
 			ID:          a.ID,
 			Name:        a.Name,
-			Description: ptr.SafeString(a.Description),
+			Description: safe.String(a.Description),
 			CreatedAt:   humanize.Time(a.CreatedAt),
 		})
 	}

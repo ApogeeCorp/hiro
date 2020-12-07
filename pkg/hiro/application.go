@@ -46,7 +46,7 @@ type (
 		Description *string           `json:"description,omitempty" db:"description"`
 		Type        oauth.ClientType  `json:"type" db:"type"`
 		SecretKey   *string           `json:"secret_key,omitempty" db:"secret_key"`
-		Permissions oauth.Permissions `json:"permissions,omitempty" db:"permissions"`
+		Permissions oauth.ScopeSet `json:"permissions,omitempty" db:"permissions"`
 		Grants      oauth.Grants      `json:"grants,omitempty" db:"grants"`
 		URIs        pq.StringArray    `json:"uris,omitempty" db:"uris"`
 		CreatedAt   time.Time         `json:"created_at" db:"created_at"`
@@ -59,7 +59,7 @@ type (
 		Name        string            `json:"name"`
 		Description *string           `json:"description,omitempty"`
 		Type        oauth.ClientType  `json:"type" db:"type"`
-		Permissions oauth.Permissions `json:"permissions,omitempty"`
+		Permissions oauth.ScopeSet `json:"permissions,omitempty"`
 		Grants      oauth.Grants      `json:"grants,omitempty"`
 		URIs        []string          `json:"uris,omitempty"`
 		Metadata    types.Metadata    `json:"metadata,omitempty"`
@@ -71,7 +71,7 @@ type (
 		Name          *string           `json:"name" structs:"name,omitempty"`
 		Description   *string           `json:"description,omitempty" structs:"description,omitempty"`
 		Type          *oauth.ClientType `json:"type" structs:"type,omitempty"`
-		Permissions   oauth.Permissions `json:"permissions,omitempty" structs:"permissions,omitempty"`
+		Permissions   oauth.ScopeSet `json:"permissions,omitempty" structs:"permissions,omitempty"`
 		Grants        oauth.Grants      `json:"grants,omitempty" structs:"grants,omitempty"`
 		URIs          []string          `json:"uris,omitempty" structs:"uris,omitempty"`
 		Metadata      types.Metadata    `json:"metadata,omitempty" structs:"metadata,omitempty"`
