@@ -27,16 +27,22 @@ type (
 		// ClientGet gets the client from the controller
 		ClientGet(ctx context.Context, id string) (Client, error)
 
-		// RequestCreate creates a new authentication request token using the controller
-		RequestCreate(ctx context.Context, req Request) (string, error)
+		// RequestTokenCreate creates a new authentication request token using the controller
+		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)
 
-		// RequestGet looks up a request by id from the controller
-		RequestGet(ctx context.Context, id string) (*Request, error)
+		// RequestTokenGet looks up a request by id from the controller
+		RequestTokenGet(ctx context.Context, id string) (RequestToken, error)
 
-		// TokenCreate creates a new token in the controller
-		TokenCreate(ctx context.Context, token *AccessToken) error
+		// UserGet gets a user object by id
+		UserGet(ctx context.Context, id string) (User, error)
 
-		// TokenFinalize finalizes the token and returns the signed and encoded token
-		TokenFinalize(ctx context.Context, token *AccessToken) (string, error)
+		// UserAuthenticate authenticates a user and returns a principal object
+		UserAuthenticate(ctx context.Context, login, password string) (User, error)
+
+		// TokenCreate creates a new access token
+		TokenCreate(ctx context.Context, token AccessToken) error
+
+		// TokenFinalize finalizes the token and returns the signed and encoded value
+		TokenFinalize(ctx context.Context, token AccessToken) (string, error)
 	}
 )

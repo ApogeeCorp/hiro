@@ -49,7 +49,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 	//log := api.Log(ctx).WithField("operation", "login")
 
-	req, err := ctrl.RequestGet(ctx, params.RequestToken)
+	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken)
 	if err != nil {
 		return ErrAccessDenied.WithError(err)
 	}
@@ -57,6 +57,12 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	if req.ExpiresAt.Before(time.Now()) {
 		return ErrExpiredToken
 	}
+
+	if req.Type != RequestTokenTypeAuthCode {
+		return ErrInvalidToken
+	}
+
+	
 
 	return nil
 }

@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS hiro.access_tokens(
     FOREIGN KEY (user_id) REFERENCES hiro.users(id) ON DELETE CASCADE
 );
 
+CREATE INDEX access_token_user ON hiro.access_tokens(user_id);
+
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied
 DROP TABLE hiro.access_tokens;

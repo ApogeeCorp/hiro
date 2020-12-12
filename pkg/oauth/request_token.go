@@ -28,20 +28,26 @@ import (
 )
 
 type (
-	// Request represents an oauth request used for authorization_code and refresh_token flows
-	Request struct {
-		ID                  types.ID            `db:"id"`
-		CreatedAt           time.Time           `db:"created_at"`
-		AudienceID          types.ID            `db:"audience_id"`
-		ApplicationID       types.ID            `db:"application_id,"`
-		Scope               Scope               `db:"scope,omitempty"`
-		ExpiresAt           time.Time           `db:"expires_at"`
-		CodeChallenge       string              `db:"code_challenge"`
-		CodeChallengeMethod CodeChallengeMethod `db:"code_challenge_method"`
-		AppURI              URI                 `db:"app_uri"`
-		RedirectURI         URI                 `db:"redirect_uri"`
-		State               *string             `db:"state,omitempty"`
+	// RequestToken represents an oauth request used for authorization_code and refresh_token flows
+	// These tokens are generally single use and should not be exposed, other than their id
+	RequestToken struct {
+		ID                  types.ID
+		Type                RequestTokenType
+		CreatedAt           time.Time
+		AudienceID          types.ID
+		ApplicationID       types.ID
+		UserID              types.ID
+		Scope               Scope
+		ExpiresAt           time.Time
+		CodeChallenge       string
+		CodeChallengeMethod CodeChallengeMethod
+		AppURI              URI
+		RedirectURI         URI
+		State               *string
 	}
+
+	// RequestTokenType is the request token type
+	RequestTokenType string
 
 	// CodeChallengeMethod defines a code challenge method
 	CodeChallengeMethod string
@@ -50,6 +56,15 @@ type (
 const (
 	// CodeChallengeMethodS256 is a sha-256 code challenge method
 	CodeChallengeMethodS256 CodeChallengeMethod = "S256"
+
+	// RequestTokenTypeLogin is used for login or signup routes
+	RequestTokenTypeLogin RequestTokenType = "login"
+
+	// RequestTokenTypeAuthCode is used to request token
+	RequestTokenTypeAuthCode RequestTokenType = "auth_code"
+
+	// RequestTokenTypeRefreshToken is used to request refresh token
+	RequestTokenTypeRefreshToken RequestTokenType = "refresh_token"
 )
 
 // Validate validates the CodeChallengeMethod
@@ -62,10 +77,12 @@ func (c CodeChallengeMethod) String() string {
 }
 
 // Validate validates the Request
-func (r Request) Validate() error {
+func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
+		validation.Field(&r.Type, validation.Required, validation.In(RequestTokenTypeLogin, RequestTokenTypeAuthCode, RequestTokenTypeRefreshToken)),
 		validation.Field(&r.AudienceID, validation.Required),
 		validation.Field(&r.ApplicationID, validation.Required),
+		validation.Field(&r.UserID, validation.NilOrNotEmpty),
 		validation.Field(&r.CodeChallenge, validation.Required),
 		validation.Field(&r.CodeChallengeMethod, validation.Required),
 		validation.Field(&r.ExpiresAt, validation.Required),

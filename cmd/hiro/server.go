@@ -56,7 +56,7 @@ func serverMain(c *cli.Context) error {
 
 	server := api.NewServer()
 
-	server.Router("/oauth").AddRoutes(oauth.Routes(h)...)
+	server.Router("/oauth").AddRoutes(oauth.Routes(h.OAuthController())...)
 
 	ws := grpcweb.WrapServer(s)
 
