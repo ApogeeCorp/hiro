@@ -37,8 +37,8 @@ import (
 )
 
 type (
-	// Token is a token secret
-	Token struct {
+	// TokenSecret is a token secret
+	TokenSecret struct {
 		Algorithm TokenAlgorithm `json:"algorithm,omitempty"`
 		Key       string         `json:"key,omitempty"`
 		Lifetime  time.Duration  `json:"lifetime"`
@@ -69,8 +69,8 @@ func (a TokenAlgorithm) Validate() error {
 }
 
 // GenerateTokenSecret generates an RSA256 token and returns the encoded string value
-func GenerateTokenSecret(alg TokenAlgorithm, lifetime time.Duration) (*Token, error) {
-	token := &Token{
+func GenerateTokenSecret(alg TokenAlgorithm, lifetime time.Duration) (*TokenSecret, error) {
+	token := &TokenSecret{
 		Algorithm: alg,
 		Lifetime:  lifetime,
 	}
@@ -99,8 +99,8 @@ func GenerateTokenSecret(alg TokenAlgorithm, lifetime time.Duration) (*Token, er
 }
 
 // NewTokenSecret returns a token secret from the algorithm and key
-func NewTokenSecret(alg TokenAlgorithm, key interface{}, lifetime time.Duration) (*Token, error) {
-	token := &Token{
+func NewTokenSecret(alg TokenAlgorithm, key interface{}, lifetime time.Duration) (*TokenSecret, error) {
+	token := &TokenSecret{
 		Algorithm: alg,
 		Lifetime:  lifetime,
 		key:       key,
@@ -122,7 +122,7 @@ func NewTokenSecret(alg TokenAlgorithm, key interface{}, lifetime time.Duration)
 }
 
 // Validate handles validation of the TokenSecret struct
-func (t Token) Validate() error {
+func (t TokenSecret) Validate() error {
 	if err := (validation.Errors{
 		"algorithm": validation.Validate(t.Algorithm),
 		"lifetime":  validation.Validate(t.Lifetime, validation.Required, validation.Min(TokenLifetimeMinimum)),
@@ -150,7 +150,7 @@ func (t Token) Validate() error {
 }
 
 // MarshalJSON marshals the token to json
-func (t Token) MarshalJSON() ([]byte, error) {
+func (t TokenSecret) MarshalJSON() ([]byte, error) {
 	val := struct {
 		Algorithm TokenAlgorithm `json:"algorithm,omitempty"`
 		Key       string         `json:"key,omitempty"`
@@ -165,7 +165,7 @@ func (t Token) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unmarshals the token from json
-func (t *Token) UnmarshalJSON(data []byte) error {
+func (t *TokenSecret) UnmarshalJSON(data []byte) error {
 	val := struct {
 		Algorithm  TokenAlgorithm `json:"algorithm"`
 		EncodedKey string         `json:"key"`
@@ -203,7 +203,7 @@ func (t *Token) UnmarshalJSON(data []byte) error {
 }
 
 // Scan implements the Scanner interface.
-func (t *Token) Scan(value interface{}) error {
+func (t *TokenSecret) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -217,12 +217,12 @@ func (t *Token) Scan(value interface{}) error {
 }
 
 // Value implements the driver Valuer interface.
-func (t Token) Value() (driver.Value, error) {
+func (t TokenSecret) Value() (driver.Value, error) {
 	return json.Marshal(t)
 }
 
 // Bytes returns the token as bytes
-func (t Token) Bytes() []byte {
+func (t TokenSecret) Bytes() []byte {
 	switch key := t.key.(type) {
 	case *rsa.PrivateKey:
 		privOut := new(bytes.Buffer)

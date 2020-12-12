@@ -52,8 +52,8 @@ var (
 )
 
 // Transact starts a db transaction, adds it to the context and calls the handler
-func (h *Hiro) Transact(ctx context.Context, handler TxHandler) (err error) {
-	ctx, ref, err := h.txRef(ctx)
+func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
+	ctx, ref, err := b.txRef(ctx)
 	if err != nil {
 		return
 	}
@@ -87,14 +87,14 @@ func (h *Hiro) Transact(ctx context.Context, handler TxHandler) (err error) {
 	return
 }
 
-func (h *Hiro) txRef(ctx context.Context) (context.Context, *txRef, error) {
+func (b *Backend) txRef(ctx context.Context) (context.Context, *txRef, error) {
 	tmp := ctx.Value(contextKeyTx)
 	if ref, ok := tmp.(*txRef); ok {
 		atomic.AddInt64(&ref.count, 1)
 		return ctx, ref, nil
 	}
 
-	tx, err := h.db.BeginTxx(ctx, nil)
+	tx, err := b.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -107,12 +107,12 @@ func (h *Hiro) txRef(ctx context.Context) (context.Context, *txRef, error) {
 }
 
 // DB returns a transaction from the context if it exists or the db
-func (h *Hiro) DB(ctx context.Context) DB {
+func (b *Backend) DB(ctx context.Context) DB {
 	tx := ctx.Value(contextKeyTx)
 	if ref, ok := tx.(*txRef); ok {
 		return ref
 	}
-	return h.db
+	return b.db
 }
 
 // IsTransaction returns true of the DB interface is a transaction

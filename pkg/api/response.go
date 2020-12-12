@@ -38,7 +38,7 @@ type (
 		// Payload is the payload
 		Payload() interface{}
 
-		// Write writes ou the payload
+		// Write writes out the payload
 		Write(w http.ResponseWriter) error
 	}
 
@@ -67,7 +67,19 @@ func NewResponse(payload ...interface{}) *Response {
 	}
 
 	var writer WriterFunc
-	switch p.(type) {
+	switch r := p.(type) {
+	case Responder:
+		return NewResponse(r.Payload()).WithStatus(r.Status())
+
+	case error:
+		p := struct {
+			Message string `json:"message"`
+		}{
+			Message: r.Error(),
+		}
+
+		return NewResponse(p).WithStatus(http.StatusInternalServerError)
+
 	case []byte:
 		writer = Write
 	case string:

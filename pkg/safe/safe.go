@@ -27,10 +27,10 @@ import (
 )
 
 // String handles nil pointers to always return a valid string
-func String(s interface{}, def ...string) string {
+func String(s interface{}, def ...interface{}) string {
 	val := cast.ToString(s)
 	if val == "" && len(def) > 0 {
-		return def[0]
+		return cast.ToString(def[0])
 	}
 	return val
 }

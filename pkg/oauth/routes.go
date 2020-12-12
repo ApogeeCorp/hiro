@@ -19,11 +19,16 @@
 
 package oauth
 
-import "github.com/ModelRocket/hiro/pkg/api"
+import (
+	"net/http"
 
-type (
-	// Server is an oauth http server
-	Server struct {
-		*api.Server
-	}
+	"github.com/ModelRocket/hiro/pkg/api"
 )
+
+// Routes returns the oauth api routes
+func Routes(ctrl Controller) []api.Route {
+	return []api.Route{
+		api.NewRoute("/authorize", authorize, api.WithContext(ctrl)),
+		api.NewRoute("/login", login, api.WithMethods(http.MethodPost), api.WithContext(ctrl)),
+	}
+}

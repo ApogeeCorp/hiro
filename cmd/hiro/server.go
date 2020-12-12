@@ -18,15 +18,21 @@
 package main
 
 import (
-	"log"
+	"context"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
+	"github.com/apex/log"
+
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
@@ -48,51 +54,40 @@ func serverMain(c *cli.Context) error {
 		}
 	}()
 
+	server := api.NewServer()
+
+	server.Router("/oauth").AddRoutes(oauth.Routes(h)...)
+
 	ws := grpcweb.WrapServer(s)
 
-	router := mux.NewRouter()
+	server.Router("/").AddRoutes(api.NewRoute("", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc-web") {
+			ws.ServeHTTP(w, r)
+		}
+	}))
 
-	router.PathPrefix("/").HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc-web") {
-				ws.ServeHTTP(w, r)
-			} else {
-				http.DefaultServeMux.ServeHTTP(w, r)
-			}
-		})
+	done := make(chan os.Signal, 1)
 
-	handler := handlers.CORS(
-		handlers.AllowedOrigins([]string{"*"}),
-		handlers.AllowedMethods([]string{"OPTIONS", "HEAD", "GET", "POST", "PUT", "DELETE"}),
-		handlers.AllowedHeaders([]string{
-			"Access-Control-Allow-Origin",
-			"Accept",
-			"Accept-Encoding",
-			"Connection",
-			"Origin",
-			"Sec-Fetch-Mode",
-			"Sec-Fetch-Dest",
-			"Referer",
-			"Accept-Language",
-			"Access-Control-Request-Method",
-			"Access-Control-Request-Headers",
-			"Cache-Control",
-			"User-Agent",
-			"Pragma",
-			"X-Grpc-Web",
-			"X-User-Agent",
-			"Sec-Fetch-Site",
-			"Accept-Encoding",
-			"Content-Type",
-			"Authorization",
-		}),
-		handlers.ExposedHeaders([]string{
-			"Access-Control-Allow-Origin",
-		}),
-		handlers.AllowCredentials(),
-	)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	http.ListenAndServe(c.String("http-addr"), handler(router))
+	go func() {
+		if err := server.Serve(); err != nil {
+			log.Fatalf("failed to start the atomic daemon %+v", err)
+		}
+
+	}()
+	log.Info("atomic daemon started")
+
+	<-done
+	log.Info("atomic dameon shutting down...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown:%+v", err)
+	}
+	log.Info("atomic shutdown")
 
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"mime"
 	"net"
@@ -75,7 +76,7 @@ type (
 	HandlerFunc func(http.ResponseWriter, *http.Request) Responder
 
 	// ContextFunc adds context to a request
-	ContextFunc func(context.Context) context.Context
+	ContextFunc func(context.Context) interface{}
 
 	// Option provides the server options, these will override th defaults and any atomic
 	// instance values.
@@ -93,6 +94,8 @@ var (
 	contextKeyLogger = contextKey("api:logger")
 
 	contextKeyRequest = contextKey("api:request")
+
+	contextKeyContext = contextKey("api:context")
 )
 
 // NewServer creates a new server object
@@ -101,6 +104,7 @@ func NewServer(opts ...Option) *Server {
 		defaultAddr     = "127.0.0.1:9000"
 		defaultCacheTTL = time.Hour
 		defaultVersion  = "1.0.0"
+		defaultName     = "ModelRocket"
 	)
 
 	s := &Server{
@@ -109,6 +113,7 @@ func NewServer(opts ...Option) *Server {
 		addr:     defaultAddr,
 		cacheTTL: defaultCacheTTL,
 		version:  defaultVersion,
+		name:     defaultName,
 	}
 
 	for _, opt := range opts {
@@ -120,7 +125,7 @@ func NewServer(opts ...Option) *Server {
 	}
 
 	s.router.Use(s.LogMiddleware())
-	s.router.Use(VersionMiddleware(s))
+	s.router.Use(VersionMiddleware(s, false))
 
 	if s.cacheTTL > 0 {
 		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
@@ -212,16 +217,17 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // Router returns an api router at the specified base path
-func (s *Server) Router(basePath string, opts ...RouterOption) *Router {
+func (s *Server) Router(basePath string, opts ...RouterOption) Router {
 	const (
 		defaultVersion = "1.0.0"
 	)
 
-	r := &Router{
+	r := &router{
 		basePath:   basePath,
 		version:    defaultVersion,
-		versioning: true,
+		versioning: false,
 		name:       s.name,
+		s:          s,
 	}
 
 	for _, opt := range opts {
@@ -235,7 +241,7 @@ func (s *Server) Router(basePath string, opts ...RouterOption) *Router {
 	r.Router = s.router.PathPrefix(r.basePath).Subrouter()
 
 	if r.versioning {
-		r.Use(VersionMiddleware(r, "X-API-Version"))
+		r.Use(VersionMiddleware(r, r.versioning, "X-API-Version"))
 	}
 
 	return r
@@ -246,7 +252,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-func (s *Server) routeHandler(route *Route) http.HandlerFunc {
+func (s *Server) routeHandler(route Route) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var resp interface{}
 
@@ -365,7 +371,11 @@ func (s *Server) routeHandler(route *Route) http.HandlerFunc {
 
 		// Add any additional context from the caller
 		if route.contextFunc != nil {
-			r = r.WithContext(route.contextFunc(r.Context()))
+			if c := route.contextFunc(r.Context()); c != nil {
+				r = r.WithContext(context.WithValue(r.Context(), contextKeyContext, c))
+			}
+		} else if route.context != nil {
+			r = r.WithContext(context.WithValue(r.Context(), contextKeyContext, route.context))
 		}
 
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyRequest, rc))
@@ -380,10 +390,16 @@ func (s *Server) routeHandler(route *Route) http.HandlerFunc {
 			return
 		}
 
-		var pv reflect.Value
+		fn := reflect.ValueOf(route.handler)
+		args := []reflect.Value{}
 
-		if route.params != nil {
-			pt := reflect.TypeOf(route.params)
+		if fn.Type().In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
+			panic(fmt.Errorf("first argument of handler must be context.Context"))
+		}
+		args = append(args, reflect.ValueOf(r.Context()))
+
+		if fn.Type().NumIn() > 1 {
+			pt := fn.Type().In(1)
 			if pt.Kind() == reflect.Ptr {
 				pt = pt.Elem()
 			}
@@ -490,22 +506,7 @@ func (s *Server) routeHandler(route *Route) http.HandlerFunc {
 				}
 			}
 
-			pv = reflect.ValueOf(params)
-		} else {
-			pv = reflect.Zero(reflect.TypeOf((*interface{})(nil)).Elem())
-		}
-
-		fn := reflect.ValueOf(route.handler)
-		args := []reflect.Value{}
-
-		// support optional context as first parameter
-		narg := 0
-		if fn.Type().In(0) == reflect.TypeOf((*context.Context)(nil)).Elem() {
-			args = append(args, reflect.ValueOf(r.Context()))
-			narg++
-		}
-		if fn.Type().NumIn() > narg {
-			args = append(args, pv)
+			args = append(args, reflect.ValueOf(params))
 		}
 
 		if _, ok := os.LookupEnv("HTTP_TRACE_ENABLE"); ok {
@@ -524,7 +525,7 @@ func (s *Server) routeHandler(route *Route) http.HandlerFunc {
 }
 
 // AddRoutes adds a routes to the router
-func (s *Server) AddRoutes(routes ...*Route) {
+func (s *Server) AddRoutes(routes ...Route) {
 	for _, r := range routes {
 		s.router.Methods(r.methods...).Path(r.path).HandlerFunc(s.routeHandler(r))
 	}
@@ -660,6 +661,11 @@ func Log(ctx context.Context) log.Interface {
 func IsRequest(ctx context.Context) bool {
 	_, ok := ctx.Value(contextKeyRequest).(*requestContext)
 	return ok
+}
+
+// Context returns the request context object
+func Context(ctx context.Context) interface{} {
+	return ctx.Value(contextKeyContext)
 }
 
 // Request gets the reqest and response objects from the context

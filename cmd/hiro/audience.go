@@ -119,7 +119,7 @@ var (
 )
 
 func audienceCreate(c *cli.Context) error {
-	var secret *oauth.Token
+	var secret *oauth.TokenSecret
 	var err error
 
 	lifetime := time.Duration(c.Duration("token_lifetime"))
@@ -155,14 +155,14 @@ func audienceCreate(c *cli.Context) error {
 
 	perms := c.StringSlice("permissions")
 	if len(perms) == 0 {
-		perms = append(hiro.Scopes, oauth.DefaultScope...)
+		perms = append(hiro.Scopes, oauth.Scopes...)
 	}
 
 	aud, err := h.AudienceCreate(context.Background(), hiro.AudienceCreateInput{
 		Name:        c.String("name"),
 		Description: ptr.NilString(c.String("description")),
 		TokenSecret: secret,
-		Permissions: oauth.ScopeList(perms),
+		Permissions: oauth.Scope(perms),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -258,7 +258,7 @@ func audienceList(c *cli.Context) error {
 }
 
 func audienceUpdate(c *cli.Context) error {
-	var secret *oauth.Token
+	var secret *oauth.TokenSecret
 	var err error
 
 	params := hiro.AudienceUpdateInput{
@@ -267,7 +267,7 @@ func audienceUpdate(c *cli.Context) error {
 
 	lifetime := time.Duration(c.Duration("token_lifetime"))
 	if lifetime > 0 {
-		secret = &oauth.Token{
+		secret = &oauth.TokenSecret{
 			Lifetime: lifetime,
 		}
 	}
@@ -299,7 +299,7 @@ func audienceUpdate(c *cli.Context) error {
 	}
 
 	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = oauth.ScopeList(perms)
+		params.Permissions = oauth.Scope(perms)
 	}
 
 	aud, err := h.AudienceUpdate(context.Background(), params)

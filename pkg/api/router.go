@@ -22,8 +22,13 @@ package api
 import "github.com/gorilla/mux"
 
 type (
-	// Router is an api router
-	Router struct {
+	// Router is a router interface
+	Router interface {
+		AddRoutes(routes ...Route)
+	}
+
+	// router is an api router
+	router struct {
 		*mux.Router
 		s          *Server
 		basePath   string
@@ -33,11 +38,11 @@ type (
 	}
 
 	// RouterOption specifies a router option
-	RouterOption func(r *Router)
+	RouterOption func(r *router)
 )
 
 // AddRoutes adds a routes to the router
-func (r *Router) AddRoutes(routes ...*Route) {
+func (r *router) AddRoutes(routes ...Route) {
 	for _, rt := range routes {
 		r.Methods(rt.methods...).Path(rt.path).HandlerFunc(r.s.routeHandler(rt))
 	}
@@ -45,7 +50,7 @@ func (r *Router) AddRoutes(routes ...*Route) {
 
 // WithVersioning enables versioning that will enforce a versioned path
 func WithVersioning(version string) RouterOption {
-	return func(r *Router) {
+	return func(r *router) {
 		r.versioning = true
 		r.version = version
 	}
@@ -53,17 +58,17 @@ func WithVersioning(version string) RouterOption {
 
 // WithName enables versioning that will enforce a versioned path
 func WithName(name string) RouterOption {
-	return func(r *Router) {
+	return func(r *router) {
 		r.name = name
 	}
 }
 
 // Version implements the Versioner interface
-func (r *Router) Version() string {
+func (r *router) Version() string {
 	return r.version
 }
 
 // Name implements the Versioner interface
-func (r *Router) Name() string {
+func (r *router) Name() string {
 	return r.name
 }

@@ -33,8 +33,8 @@ import (
 )
 
 type (
-	// Hiro is the hiro api backend implementation
-	Hiro struct {
+	// Backend is the hiro api backend implementation
+	Backend struct {
 		dbSource      string
 		db            *sqlx.DB
 		automigrate   bool
@@ -42,10 +42,11 @@ type (
 		timeout       time.Duration
 		retryInterval time.Duration
 		log           log.Interface
+		passwords     PasswordManager
 	}
 
-	// Option defines a backend option
-	Option func(b *Hiro)
+	// BackendOption defines a backend option
+	BackendOption func(b *Backend)
 
 	contextKey string
 )
@@ -55,7 +56,7 @@ var (
 	Roles = []string{"admin", "user"}
 
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
-	Scopes = oauth.ScopeList{
+	Scopes = oauth.Scope{
 		"audience:read",
 		"audience:write",
 		"application:read",
@@ -66,87 +67,91 @@ var (
 		"token:write",
 	}
 
-	passwordValidationEnabled = true
-
 	contextKeyHiro contextKey = "hiro:context"
 )
 
 // New returns a new hiro backend
-func New(opts ...Option) (*Hiro, error) {
+func New(opts ...BackendOption) (*Backend, error) {
 	const (
 		defaultSource        = "postgres://postgres:password@db/hiro?sslmode=disable"
 		defaultTimeout       = time.Second * 90
 		defaultRetryInterval = time.Second * 3
 	)
 
-	h := &Hiro{
+	b := &Backend{
 		dbSource:      defaultSource,
 		timeout:       defaultTimeout,
 		retryInterval: defaultRetryInterval,
 		automigrate:   false,
 		initialize:    false,
 		log:           log.Log,
+		passwords:     DefaultPasswordManager,
 	}
 
 	for _, opt := range opts {
-		opt(h)
+		opt(b)
 	}
 
-	if h.db == nil {
-		conn, err := sqlx.Open("postgres", h.dbSource)
+	if b.db == nil {
+		conn, err := sqlx.Open("postgres", b.dbSource)
 		if err != nil {
 			return nil, err
 		}
 
 		if err := conn.Ping(); err != nil {
-			t := time.NewTicker(h.timeout)
+			t := time.NewTicker(b.timeout)
 
 		ping:
 			for {
 				select {
 				case <-t.C:
-					h.log.Error("database connection timeout")
+					b.log.Error("database connection timeout")
 
 					return nil, ErrDatabaseTimeout
 
-				case <-time.After(h.retryInterval):
+				case <-time.After(b.retryInterval):
 					if err := conn.Ping(); err == nil {
 						break ping
 					}
-					h.log.Warnf("database connection error: %s, retry %s", err, h.retryInterval.String())
+					b.log.Warnf("database connection error: %s, retry %s", err, b.retryInterval.String())
 				}
 			}
 		}
 
-		h.db = conn
+		b.db = conn
 	}
 
-	if h.automigrate {
-		if _, err := db.Migrate(h.db.DB, "postgres", migrate.Up); err != nil {
+	if b.automigrate {
+		if _, err := db.Migrate(b.db.DB, "postgres", migrate.Up); err != nil {
 			return nil, err
 		}
 	}
 
-	return h, nil
+	return b, nil
 }
 
 // Log returns the log from the context or from the server
-func (h *Hiro) Log(ctx context.Context) log.Interface {
+func (b *Backend) Log(ctx context.Context) log.Interface {
 	if api.IsRequest(ctx) {
 		return api.Log(ctx)
 	}
 
-	return h.log
+	return b.log
 }
 
 // Context returns the context with hiro
-func (h *Hiro) Context(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKeyHiro, h)
+func (b *Backend) Context(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKeyHiro, b)
+}
+
+// PasswordManager returns the current password manager for the instance
+func (b *Backend) PasswordManager() PasswordManager {
+	return b.passwords
 }
 
 // FromContext returns a hiro from the context
-func FromContext(ctx context.Context) *Hiro {
-	h, ok := ctx.Value(contextKeyHiro).(*Hiro)
+func FromContext(ctx context.Context) *Backend {
+	h, ok := ctx.Value(contextKeyHiro).(*Backend)
 	if ok {
 		return h
 	}
@@ -154,31 +159,31 @@ func FromContext(ctx context.Context) *Hiro {
 }
 
 // WithLog sets the log for the backend
-func WithLog(l log.Interface) Option {
-	return func(h *Hiro) {
-		h.log = l
+func WithLog(l log.Interface) BackendOption {
+	return func(b *Backend) {
+		b.log = l
 	}
 }
 
 // WithDB sets the database instance
-func WithDB(db *sql.DB) Option {
-	return func(h *Hiro) {
-		h.db = sqlx.NewDb(db, "postgres")
+func WithDB(db *sql.DB) BackendOption {
+	return func(b *Backend) {
+		b.db = sqlx.NewDb(db, "postgres")
 	}
 }
 
 // WithDBSource sets the database source string
-func WithDBSource(source string) Option {
-	return func(h *Hiro) {
+func WithDBSource(source string) BackendOption {
+	return func(b *Backend) {
 		if source != "" {
-			h.dbSource = source
+			b.dbSource = source
 		}
 	}
 }
 
 // Automigrate will perform the database initialization, creating tables and indexes.
-func Automigrate() Option {
-	return func(h *Hiro) {
-		h.automigrate = true
+func Automigrate() BackendOption {
+	return func(b *Backend) {
+		b.automigrate = true
 	}
 }

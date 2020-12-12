@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	h   *hiro.Hiro
+	h   *hiro.Backend
 	app = cli.NewApp()
 )
 
@@ -68,6 +68,7 @@ func main() {
 	app.Commands = []*cli.Command{
 		audienceCommand,
 		applicationCommand,
+		userCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {

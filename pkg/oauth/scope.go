@@ -23,39 +23,37 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 type (
 	// Scope is an oauth scope
-	Scope string
-
-	// ScopeList are used for both OAuth scopes and API ACL lists.
-	ScopeList []Scope
+	Scope []string
 
 	// ScopeSet represents a map between an audiece and a scope
-	ScopeSet map[string]ScopeList
+	ScopeSet map[string]Scope
 )
 
 const (
 	// ScopeOpenID is the openid scope
-	ScopeOpenID Scope = "openid"
+	ScopeOpenID = "openid"
 
 	// ScopeProfile is the scope required to query for a users profile
-	ScopeProfile Scope = "profile"
+	ScopeProfile = "profile"
 
 	// ScopeOfflineAccess is the scope necessary to request a refresh_token
-	ScopeOfflineAccess Scope = "offline_access"
+	ScopeOfflineAccess = "offline_access"
 
 	// ScopeVerifyEmail is the scope required to verify a user's email address
-	ScopeVerifyEmail Scope = "verify:email"
+	ScopeVerifyEmail = "verify:email"
 
 	// ScopeVerifyPhone is the scope required to verify a user's phone number
-	ScopeVerifyPhone Scope = "verify:phone"
+	ScopeVerifyPhone = "verify:phone"
 )
 
 var (
 	// Scopes is the list of all oauth scopes
-	Scopes = ScopeList{
+	Scopes = Scope{
 		ScopeOpenID,
 		ScopeProfile,
 		ScopeOfflineAccess,
@@ -64,15 +62,15 @@ var (
 	}
 )
 
-// MakeScope returns a ScopeList from the string scopes
-func MakeScope(s ...string) ScopeList {
-	return ScopeList(s)
+// MakeScope returns a Scope from the string scopes
+func MakeScope(scopes ...string) Scope {
+	return Scope(scopes)
 }
 
 // Contains return true if the scope contains the value
-func (s ScopeList) Contains(value string) bool {
+func (s Scope) Contains(value string) bool {
 	for _, v := range s {
-		if v == value {
+		if string(v) == value {
 			return true
 		}
 	}
@@ -81,7 +79,7 @@ func (s ScopeList) Contains(value string) bool {
 }
 
 // Every returns true if every element is contained in the scope
-func (s ScopeList) Every(elements ...string) bool {
+func (s Scope) Every(elements ...string) bool {
 	for _, elem := range elements {
 		if !s.Contains(elem) {
 			return false
@@ -91,7 +89,7 @@ func (s ScopeList) Every(elements ...string) bool {
 }
 
 // Some returns true if at least one of the elements is contained in the scope
-func (s ScopeList) Some(elements ...string) bool {
+func (s Scope) Some(elements ...string) bool {
 	for _, elem := range elements {
 		if s.Contains(elem) {
 			return true
@@ -101,10 +99,10 @@ func (s ScopeList) Some(elements ...string) bool {
 }
 
 // Without returns the scope excluding the elements
-func (s ScopeList) Without(elements ...string) ScopeList {
-	r := make(ScopeList, 0)
+func (s Scope) Without(elements ...string) Scope {
+	r := make(Scope, 0)
 	for _, v := range s {
-		if !ScopeList(elements).Contains(v) {
+		if !Scope(elements).Contains(v) {
 			r = append(r, v)
 		}
 	}
@@ -113,7 +111,7 @@ func (s ScopeList) Without(elements ...string) ScopeList {
 }
 
 // Unique returns a scope with only unique values
-func (s ScopeList) Unique() ScopeList {
+func (s Scope) Unique() Scope {
 	keys := make(map[string]bool)
 	list := []string{}
 
@@ -126,41 +124,63 @@ func (s ScopeList) Unique() ScopeList {
 	return list
 }
 
-// MarshalJSON handles json marshaling of this type
-func (s ScopeList) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]string(s.Unique()))
-}
-
-// Value returns Permissions as a value that can be stored as json in the database
-func (s ScopeList) Value() (driver.Value, error) {
-	return json.Marshal(s)
-}
-
-// Scan reads a json value from the database into a Permissions
-func (s *ScopeList) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
+// UnmarshalText handles text unmarshaling
+func (s *Scope) UnmarshalText(v []byte) error {
+	input := string(v)
+	if strings.Contains(input, ",") {
+		*s = strings.Split(input, ",")
+	} else {
+		*s = strings.Fields(input)
 	}
 
 	return nil
 }
 
+// MarshalJSON handles json marshaling of this type
+func (s Scope) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(s.Unique()))
+}
+
+// Value returns Permissions as a value that can be stored as json in the database
+func (s Scope) Value() (driver.Value, error) {
+	return json.Marshal(s)
+}
+
+// Scan reads a json value from the database into a Permissions
+func (s *Scope) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	val := make([]string, 0)
+	if err := json.Unmarshal(b, &val); err != nil {
+		return err
+	}
+	*s = val
+
+	return nil
+}
+
 // Get returns the scope for the audience
-func (p ScopeSet) Get(a string) ScopeList {
+func (p ScopeSet) Get(a string) Scope {
 	if s, ok := p[a]; ok {
 		return s
 	}
-	return ScopeList{}
+	return Scope{}
 }
 
 // Set sets a value in scope set
 func (p ScopeSet) Set(a string, s ...string) {
 	p[a] = s
+}
+
+// Append appends to the scope set
+func (p ScopeSet) Append(a string, s ...string) {
+	if p[a] == nil {
+		p[a] = make(Scope, 0)
+	}
+	p[a] = append(p[a], s...)
 }
 
 // Value returns PermissionSet as a value that can be stored as json in the database

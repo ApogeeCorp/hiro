@@ -26,31 +26,14 @@ import (
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type (
-	// Server is a hiro rpc server
-	Server struct {
-		ctrl Controller
-		pb.UnimplementedHiroServer
-	}
-)
-
-// NewServer returns a new hiro rpc Server
-func NewServer(c Controller) *Server {
-	return &Server{
-		ctrl: c,
-	}
-}
 
 // AudienceGet handles the audience get rpc request
-func (s *Server) AudienceGet(ctx context.Context, req *pb.AudienceGetRequest) (*pb.Audience, error) {
+func (s *RPCServer) AudienceGet(ctx context.Context, req *pb.AudienceGetRequest) (*pb.Audience, error) {
 	var params AudienceGetInput
-
-	md, _ := metadata.FromIncomingContext(ctx)
 
 	switch req.Query.(type) {
 	case *pb.AudienceGetRequest_Id:

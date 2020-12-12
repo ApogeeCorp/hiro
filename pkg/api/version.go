@@ -42,33 +42,35 @@ var (
 )
 
 // VersionMiddleware enforces versioning in the request path
-func VersionMiddleware(v Versioner, header ...string) func(http.Handler) http.Handler {
+func VersionMiddleware(v Versioner, require bool, header ...string) func(http.Handler) http.Handler {
 	apiVer, _ := semver.ParseTolerant(v.Version())
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 
-			ver, ok := vars["version"]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
+			if require {
+				ver, ok := vars["version"]
+				if !ok {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+
+				pathVer, err := semver.ParseTolerant(ver)
+				if err != nil {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+
+				if pathVer.GT(apiVer) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+
+				r.URL.Path = strings.Replace(r.URL.Path, ver, pathVer.String(), 1)
+
+				context.Set(r, contextKeyVersion, ver)
 			}
-
-			pathVer, err := semver.ParseTolerant(ver)
-			if err != nil {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			if pathVer.GT(apiVer) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			r.URL.Path = strings.Replace(r.URL.Path, ver, pathVer.String(), 1)
-
-			context.Set(r, contextKeyVersion, ver)
 
 			hdr := "Server"
 

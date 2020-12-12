@@ -37,33 +37,33 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID          types.ID       `json:"id" db:"id"`
-		Name        string         `json:"name" db:"name"`
-		Description *string        `json:"description,omitempty" db:"description"`
-		TokenSecret *oauth.Token   `json:"token,omitempty" db:"token"`
-		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
-		Permissions oauth.ScopeList    `json:"permissions,omitempty" db:"permissions"`
-		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
+		ID          types.ID           `json:"id" db:"id"`
+		Name        string             `json:"name" db:"name"`
+		Description *string            `json:"description,omitempty" db:"description"`
+		TokenSecret *oauth.TokenSecret `json:"token,omitempty" db:"token"`
+		CreatedAt   time.Time          `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time         `json:"updated_at,omitempty" db:"updated_at"`
+		Permissions oauth.Scope        `json:"permissions,omitempty" db:"-"`
+		Metadata    types.Metadata     `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name        string         `json:"name"`
-		Description *string        `json:"description,omitempty"`
-		TokenSecret *oauth.Token   `json:"token,omitempty"`
-		Permissions oauth.ScopeList    `json:"permissions,omitempty"`
-		Metadata    types.Metadata `json:"metadata,omitempty"`
+		Name        string             `json:"name"`
+		Description *string            `json:"description,omitempty"`
+		TokenSecret *oauth.TokenSecret `json:"token,omitempty"`
+		Permissions oauth.Scope        `json:"permissions,omitempty"`
+		Metadata    types.Metadata     `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID  types.ID       `json:"audience_id" structs:"-"`
-		Name        *string        `json:"name" structs:"name,omitempty"`
-		Description *string        `json:"description,omitempty" structs:"description,omitempty"`
-		TokenSecret *oauth.Token   `json:"token,omitempty" structs:"token,omitempty"`
-		Permissions oauth.ScopeList    `json:"permissions,omitempty" structs:"permissions,omitempty"`
-		Metadata    types.Metadata `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		AudienceID  types.ID           `json:"audience_id" structs:"-"`
+		Name        *string            `json:"name" structs:"name,omitempty"`
+		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
+		TokenSecret *oauth.TokenSecret `json:"token,omitempty" structs:"token,omitempty"`
+		Permissions oauth.Scope        `json:"permissions,omitempty" structs:"-"`
+		Metadata    types.Metadata     `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -124,7 +124,7 @@ func (a AudienceDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // AudienceCreate create a new permission object
-func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
+func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
 	var aud Audience
 
 	log := api.Log(ctx).WithField("operation", "AudienceCreate").WithField("name", params.Name)
@@ -135,7 +135,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new audience")
 
 		stmt, args, err := sq.Insert("hiro.audiences").
@@ -143,13 +143,11 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 				"name",
 				"description",
 				"token",
-				"permissions",
 				"metadata").
 			Values(
 				slug.Make(params.Name),
 				null.String(params.Description),
 				params.TokenSecret,
-				params.Permissions,
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -167,7 +165,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 			return parseSQLError(err)
 		}
 
-		return nil
+		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)
 	}); err != nil {
 		return nil, err
 	}
@@ -178,7 +176,7 @@ func (h *Hiro) AudienceCreate(ctx context.Context, params AudienceCreateInput) (
 }
 
 // AudienceUpdate updates an application by id, including child objects
-func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error) {
+func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error) {
 	var aud Audience
 
 	log := api.Log(ctx).WithField("operation", "AudienceUpdate").WithField("id", params.AudienceID)
@@ -189,7 +187,7 @@ func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("updating audience")
 
 		q := sq.Update("hiro.audiences").
@@ -201,7 +199,7 @@ func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (
 			updates["token"] = sq.Expr(fmt.Sprintf("COALESCE(token, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
 		}
 
-		if _, ok := updates["metadata"]; ok {
+		if len(params.Metadata) > 0 {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
@@ -223,7 +221,7 @@ func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (
 			}
 		}
 
-		return nil
+		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)
 	}); err != nil {
 		return nil, err
 	}
@@ -234,7 +232,7 @@ func (h *Hiro) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (
 }
 
 // AudienceGet gets an audience by id and optionally preloads child objects
-func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error) {
+func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error) {
 	var suffix string
 
 	log := api.Log(ctx).WithField("operation", "AudienceGet").
@@ -247,7 +245,7 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := h.DB(ctx)
+	db := b.DB(ctx)
 
 	if IsTransaction(db) {
 		suffix = "FOR UPDATE"
@@ -283,11 +281,11 @@ func (h *Hiro) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audie
 		return nil, parseSQLError(err)
 	}
 
-	return aud, nil
+	return aud, b.audienceGetPermissions(ctx, aud)
 }
 
 // AudienceList returns a listing of audiences
-func (h *Hiro) AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error) {
+func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error) {
 	log := api.Log(ctx).WithField("operation", "AudienceList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -295,7 +293,7 @@ func (h *Hiro) AudienceList(ctx context.Context, params AudienceListInput) ([]*A
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := h.DB(ctx)
+	db := b.DB(ctx)
 
 	query := sq.Select("*").
 		From("hiro.audiences")
@@ -318,19 +316,25 @@ func (h *Hiro) AudienceList(ctx context.Context, params AudienceListInput) ([]*A
 		return nil, parseSQLError(err)
 	}
 
+	for _, aud := range auds {
+		if err := b.audienceGetPermissions(ctx, aud); err != nil {
+			return nil, err
+		}
+	}
+
 	return auds, nil
 }
 
 // AudienceDelete deletes an audience by id
-func (h *Hiro) AudienceDelete(ctx context.Context, params AudienceDeleteInput) error {
-	log := api.Log(ctx).WithField("operation", "AudienceDelete").WithField("article", params.AudienceID)
+func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput) error {
+	log := api.Log(ctx).WithField("operation", "AudienceDelete").WithField("audience", params.AudienceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := h.DB(ctx)
+	db := b.DB(ctx)
 	if _, err := sq.Delete("hiro.audiences").
 		Where(
 			sq.Eq{"id": params.AudienceID},
@@ -339,6 +343,69 @@ func (h *Hiro) AudienceDelete(ctx context.Context, params AudienceDeleteInput) e
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete application %s: %s", params.AudienceID, err)
+		return parseSQLError(err)
+	}
+
+	return nil
+}
+
+func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, permissions oauth.Scope) error {
+	log := api.Log(ctx).WithField("operation", "audienceUpdatePermissions").WithField("audience", aud.ID)
+
+	if len(permissions) == 0 {
+		return nil
+	}
+
+	db := b.DB(ctx)
+	if _, err := sq.Delete("hiro.audience_permissions").
+		Where(
+			sq.Eq{"audience_id": aud.ID},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
+
+		return parseSQLError(err)
+	}
+
+	for _, p := range permissions {
+		_, err := sq.Insert("hiro.audience_permissions").
+			Columns("audience_id", "permission").
+			Values(
+				aud.ID,
+				p,
+			).
+			Suffix("ON CONFLICT DO NOTHING").
+			RunWith(db).
+			PlaceholderFormat(sq.Dollar).
+			ExecContext(ctx)
+		if err != nil {
+			log.Errorf("failed to update audience permissions %s: %s", aud.ID, err)
+
+			return parseSQLError(err)
+		}
+	}
+
+	aud.Permissions = permissions
+
+	return nil
+}
+
+func (b *Backend) audienceGetPermissions(ctx context.Context, aud *Audience) error {
+	log := api.Log(ctx).WithField("operation", "audienceGetPermissions").WithField("audience", aud.ID)
+
+	db := b.DB(ctx)
+
+	if err := db.SelectContext(
+		ctx,
+		&aud.Permissions,
+		`SELECT permission 
+		 FROM hiro.audience_permissions 
+		 WHERE audience_id=$1`,
+		aud.ID); err != nil {
+		log.Errorf("failed to load audience permissions %s: %s", aud.ID, err)
+
 		return parseSQLError(err)
 	}
 

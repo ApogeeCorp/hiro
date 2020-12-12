@@ -20,7 +20,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -30,11 +29,11 @@ type (
 		methods     []string
 		path        string
 		handler     interface{}
-		params      interface{}
 		authorizers []Authorizer
 		caching     bool
 		validation  bool
-		contextFunc func(context.Context) context.Context
+		context     interface{}
+		contextFunc ContextFunc
 	}
 
 	// RouteOption defines route options
@@ -42,14 +41,15 @@ type (
 )
 
 // NewRoute returns a new route
-func NewRoute(path string, handler interface{}, opts ...RouteOption) *Route {
-	r := &Route{
+func NewRoute(path string, handler interface{}, opts ...RouteOption) Route {
+	r := Route{
+		path:    path,
 		methods: []string{http.MethodGet},
 		handler: handler,
 	}
 
 	for _, opt := range opts {
-		opt(r)
+		opt(&r)
 	}
 
 	return r
@@ -59,13 +59,6 @@ func NewRoute(path string, handler interface{}, opts ...RouteOption) *Route {
 func WithMethods(m ...string) RouteOption {
 	return func(r *Route) {
 		r.methods = m
-	}
-}
-
-// WithParams sets the params for the route option
-func WithParams(p interface{}) RouteOption {
-	return func(r *Route) {
-		r.params = p
 	}
 }
 
@@ -83,10 +76,17 @@ func WithAuthorizers(a ...Authorizer) RouteOption {
 	}
 }
 
-// WithContext adds a function that will allow the server to set additional context on every call
-func WithContext(c func(context.Context) context.Context) RouteOption {
+// WithContextFunc adds a function that will allow the server to set additional context on every call
+func WithContextFunc(c ContextFunc) RouteOption {
 	return func(r *Route) {
 		r.contextFunc = c
+	}
+}
+
+// WithContext sets context for the route
+func WithContext(c interface{}) RouteOption {
+	return func(r *Route) {
+		r.context = c
 	}
 }
 

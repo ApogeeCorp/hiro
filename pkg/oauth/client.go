@@ -17,14 +17,29 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Package oauth provides the base auth interfaces
 package oauth
 
 import (
+	"context"
+
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// Client is an oauth client interface
+	Client interface {
+		// ClientType returns the client type
+		ClientType() ClientType
+
+		// ClientAuthenticate authenticates the client with the id, secret, and scope
+		// Used for client_credentials flows
+		ClientAuthenticate(ctx context.Context, secret string) error
+
+		// ClientAuthorize authorizes the client for the specified grants, uris, and scopes
+		// Used for authorization_code flows
+		ClientAuthorize(ctx context.Context, aud string, grant GrantType, uris []URI, scopes ...Scope) error
+	}
+
 	// ClientType is an oauth client type
 	ClientType string
 )

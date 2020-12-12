@@ -127,13 +127,31 @@ func applicationCreate(c *cli.Context) error {
 	perms := oauth.ScopeSet(c.Generic("permissions").(permArg))
 	grants := oauth.Grants(c.Generic("grants").(grantArg))
 
+	// default to hiro permissions
+	if len(perms) == 0 {
+		perms = oauth.ScopeSet{
+			"hiro": append(oauth.Scopes, hiro.Scopes...),
+		}
+	}
+
+	// default to safe grants
+	if len(grants) == 0 {
+		grants = oauth.Grants{
+			"hiro": oauth.GrantList{
+				oauth.GrantTypeAuthCode,
+				oauth.GrantTypeClientCredentials,
+				oauth.GrantTypeRefreshToken,
+			},
+		}
+	}
+
 	app, err := h.ApplicationCreate(context.Background(), hiro.ApplicationCreateInput{
 		Name:        c.String("name"),
 		Description: ptr.NilString(c.String("description")),
 		Type:        oauth.ClientType(c.String("type")),
 		Permissions: perms,
 		Grants:      grants,
-		URIs:        c.StringSlice("uri"),
+		URIs:        oauth.MakeURIList(c.StringSlice("uri")...),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -143,7 +161,7 @@ func applicationCreate(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Printf("Audiece %s [%s] created.\n", app.Name, app.ID)
+	fmt.Printf("Application %s [%s] created.\n", app.Name, app.ID)
 
 	dumpValue(app)
 
@@ -233,6 +251,8 @@ func applicationUpdate(c *cli.Context) error {
 
 	params := hiro.ApplicationUpdateInput{
 		ApplicationID: types.ID(c.String("id")),
+		Permissions:   oauth.ScopeSet(c.Generic("permissions").(permArg)),
+		Grants:        oauth.Grants(c.Generic("grants").(grantArg)),
 	}
 
 	if name := c.String("name"); name != "" {
@@ -243,12 +263,16 @@ func applicationUpdate(c *cli.Context) error {
 		params.Description = &desc
 	}
 
+	if uris := c.StringSlice("uri"); len(uris) > 0 {
+		params.URIs = oauth.MakeURIList(c.StringSlice("uri")...)
+	}
+
 	app, err := h.ApplicationUpdate(context.Background(), params)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Audiece %s [%s] updated.\n", app.Name, app.ID)
+	fmt.Printf("Application %s [%s] updated.\n", app.Name, app.ID)
 
 	dumpValue(app)
 
