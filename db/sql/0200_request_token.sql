@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     code_challenge TEXT NOT NULL,
     code_challenge_method CHAR(4) NOT NULL DEFAULT 'S256',
     app_uri TEXT NOT NULL,
-    redirect_uri TEXT NOT NULL,
+    redirect_uri TEXT,
     state TEXT,
     FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE,
     FOREIGN KEY (application_id) REFERENCES hiro.applications(id) ON DELETE CASCADE,

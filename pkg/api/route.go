@@ -20,6 +20,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -41,11 +42,11 @@ type (
 )
 
 // NewRoute returns a new route
-func NewRoute(path string, handler interface{}, opts ...RouteOption) Route {
+func NewRoute(path string, opts ...RouteOption) Route {
 	r := Route{
 		path:    path,
-		methods: []string{http.MethodGet},
-		handler: handler,
+		methods: make([]string, 0),
+		handler: func(context.Context) {},
 	}
 
 	for _, opt := range opts {
@@ -76,6 +77,13 @@ func WithAuthorizers(a ...Authorizer) RouteOption {
 	}
 }
 
+// WithHandler adds the handler to the route
+func WithHandler(h interface{}) RouteOption {
+	return func(r *Route) {
+		r.handler = h
+	}
+}
+
 // WithContextFunc adds a function that will allow the server to set additional context on every call
 func WithContextFunc(c ContextFunc) RouteOption {
 	return func(r *Route) {
@@ -95,4 +103,40 @@ func WithCaching() RouteOption {
 	return func(r *Route) {
 		r.caching = true
 	}
+}
+
+// Post adds post to the route
+func (r Route) Post() Route {
+	r.methods = append(r.methods, http.MethodPost)
+	return r
+}
+
+// Put adds put to the route
+func (r Route) Put() Route {
+	r.methods = append(r.methods, http.MethodPut)
+	return r
+}
+
+// Get adds get to the route
+func (r Route) Get() Route {
+	r.methods = append(r.methods, http.MethodGet)
+	return r
+}
+
+// Delete adds delete to the route
+func (r Route) Delete() Route {
+	r.methods = append(r.methods, http.MethodDelete)
+	return r
+}
+
+// Handler sets the handler for the route
+func (r Route) Handler(h interface{}) Route {
+	r.handler = h
+	return r
+}
+
+// Context sets the route context
+func (r Route) Context(c interface{}) Route {
+	r.context = c
+	return r
 }

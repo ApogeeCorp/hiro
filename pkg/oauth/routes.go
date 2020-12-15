@@ -20,15 +20,14 @@
 package oauth
 
 import (
-	"net/http"
-
 	"github.com/ModelRocket/hiro/pkg/api"
 )
 
 // Routes returns the oauth api routes
 func Routes(ctrl Controller) []api.Route {
 	return []api.Route{
-		api.NewRoute("/authorize", authorize, api.WithContext(ctrl)),
-		api.NewRoute("/login", login, api.WithMethods(http.MethodPost), api.WithContext(ctrl)),
+		api.NewRoute("/authorize").Get().Handler(authorize).Context(ctrl),
+		api.NewRoute("/login").Post().Handler(login).Context(ctrl),
+		api.NewRoute("/token").Post().Handler(token).Context(ctrl),
 	}
 }

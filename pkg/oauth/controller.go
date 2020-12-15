@@ -19,7 +19,11 @@
 
 package oauth
 
-import "context"
+import (
+	"context"
+
+	"github.com/ModelRocket/hiro/pkg/types"
+)
 
 type (
 	// Controller defines an oauth server controller interface
@@ -28,7 +32,7 @@ type (
 		AudienceGet(ctx context.Context, id string) (Audience, error)
 
 		// ClientGet gets the client from the controller and optionally verfies the secret
-		ClientGet(ctx context.Context, id string, secret ...string) (Client, error)
+		ClientGet(ctx context.Context, id types.ID, secret ...string) (Client, error)
 
 		// RequestTokenCreate creates a new authentication request token using the controller
 		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)

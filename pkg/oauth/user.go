@@ -20,8 +20,6 @@
 package oauth
 
 import (
-	"context"
-
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/types"
 )
@@ -35,8 +33,7 @@ type (
 		// Profile returns the users openid profile
 		Profile() *openid.Profile
 
-		// Authorize authorizes the user for the specified grants, uris, and scopes
-		// Used for authorization_code flows
-		Authorize(ctx context.Context, aud Audience, scopes ...Scope) error
+		// Permissions returns the users permissions for the specified audience
+		Permissions(aud Audience) Scope
 	}
 )

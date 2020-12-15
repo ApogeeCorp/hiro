@@ -64,7 +64,7 @@ func serverMain(c *cli.Context) error {
 
 	ws := grpcweb.WrapServer(s)
 
-	server.Router("/").AddRoutes(api.NewRoute("", func(w http.ResponseWriter, r *http.Request) {
+	server.Router("/").AddRoutes(api.NewRoute("").Handler(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc-web") {
 			ws.ServeHTTP(w, r)
 		}

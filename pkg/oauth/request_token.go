@@ -42,7 +42,7 @@ type (
 		CodeChallenge       CodeChallenge
 		CodeChallengeMethod CodeChallengeMethod
 		AppURI              URI
-		RedirectURI         URI
+		RedirectURI         *URI
 		State               *string
 	}
 

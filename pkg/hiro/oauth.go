@@ -63,7 +63,7 @@ type (
 		CodeChallenge       oauth.CodeChallenge       `db:"code_challenge"`
 		CodeChallengeMethod oauth.CodeChallengeMethod `db:"code_challenge_method"`
 		AppURI              oauth.URI                 `db:"app_uri"`
-		RedirectURI         oauth.URI                 `db:"redirect_uri"`
+		RedirectURI         *oauth.URI                `db:"redirect_uri"`
 		State               *string                   `db:"state,omitempty"`
 	}
 )
@@ -92,15 +92,15 @@ func (o *oauthController) AudienceGet(ctx context.Context, id string) (oauth.Aud
 }
 
 // ClientGet gets the client from the controller
-func (o *oauthController) ClientGet(ctx context.Context, id string, secret ...string) (oauth.Client, error) {
+func (o *oauthController) ClientGet(ctx context.Context, id types.ID, secret ...string) (oauth.Client, error) {
 	app, err := o.ApplicationGet(ctx, ApplicationGetInput{
-		ApplicationID: ptr.ID(id),
+		ApplicationID: &id,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if len(secret) > 0 && app.SecretKey != nil && *app.SecretKey != secret[0] {
+	if len(secret) > 0 && secret[0] != "" && app.SecretKey != nil && *app.SecretKey != secret[0] {
 		return nil, oauth.ErrAccessDenied
 	}
 
@@ -149,7 +149,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				req.CodeChallenge,
 				req.CodeChallengeMethod,
 				req.AppURI,
-				req.RedirectURI,
+				null.String(req.RedirectURI),
 				null.String(req.State),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -265,19 +265,8 @@ func (u oauthUser) Profile() *openid.Profile {
 	return u.User.Profile
 }
 
-func (u oauthUser) Authorize(ctx context.Context, aud oauth.Audience, scopes ...oauth.Scope) error {
-	perms, ok := u.Permissions[aud.Name()]
-	if !ok {
-		return oauth.ErrAccessDenied.WithMessage("user is not authorized for audience %s", aud)
-	}
-
-	for _, s := range scopes {
-		if !perms.Every(s...) {
-			return oauth.ErrAccessDenied.WithMessage("user has insufficient access for request")
-		}
-	}
-
-	return nil
+func (u oauthUser) Permissions(aud oauth.Audience) oauth.Scope {
+	return u.User.Permissions.Get(aud.Name())
 }
 
 // ClientID returns the client id

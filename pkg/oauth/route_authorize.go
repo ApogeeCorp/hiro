@@ -35,10 +35,10 @@ type (
 	AuthorizeParams struct {
 		AppURI              URI                  `json:"app_uri"`
 		Audience            string               `json:"audience"`
-		ClientID            string               `json:"client_id"`
+		ClientID            types.ID             `json:"client_id"`
 		CodeChallenge       CodeChallenge        `json:"code_challenge"`
 		CodeChallengeMethod *CodeChallengeMethod `json:"code_challenge_method"`
-		RedirectURI         URI                  `json:"redirect_uri"`
+		RedirectURI         *URI                 `json:"redirect_uri"`
 		ResponseType        string               `json:"response_type"`
 		Scope               Scope                `json:"scope"`
 		State               *string              `json:"state"`
@@ -63,14 +63,15 @@ func (p AuthorizeParams) Validate() error {
 		validation.Field(&p.ClientID, validation.Required),
 		validation.Field(&p.CodeChallenge, validation.Required),
 		validation.Field(&p.CodeChallengeMethod, validation.NilOrNotEmpty),
-		validation.Field(&p.RedirectURI, validation.Required, is.RequestURI),
-		validation.Field(&p.ResponseType, validation.Required),
+		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
+		validation.Field(&p.ResponseType, validation.Required, validation.In("code")),
 		validation.Field(&p.Scope, validation.NilOrNotEmpty),
 	)
 }
 
 func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
+
 	log := api.Log(ctx).WithField("operation", "authorize")
 
 	// ensure the audience is valid
@@ -90,11 +91,16 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	}
 
 	// authorize this client for the grant, uris, and scope
+	uris := []URI{params.AppURI}
+	if params.RedirectURI != nil {
+		uris = append(uris, *params.RedirectURI)
+	}
+
 	if err := client.Authorize(
 		ctx,
 		aud,
 		GrantTypeAuthCode,
-		[]URI{params.AppURI, params.RedirectURI},
+		uris,
 		params.Scope,
 	); err != nil {
 		log.Error(err.Error())

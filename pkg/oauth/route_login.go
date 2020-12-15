@@ -49,6 +49,7 @@ func (p LoginParams) Validate() error {
 
 func login(ctx context.Context, params *LoginParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
+
 	log := api.Log(ctx).WithField("operation", "login").WithField("login", params.Login)
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken)
@@ -86,9 +87,19 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	}
 	log.Debugf("user %s authenticated", user.SubjectID())
 
-	if err := user.Authorize(ctx, aud, req.Scope); err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	perms := user.Permissions(aud)
+	if len(perms) == 0 {
+		return ErrAccessDenied.WithMessage("user is not authorized for audience %s", aud.ID())
 	}
+
+	if len(req.Scope) == 0 {
+		req.Scope = perms
+	}
+
+	if !perms.Every(req.Scope...) {
+		return ErrAccessDenied.WithMessage("user has insufficient access for request")
+	}
+
 	log.Debugf("user %s authorized %s", user.SubjectID(), req.Scope)
 
 	// create a new login request
@@ -106,6 +117,10 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("auth code %s created", code)
+
+	if req.RedirectURI == nil {
+		return api.NewResponse()
+	}
 
 	// parse the redirect uri
 	u, err = req.RedirectURI.Parse()
