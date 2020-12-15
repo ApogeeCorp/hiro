@@ -43,5 +43,6 @@ require (
 	google.golang.org/genproto v0.0.0-20201204160425-06b3db808446 // indirect
 	google.golang.org/grpc v1.34.0
 	google.golang.org/protobuf v1.25.0
+	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.3.0
 )

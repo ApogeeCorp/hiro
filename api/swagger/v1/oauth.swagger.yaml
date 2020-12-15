@@ -762,7 +762,10 @@ paths:
       parameters:
         - name: "audience"
           description: "The audience for the request"
-          type: "string"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
           in: "query"
           required: false
       responses:

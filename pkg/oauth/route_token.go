@@ -58,7 +58,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 	ctrl := api.Context(ctx).(Controller)
 
-	//log := api.Log(ctx).WithField("operation", "token")
+	log := api.Log(ctx).WithField("operation", "token")
 
 	client, err := ctrl.ClientGet(ctx, params.ClientID, safe.String(params.ClientSecret))
 	if err != nil {
@@ -108,6 +108,9 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
 		}
+
+		log.Debugf("access token %s issued", access.ID)
+
 		tokens = append(tokens, access)
 
 		if req.Scope.Contains(ScopeOpenID) {
@@ -123,6 +126,9 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			if err != nil {
 				return ErrAccessDenied.WithError(err)
 			}
+
+			log.Debugf("identity token %s issued", id.ID)
+
 			tokens = append(tokens, id)
 		}
 

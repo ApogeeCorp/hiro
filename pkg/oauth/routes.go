@@ -29,5 +29,6 @@ func Routes(ctrl Controller) []api.Route {
 		api.NewRoute("/authorize").Get().Handler(authorize).Context(ctrl),
 		api.NewRoute("/login").Post().Handler(login).Context(ctrl),
 		api.NewRoute("/token").Post().Handler(token).Context(ctrl),
+		api.NewRoute("/.well-known/jwks.json").Get().Handler(jwks).Context(ctrl),
 	}
 }

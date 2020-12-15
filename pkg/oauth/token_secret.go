@@ -68,6 +68,10 @@ func (a TokenAlgorithm) Validate() error {
 	return validation.Validate(string(a), validation.In(string(TokenAlgorithmNone), string(TokenAlgorithmRS256), string(TokenAlgorithmHS256)))
 }
 
+func (a TokenAlgorithm) String() string {
+	return string(a)
+}
+
 // GenerateTokenSecret generates an RSA256 token and returns the encoded string value
 func GenerateTokenSecret(alg TokenAlgorithm, lifetime time.Duration) (*TokenSecret, error) {
 	token := &TokenSecret{
