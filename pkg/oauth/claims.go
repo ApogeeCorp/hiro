@@ -20,7 +20,6 @@
 package oauth
 
 import (
-	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"errors"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/fatih/structs"
 )
 
 type (
@@ -77,7 +77,7 @@ func (c Claims) Audience() string {
 	return ""
 }
 
-// ClientID returns the client (application) id for the token
+// ClientID returns the client id for the token
 func (c Claims) ClientID() string {
 	if s, ok := c["azp"].(string); ok {
 		return s
@@ -118,21 +118,6 @@ func (c Claims) Valid() error {
 	return jwt.MapClaims(c).Valid()
 }
 
-// Sign returns the signed jwt bearer token
-func (c Claims) Sign(ctx context.Context, t *TokenSecret) (string, error) {
-	var token *jwt.Token
-
-	switch t.Algorithm {
-	case TokenAlgorithmRS256:
-		token = jwt.NewWithClaims(jwt.SigningMethodRS256, c)
-
-	case TokenAlgorithmHS256:
-		token = jwt.NewWithClaims(jwt.SigningMethodHS256, c)
-
-	}
-	return token.SignedString(t.key)
-}
-
 // Value returns Map as a value that can be stored as json in the database
 func (c Claims) Value() (driver.Value, error) {
 	return json.Marshal(c)
@@ -152,8 +137,43 @@ func (c Claims) Scan(value interface{}) error {
 	return nil
 }
 
-// ParseClaims parses the jwt token into claims
-func ParseClaims(ctx context.Context, bearer string, key interface{}) (Claims, error) {
+// Encode encodes the value into a claims object
+func (c *Claims) Encode(v interface{}) Claims {
+	enc := structs.New(v)
+	enc.TagName = "json"
+
+	if *c == nil {
+		*c = make(Claims)
+	}
+
+	for k, v := range enc.Map() {
+		c.Set(k, v)
+	}
+
+	return *c
+}
+
+// Sign signs the claims using the token
+func (c Claims) Sign(s TokenSecret) (string, error) {
+	var token *jwt.Token
+
+	switch s.Algorithm {
+	case TokenAlgorithmRS256:
+		token = jwt.NewWithClaims(jwt.SigningMethodRS256, c)
+
+	case TokenAlgorithmHS256:
+		token = jwt.NewWithClaims(jwt.SigningMethodHS256, c)
+
+	case TokenAlgorithmNone:
+		token = jwt.NewWithClaims(jwt.SigningMethodNone, c)
+
+	}
+
+	return token.SignedString(s.key)
+}
+
+// ParseBearer parses the jwt token into claims
+func ParseBearer(bearer string, key interface{}) (Claims, error) {
 	token, err := jwt.Parse(bearer, func(token *jwt.Token) (interface{}, error) {
 		return key, nil
 	})

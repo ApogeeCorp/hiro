@@ -34,9 +34,9 @@ type (
 		ID                  types.ID
 		Type                RequestTokenType
 		CreatedAt           time.Time
-		AudienceID          types.ID
+		Audience            types.ID
 		ClientID            types.ID
-		UserID              types.ID
+		Subject             types.ID
 		Scope               Scope
 		ExpiresAt           time.Time
 		CodeChallenge       CodeChallenge
@@ -65,9 +65,9 @@ const (
 func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Type, validation.Required, validation.In(RequestTokenTypeLogin, RequestTokenTypeAuthCode, RequestTokenTypeRefreshToken)),
-		validation.Field(&r.AudienceID, validation.Required),
+		validation.Field(&r.Audience, validation.Required),
 		validation.Field(&r.ClientID, validation.Required),
-		validation.Field(&r.UserID, validation.NilOrNotEmpty),
+		validation.Field(&r.Subject, validation.NilOrNotEmpty),
 		validation.Field(&r.CodeChallenge, validation.Required),
 		validation.Field(&r.CodeChallengeMethod, validation.Required),
 		validation.Field(&r.ExpiresAt, validation.Required),

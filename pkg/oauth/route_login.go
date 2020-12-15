@@ -76,7 +76,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	}
 
 	// ensure the request audience is valid
-	aud, err := ctrl.AudienceGet(ctx, req.AudienceID.String())
+	aud, err := ctrl.AudienceGet(ctx, req.Audience.String())
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
@@ -105,8 +105,9 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	// create a new login request
 	code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeAuthCode,
-		AudienceID:          req.AudienceID,
+		Audience:            req.Audience,
 		ClientID:            req.ClientID,
+		Subject:             user.SubjectID(),
 		ExpiresAt:           time.Now().Add(time.Minute * 10),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,

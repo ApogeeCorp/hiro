@@ -60,7 +60,10 @@ func serverMain(c *cli.Context) error {
 		api.WithTracing(c.Bool("http-tracing")),
 	)
 
-	server.Router("/oauth").AddRoutes(oauth.Routes(h.OAuthController())...)
+	// get the oauth controller from hiro
+	authCtrl := h.OAuthController()
+
+	server.Router("/oauth").AddRoutes(oauth.Routes(authCtrl)...)
 
 	ws := grpcweb.WrapServer(s)
 

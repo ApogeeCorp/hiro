@@ -27,18 +27,20 @@ import (
 )
 
 type (
-	// AccessToken represents a revokable set of claims
-	AccessToken struct {
-		ID               types.ID   `json:"jti,omitempty" db:"id"`
-		Subject          *types.ID  `json:"sub,omitempty" db:"user_id"`
-		Audience         types.ID   `json:"aud,omitempty" db:"audience_id"`
-		ClientID         types.ID   `json:"azp,omitempty" db:"application_id"`
-		Use              TokenUse   `json:"use,omitempty" db:"token_use"`
-		Scope            Scope      `json:"scope,omitempty" db:"scope"`
-		IssuedAt         time.Time  `json:"iat,omitempty" db:"created_at"`
-		ExpiresAt        *time.Time `json:"exp,omitempty" db:"expires_at"`
-		RevokedAt        *time.Time `json:"-" db:"revoked_at"`
-		AdditionalClaims Claims     `json:"-" db:"claims"`
+	// Token represents a revokable set of claims
+	Token struct {
+		ID        *types.ID  `json:"jti,omitempty"`
+		Issuer    *URI       `json:"iss,omitempty"`
+		Subject   *types.ID  `json:"sub,omitempty"`
+		Audience  types.ID   `json:"aud,omitempty"`
+		ClientID  types.ID   `json:"azp,omitempty"`
+		Use       TokenUse   `json:"use,omitempty"`
+		AuthTime  *time.Time `json:"auth_time,omitempty"`
+		Scope     Scope      `json:"scope,omitempty"`
+		IssuedAt  time.Time  `json:"iat,omitempty"`
+		ExpiresAt *time.Time `json:"exp,omitempty"`
+		RevokedAt *time.Time `json:"rev,omitempty"`
+		Claims    Claims     `json:"-"`
 	}
 
 	// TokenUse defines token usage
@@ -53,24 +55,25 @@ const (
 	TokenUseIdentity TokenUse = "identity"
 )
 
-// Set sets a value in the claims
-func (t *AccessToken) Set(key string, value interface{}) {
-	if t.AdditionalClaims == nil {
-		t.AdditionalClaims = make(Claims)
+// NewToken intializes a token of use type
+func NewToken(use TokenUse) Token {
+	return Token{
+		Use:    use,
+		Claims: make(Claims),
 	}
-	t.AdditionalClaims.Set(key, value)
 }
 
-// Claims returns the well-formed token as full set of claims
-func (t *AccessToken) Claims() Claims {
+// Sign generates an encoded and sign token using the secret
+func (t Token) Sign(s TokenSecret) (string, error) {
+	// create the full token claims
 	enc := structs.New(t)
 	enc.TagName = "json"
 
-	claims := Claims(enc.Map())
+	c := Claims(enc.Map())
 
-	for k, v := range t.AdditionalClaims {
-		claims[k] = v
+	for k, v := range t.Claims {
+		c[k] = v
 	}
 
-	return claims
+	return c.Sign(s)
 }

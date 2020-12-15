@@ -160,8 +160,8 @@ func (e statusError) WithError(err error) ErrorResponse {
 
 func (e statusError) Payload() interface{} {
 	return struct {
-		Message string      `json:"message"`
-		Detail  interface{} `json:"detail,omitempty"`
+		Message string   `json:"message"`
+		Detail  []string `json:"detail,omitempty"`
 	}{
 		Message: e.Error(),
 		Detail:  e.detail,

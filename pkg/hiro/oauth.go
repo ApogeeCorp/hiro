@@ -21,6 +21,8 @@ package hiro
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -55,9 +57,9 @@ type (
 		ID                  types.ID                  `db:"id"`
 		Type                oauth.RequestTokenType    `db:"type"`
 		CreatedAt           time.Time                 `db:"created_at"`
-		AudienceID          types.ID                  `db:"audience_id"`
+		Audience            types.ID                  `db:"audience_id"`
 		ClientID            types.ID                  `db:"application_id"`
-		UserID              types.ID                  `db:"user_id,omitempty"`
+		Subject             types.ID                  `db:"user_id,omitempty"`
 		Scope               oauth.Scope               `db:"scope,omitempty"`
 		ExpiresAt           time.Time                 `db:"expires_at"`
 		CodeChallenge       oauth.CodeChallenge       `db:"code_challenge"`
@@ -66,11 +68,28 @@ type (
 		RedirectURI         *oauth.URI                `db:"redirect_uri"`
 		State               *string                   `db:"state,omitempty"`
 	}
+
+	accessToken struct {
+		ID        *types.ID      `db:"id"`
+		Issuer    *oauth.URI     `db:"issuer"`
+		Subject   *types.ID      `db:"user_id,omitempty"`
+		Audience  types.ID       `db:"audience_id"`
+		ClientID  types.ID       `db:"application_id"`
+		Use       oauth.TokenUse `db:"token_use"`
+		AuthTime  *time.Time     `db:"-"`
+		Scope     oauth.Scope    `db:"scope"`
+		IssuedAt  time.Time      `db:"created_at"`
+		ExpiresAt *time.Time     `db:"expires_at"`
+		RevokedAt *time.Time     `db:"revoked_at"`
+		Claims    oauth.Claims   `db:"claims"`
+	}
 )
 
 // OAuthController returns an oauth controller from a hiro.Backend
 func (b *Backend) OAuthController() oauth.Controller {
-	return &oauthController{b}
+	return &oauthController{
+		Backend: b,
+	}
 }
 
 // AudienceGet returns an audience by id
@@ -97,6 +116,9 @@ func (o *oauthController) ClientGet(ctx context.Context, id types.ID, secret ...
 		ApplicationID: &id,
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, oauth.ErrClientNotFound
+		}
 		return nil, err
 	}
 
@@ -116,15 +138,15 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new request token")
 
-		if !req.AudienceID.Valid() {
+		if !req.Audience.Valid() {
 			aud, err := o.Backend.AudienceGet(ctx, AudienceGetInput{
-				Name: ptr.String(req.AudienceID),
+				Name: ptr.String(req.Audience),
 			})
 			if err != nil {
 				return err
 			}
 
-			req.AudienceID = aud.ID
+			req.Audience = aud.ID
 		}
 		stmt, args, err := sq.Insert("hiro.request_tokens").
 			Columns(
@@ -141,9 +163,9 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				"state").
 			Values(
 				req.Type,
-				req.AudienceID,
+				req.Audience,
 				req.ClientID,
-				req.UserID,
+				req.Subject,
 				req.Scope,
 				req.ExpiresAt,
 				req.CodeChallenge,
@@ -199,6 +221,10 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string) (oauth
 		if err := tx.GetContext(ctx, &req, stmt, args...); err != nil {
 			log.Error(err.Error())
 
+			if errors.Is(err, sql.ErrNoRows) {
+				return oauth.ErrInvalidToken
+			}
+
 			return parseSQLError(err)
 		}
 
@@ -217,13 +243,84 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string) (oauth
 }
 
 // TokenCreate creates a new token
-func (o *oauthController) TokenCreate(ctx context.Context, token oauth.AccessToken) error {
-	return nil
-}
+func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (oauth.Token, error) {
+	var out accessToken
 
-// TokenFinalize finalizes the token and returns the signed and encoded token
-func (o *oauthController) TokenFinalize(ctx context.Context, token oauth.AccessToken) (string, error) {
-	return "", nil
+	log := api.Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
+
+	var p AudienceGetInput
+	if !token.Audience.Valid() {
+		p.Name = ptr.String(token.Audience)
+	} else {
+		p.AudienceID = &token.Audience
+	}
+
+	aud, err := o.Backend.AudienceGet(ctx, p)
+	if err != nil {
+		return token, err
+	}
+
+	// we don't store identity tokens, but we may need the user
+	if token.Use == oauth.TokenUseIdentity {
+		if token.Scope.Contains(oauth.ScopeProfile) {
+			user, err := o.UserGet(ctx, token.Subject.String())
+			if err != nil {
+				return token, err
+			}
+
+			token.Claims.Encode(user.Profile())
+		}
+
+		token.Scope = nil
+		token.ExpiresAt = ptr.Time(time.Now().Add(aud.TokenSecret.Lifetime))
+
+		return token, nil
+	}
+
+	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+		log.Debugf("creating new access token")
+
+		stmt, args, err := sq.Insert("hiro.access_tokens").
+			Columns(
+				"issuer",
+				"audience_id",
+				"application_id",
+				"user_id",
+				"token_use",
+				"scope",
+				"claims",
+				"expires_at").
+			Values(
+				null.String(token.Issuer),
+				aud.ID,
+				token.ClientID,
+				token.Subject,
+				token.Use,
+				token.Scope,
+				token.Claims,
+				time.Now().Add(aud.TokenSecret.Lifetime),
+			).
+			PlaceholderFormat(sq.Dollar).
+			Suffix(`RETURNING *`).
+			ToSql()
+		if err != nil {
+			log.Error(err.Error())
+
+			return fmt.Errorf("%w: failed to build query statement", err)
+		}
+
+		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
+			log.Error(err.Error())
+
+			return parseSQLError(err)
+		}
+
+		return nil
+	}); err != nil {
+		return oauth.Token(out), err
+	}
+
+	return oauth.Token(out), nil
 }
 
 // UserGet gets a user by id
@@ -243,6 +340,9 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 		Login: &login,
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, oauth.ErrUserNotFound
+		}
 		return nil, err
 	}
 
@@ -331,4 +431,8 @@ func (a oauthAudience) ID() types.ID {
 
 func (a oauthAudience) Name() string {
 	return a.Audience.Name
+}
+
+func (a oauthAudience) Secret() oauth.TokenSecret {
+	return *a.TokenSecret
 }

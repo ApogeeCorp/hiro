@@ -1,6 +1,6 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
-CREATE TYPE REQUEST_TOKEN_TYPE AS ENUM('login', 'auth_code', 'refresh_token');
+CREATE TYPE hiro.REQUEST_TOKEN_TYPE AS ENUM('login', 'auth_code', 'refresh_token');
 
 CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     audience_id UUID NOT NULL,
     application_id UUID NOT NULL,
     user_id UUID,
-    type REQUEST_TOKEN_TYPE NOT NULL,
+    type hiro.REQUEST_TOKEN_TYPE NOT NULL,
     scope JSONB,
     expires_at TIMESTAMPTZ NOT NULL,
     code_challenge TEXT NOT NULL,

@@ -26,5 +26,6 @@ type (
 	Audience interface {
 		ID() types.ID
 		Name() string
+		Secret() TokenSecret
 	}
 )

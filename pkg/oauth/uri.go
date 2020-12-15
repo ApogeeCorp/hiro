@@ -51,6 +51,11 @@ func (u URI) Validate() error {
 	return validation.Validate(string(u), is.RequestURI)
 }
 
+// String converts the uri to a string
+func (u URI) String() string {
+	return string(u)
+}
+
 // Parse parses the uri into a url.URL
 func (u URI) Parse() (*url.URL, error) {
 	return url.Parse(string(u))

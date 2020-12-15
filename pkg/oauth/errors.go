@@ -27,14 +27,14 @@ var (
 	// ErrAccessDenied is returned when authentication has failed
 	ErrAccessDenied = api.ErrUnauthorized
 
-	// ErrCodeNotFound is returned when the store could not find the code
-	ErrCodeNotFound = api.ErrNotFound.WithDetail("authorization code does not exist")
-
-	// ErrApplicationNotFound is returned when the store could not find the application
-	ErrApplicationNotFound = api.ErrNotFound.WithMessage("application not found")
+	// ErrClientNotFound is returned when the controller could not find the client
+	ErrClientNotFound = api.ErrNotFound.WithMessage("client not found")
 
 	// ErrAudienceNotFound is returned when the store could not find the audience
 	ErrAudienceNotFound = api.ErrNotFound.WithMessage("audience not found")
+
+	// ErrUserNotFound is returned when the store could not find the user
+	ErrUserNotFound = api.ErrNotFound.WithMessage("user not found")
 
 	// ErrSessionNotFound is returned when the session was not found by the controller
 	ErrSessionNotFound = api.ErrNotFound.WithMessage("session not found")

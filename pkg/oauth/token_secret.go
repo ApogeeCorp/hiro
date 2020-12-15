@@ -179,7 +179,7 @@ func (t *TokenSecret) UnmarshalJSON(data []byte) error {
 	t.Algorithm = val.Algorithm
 	t.Key = val.EncodedKey
 	t.Lifetime = val.Lifetime
-	
+
 	if err := t.Algorithm.Validate(); err != nil {
 		return err
 	}

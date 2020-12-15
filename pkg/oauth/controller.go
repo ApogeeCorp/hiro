@@ -46,10 +46,7 @@ type (
 		// UserAuthenticate authenticates a user and returns a principal object
 		UserAuthenticate(ctx context.Context, login, password string) (User, error)
 
-		// TokenCreate creates a new access token
-		TokenCreate(ctx context.Context, token AccessToken) error
-
-		// TokenFinalize finalizes the token and returns the signed and encoded value
-		TokenFinalize(ctx context.Context, token AccessToken) (string, error)
+		// TokenCreate creates a new token
+		TokenCreate(ctx context.Context, token Token) (Token, error)
 	}
 )

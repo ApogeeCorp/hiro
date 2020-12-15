@@ -21,8 +21,11 @@ package oauth
 
 import (
 	"context"
+	"fmt"
+	"path"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -51,16 +54,18 @@ func (p TokenParams) Validate() error {
 }
 
 func token(ctx context.Context, params *TokenParams) api.Responder {
-	var bearer BearerToken
+	var bearer *BearerToken
 
 	ctrl := api.Context(ctx).(Controller)
 
 	//log := api.Log(ctx).WithField("operation", "token")
 
-	client, err := ctrl.ClientGet(ctx, params.ClientID, *params.ClientSecret)
+	client, err := ctrl.ClientGet(ctx, params.ClientID, safe.String(params.ClientSecret))
 	if err != nil {
 		return ErrAccessDenied.WithError(err)
 	}
+
+	r, _ := api.Request(ctx)
 
 	switch params.GrantType {
 	case GrantTypeAuthCode:
@@ -77,6 +82,53 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 		if req.ClientID != client.ClientID() {
 			return ErrAccessDenied.WithDetail("client_id mismatch")
+		}
+
+		aud, err := ctrl.AudienceGet(ctx, req.Audience.String())
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		issuer := URI(
+			fmt.Sprintf("https://%s%s?audience=%s",
+				r.Host,
+				path.Clean(path.Join(path.Dir(r.URL.Path), "/.well-known/jwks.json")),
+				aud.ID()))
+
+		tokens := make([]Token, 0)
+
+		access, err := ctrl.TokenCreate(ctx, Token{
+			Issuer:   &issuer,
+			Subject:  &req.Subject,
+			Audience: req.Audience,
+			ClientID: req.ClientID,
+			Use:      TokenUseAccess,
+			Scope:    req.Scope,
+		})
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+		tokens = append(tokens, access)
+
+		if req.Scope.Contains(ScopeOpenID) {
+			id, err := ctrl.TokenCreate(ctx, Token{
+				Issuer:   &issuer,
+				Subject:  &req.Subject,
+				Audience: req.Audience,
+				ClientID: req.ClientID,
+				Use:      TokenUseIdentity,
+				Scope:    req.Scope,
+				AuthTime: &req.CreatedAt,
+			})
+			if err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
+			tokens = append(tokens, id)
+		}
+
+		bearer, err = NewBearer(aud.Secret(), tokens...)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
 		}
 	}
 

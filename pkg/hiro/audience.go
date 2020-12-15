@@ -40,7 +40,7 @@ type (
 		ID          types.ID           `json:"id" db:"id"`
 		Name        string             `json:"name" db:"name"`
 		Description *string            `json:"description,omitempty" db:"description"`
-		TokenSecret *oauth.TokenSecret `json:"token,omitempty" db:"token"`
+		TokenSecret *oauth.TokenSecret `json:"token_secret,omitempty" db:"token_secret"`
 		CreatedAt   time.Time          `json:"created_at" db:"created_at"`
 		UpdatedAt   *time.Time         `json:"updated_at,omitempty" db:"updated_at"`
 		Permissions oauth.Scope        `json:"permissions,omitempty" db:"-"`
@@ -61,7 +61,7 @@ type (
 		AudienceID  types.ID           `json:"audience_id" structs:"-"`
 		Name        *string            `json:"name" structs:"name,omitempty"`
 		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
-		TokenSecret *oauth.TokenSecret `json:"token,omitempty" structs:"token,omitempty"`
+		TokenSecret *oauth.TokenSecret `json:"token_secret,omitempty" structs:"token_secret,omitempty"`
 		Permissions oauth.Scope        `json:"permissions,omitempty" structs:"-"`
 		Metadata    types.Metadata     `json:"metadata,omitempty" structs:"-"`
 	}
@@ -142,7 +142,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Columns(
 				"name",
 				"description",
-				"token",
+				"token_secret",
 				"metadata").
 			Values(
 				slug.Make(params.Name),

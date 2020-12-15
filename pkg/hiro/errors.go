@@ -50,7 +50,8 @@ var (
 // parseSQLError provides cleaner errors for database issues
 func parseSQLError(err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w: %s", ErrNotFound, err)
+		err = fmt.Errorf("%w", err)
+		return fmt.Errorf("%w: %s", err, ErrNotFound)
 	}
 
 	if pe, ok := err.(*pq.Error); ok {

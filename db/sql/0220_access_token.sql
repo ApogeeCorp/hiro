@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS hiro.access_tokens(
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     audience_id UUID NOT NULL,
     application_id UUID NOT NULL,
+    issuer TEXT,
     user_id UUID,
     token_use VARCHAR(64),
     scope JSONB,

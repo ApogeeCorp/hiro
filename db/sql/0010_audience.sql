@@ -1,15 +1,13 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
 
-CREATE TYPE TOKEN_ALGORITHM AS ENUM ('HS256', 'RS256');
-
 CREATE TABLE IF NOT EXISTS hiro.audiences(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
-    token JSONB NOT NULL,
+    token_secret JSONB NOT NULL,
     metadata JSONB
 );
 

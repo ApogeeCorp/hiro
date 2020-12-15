@@ -1,6 +1,6 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
-CREATE TYPE GRANT_TYPE AS ENUM ('authorization_code', 'client_credentials', 'password', 'refresh_token');
+CREATE TYPE hiro.GRANT_TYPE AS ENUM ('authorization_code', 'client_credentials', 'password', 'refresh_token');
 
 CREATE TABLE IF NOT EXISTS hiro.applications(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS hiro.application_permissions(
 CREATE TABLE IF NOT EXISTS hiro.application_grants(
   application_id UUID NOT NULL REFERENCES hiro.applications(id) ON DELETE CASCADE,
   audience_id UUID NOT NULL REFERENCES hiro.audiences(id) ON DELETE CASCADE,
-  grant_type GRANT_TYPE NOT NULL,
+  grant_type hiro.GRANT_TYPE NOT NULL,
   PRIMARY KEY(application_id, audience_id, grant_type)
 );
 

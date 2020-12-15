@@ -119,7 +119,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	// create a new login request
 	token, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeLogin,
-		AudienceID:          types.ID(params.Audience),
+		Audience:            types.ID(params.Audience),
 		ClientID:            types.ID(params.ClientID),
 		ExpiresAt:           time.Now().Add(time.Minute * 10),
 		Scope:               params.Scope,

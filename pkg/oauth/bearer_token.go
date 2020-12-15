@@ -19,6 +19,8 @@
 
 package oauth
 
+import "time"
+
 type (
 
 	// BearerToken BearerTokens are returned by the `/token` method. These token always include
@@ -49,3 +51,37 @@ type (
 		TokenType string `json:"token_type"`
 	}
 )
+
+// NewBearer creates a bearer from the tokens
+func NewBearer(secret TokenSecret, tokens ...Token) (*BearerToken, error) {
+	bearer := &BearerToken{
+		TokenType: "Bearer",
+	}
+
+	for _, t := range tokens {
+		switch t.Use {
+		case TokenUseAccess:
+			if bearer.AccessToken != "" {
+				continue
+			}
+			a, err := t.Sign(secret)
+			if err != nil {
+				return nil, err
+			}
+			bearer.AccessToken = a
+			bearer.ExpiresIn = int64(t.ExpiresAt.Sub(time.Now()).Seconds())
+
+		case TokenUseIdentity:
+			if bearer.IdentityToken != "" {
+				continue
+			}
+			i, err := t.Sign(secret)
+			if err != nil {
+				return nil, err
+			}
+			bearer.IdentityToken = i
+		}
+	}
+
+	return bearer, nil
+}
