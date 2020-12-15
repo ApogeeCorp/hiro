@@ -24,8 +24,11 @@ import "context"
 type (
 	// Controller defines an oauth server controller interface
 	Controller interface {
-		// ClientGet gets the client from the controller
-		ClientGet(ctx context.Context, id string) (Client, error)
+		// AudienceGet returns an audience by id
+		AudienceGet(ctx context.Context, id string) (Audience, error)
+
+		// ClientGet gets the client from the controller and optionally verfies the secret
+		ClientGet(ctx context.Context, id string, secret ...string) (Client, error)
 
 		// RequestTokenCreate creates a new authentication request token using the controller
 		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)

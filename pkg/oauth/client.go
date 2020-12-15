@@ -22,22 +22,22 @@ package oauth
 import (
 	"context"
 
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// Client is an oauth client interface
 	Client interface {
-		// ClientType returns the client type
-		ClientType() ClientType
+		// ClientID returns the client id
+		ClientID() types.ID
 
-		// ClientAuthenticate authenticates the client with the id, secret, and scope
-		// Used for client_credentials flows
-		ClientAuthenticate(ctx context.Context, secret string) error
+		// Type returns the client type
+		Type() ClientType
 
-		// ClientAuthorize authorizes the client for the specified grants, uris, and scopes
+		// Authorize authorizes the client for the specified grants, uris, and scopes
 		// Used for authorization_code flows
-		ClientAuthorize(ctx context.Context, aud string, grant GrantType, uris []URI, scopes ...Scope) error
+		Authorize(ctx context.Context, aud Audience, grant GrantType, uris []URI, scopes ...Scope) error
 	}
 
 	// ClientType is an oauth client type

@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/spf13/cast"
 )
@@ -113,14 +114,29 @@ func (r *Response) WithHeader(key string, value string) *Response {
 }
 
 // Redirect will set the proper redirect headers and http.StatusFound
-func Redirect(u *url.URL, args ...map[string]string) *Response {
+func Redirect(u *url.URL, args ...interface{}) *Response {
 	r := NewResponse()
 
 	q := u.Query()
 
 	for _, a := range args {
-		for k, v := range a {
-			q.Set(k, v)
+		switch t := a.(type) {
+		case map[string]string:
+			for k, v := range t {
+				q.Set(k, v)
+			}
+
+		case map[string]interface{}:
+			for k, v := range t {
+				q.Set(k, cast.ToString(v))
+			}
+
+		case ErrorResponse:
+			q.Set("error_status", cast.ToString(t.Status()))
+			q.Set("error_message", t.Error())
+			if detail := t.Detail(); len(detail) > 0 {
+				q.Set("error_detail", strings.Join(detail, ","))
+			}
 		}
 	}
 

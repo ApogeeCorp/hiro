@@ -33,6 +33,7 @@ type (
 		Login        string `json:"login"`
 		Password     string `json:"password"`
 		RequestToken string `json:"request_token"`
+		CodeVerifier string `json:"code_verifier"`
 	}
 )
 
@@ -42,27 +43,82 @@ func (p LoginParams) Validate() error {
 		validation.Field(&p.Login, validation.Required),
 		validation.Field(&p.Password, validation.Required),
 		validation.Field(&p.RequestToken, validation.Required),
+		validation.Field(&p.CodeVerifier, validation.Required),
 	)
 }
 
 func login(ctx context.Context, params *LoginParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
-	//log := api.Log(ctx).WithField("operation", "login")
+	log := api.Log(ctx).WithField("operation", "login").WithField("login", params.Login)
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken)
 	if err != nil {
 		return ErrAccessDenied.WithError(err)
 	}
 
+	// parse the app uri
+	u, err := req.AppURI.Parse()
+	if err != nil {
+		return ErrAccessDenied.WithError(err)
+	}
+
 	if req.ExpiresAt.Before(time.Now()) {
-		return ErrExpiredToken
+		return api.Redirect(u, err)
 	}
 
-	if req.Type != RequestTokenTypeAuthCode {
-		return ErrInvalidToken
+	if req.Type != RequestTokenTypeLogin {
+		return api.Redirect(u, ErrInvalidToken.WithDetail("expected token type login"))
 	}
 
-	
+	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
 
-	return nil
+	// ensure the request audience is valid
+	aud, err := ctrl.AudienceGet(ctx, req.AudienceID.String())
+	if err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+
+	user, err := ctrl.UserAuthenticate(ctx, params.Login, params.Password)
+	if err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+	log.Debugf("user %s authenticated", user.SubjectID())
+
+	if err := user.Authorize(ctx, aud, req.Scope); err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+	log.Debugf("user %s authorized %s", user.SubjectID(), req.Scope)
+
+	// create a new login request
+	code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
+		Type:                RequestTokenTypeAuthCode,
+		AudienceID:          req.AudienceID,
+		ClientID:            req.ClientID,
+		ExpiresAt:           time.Now().Add(time.Minute * 10),
+		Scope:               req.Scope,
+		CodeChallenge:       req.CodeChallenge,
+		CodeChallengeMethod: req.CodeChallengeMethod,
+		RedirectURI:         req.RedirectURI,
+	})
+	if err != nil {
+		api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+	log.Debugf("auth code %s created", code)
+
+	// parse the redirect uri
+	u, err = req.RedirectURI.Parse()
+	if err != nil {
+		return ErrAccessDenied.WithError(err)
+	}
+	q := u.Query()
+	q.Set("code", code)
+
+	if req.State != nil {
+		q.Set("state", *req.State)
+	}
+	u.RawQuery = q.Encode()
+
+	return api.Redirect(u)
 }

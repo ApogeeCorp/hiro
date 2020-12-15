@@ -35,11 +35,11 @@ type (
 		Type                RequestTokenType
 		CreatedAt           time.Time
 		AudienceID          types.ID
-		ApplicationID       types.ID
+		ClientID            types.ID
 		UserID              types.ID
 		Scope               Scope
 		ExpiresAt           time.Time
-		CodeChallenge       string
+		CodeChallenge       CodeChallenge
 		CodeChallengeMethod CodeChallengeMethod
 		AppURI              URI
 		RedirectURI         URI
@@ -48,15 +48,9 @@ type (
 
 	// RequestTokenType is the request token type
 	RequestTokenType string
-
-	// CodeChallengeMethod defines a code challenge method
-	CodeChallengeMethod string
 )
 
 const (
-	// CodeChallengeMethodS256 is a sha-256 code challenge method
-	CodeChallengeMethodS256 CodeChallengeMethod = "S256"
-
 	// RequestTokenTypeLogin is used for login or signup routes
 	RequestTokenTypeLogin RequestTokenType = "login"
 
@@ -67,21 +61,12 @@ const (
 	RequestTokenTypeRefreshToken RequestTokenType = "refresh_token"
 )
 
-// Validate validates the CodeChallengeMethod
-func (c CodeChallengeMethod) Validate() error {
-	return validation.Validate(&c, validation.In(CodeChallengeMethodS256))
-}
-
-func (c CodeChallengeMethod) String() string {
-	return string(c)
-}
-
 // Validate validates the Request
 func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Type, validation.Required, validation.In(RequestTokenTypeLogin, RequestTokenTypeAuthCode, RequestTokenTypeRefreshToken)),
 		validation.Field(&r.AudienceID, validation.Required),
-		validation.Field(&r.ApplicationID, validation.Required),
+		validation.Field(&r.ClientID, validation.Required),
 		validation.Field(&r.UserID, validation.NilOrNotEmpty),
 		validation.Field(&r.CodeChallenge, validation.Required),
 		validation.Field(&r.CodeChallengeMethod, validation.Required),

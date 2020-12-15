@@ -36,7 +36,7 @@ type (
 		AppURI              URI                  `json:"app_uri"`
 		Audience            string               `json:"audience"`
 		ClientID            string               `json:"client_id"`
-		CodeChallenge       string               `json:"code_challenge"`
+		CodeChallenge       CodeChallenge        `json:"code_challenge"`
 		CodeChallengeMethod *CodeChallengeMethod `json:"code_challenge_method"`
 		RedirectURI         URI                  `json:"redirect_uri"`
 		ResponseType        string               `json:"response_type"`
@@ -73,6 +73,14 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 	log := api.Log(ctx).WithField("operation", "authorize")
 
+	// ensure the audience is valid
+	aud, err := ctrl.AudienceGet(ctx, params.Audience)
+	if err != nil {
+		log.Error(err.Error())
+
+		return ErrAccessDenied.WithError(err)
+	}
+
 	// ensure this is a valid client
 	client, err := ctrl.ClientGet(ctx, params.ClientID)
 	if err != nil {
@@ -82,9 +90,9 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	}
 
 	// authorize this client for the grant, uris, and scope
-	if err := client.ClientAuthorize(
+	if err := client.Authorize(
 		ctx,
-		params.Audience,
+		aud,
 		GrantTypeAuthCode,
 		[]URI{params.AppURI, params.RedirectURI},
 		params.Scope,
@@ -102,11 +110,11 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	// create a new request
+	// create a new login request
 	token, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeLogin,
 		AudienceID:          types.ID(params.Audience),
-		ApplicationID:       types.ID(params.ClientID),
+		ClientID:            types.ID(params.ClientID),
 		ExpiresAt:           time.Now().Add(time.Minute * 10),
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,
@@ -118,10 +126,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	if err != nil {
 		log.Error(err.Error())
 
-		return api.Redirect(u, map[string]string{
-			"error":             "server_error",
-			"error_description": err.Error(),
-		})
+		return api.Redirect(u, err)
 	}
 	log.Debugf("request token %s created", token)
 

@@ -28,6 +28,7 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/libatomic/oauth v1.0.0-alpha.79
 	github.com/manifoldco/promptui v0.8.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/ory/dockertest/v3 v3.6.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -42,4 +43,5 @@ require (
 	google.golang.org/genproto v0.0.0-20201204160425-06b3db808446 // indirect
 	google.golang.org/grpc v1.34.0
 	google.golang.org/protobuf v1.25.0
+	gopkg.in/yaml.v2 v2.3.0
 )

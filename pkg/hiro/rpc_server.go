@@ -29,8 +29,8 @@ type (
 	}
 )
 
-// NewServer returns a new hiro rpc Server
-func NewServer(c Controller) *RPCServer {
+// NewRPCServer returns a new hiro rpc Server
+func NewRPCServer(c Controller) *RPCServer {
 	return &RPCServer{
 		ctrl: c,
 	}

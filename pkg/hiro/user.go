@@ -459,25 +459,3 @@ func (b *Backend) userPreload(ctx context.Context, user User) (*User, error) {
 
 	return &user, nil
 }
-
-// UserID implements the oauth.User interface
-func (u User) UserID() types.ID {
-	return u.ID
-}
-
-// UserAuthorize authorizes the user for the specified grants, uris, and scopes
-// Used for authorization_code flows
-func (u User) UserAuthorize(ctx context.Context, aud string, scopes ...oauth.Scope) error {
-	perms, ok := u.Permissions[aud]
-	if !ok {
-		return oauth.ErrAccessDenied.WithMessage("user is not authorized for audience %s", aud)
-	}
-
-	for _, s := range scopes {
-		if !perms.Every(s...) {
-			return oauth.ErrAccessDenied.WithMessage("user has insufficient access for request")
-		}
-	}
-
-	return nil
-}

@@ -63,6 +63,23 @@ func main() {
 			Value:   "0.0.0.0:9002",
 			EnvVars: []string{"HTTP_ADDR"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "cors-allowed-origin",
+			Usage:   "Set the cors allowed origin on the http api server",
+			Value:   cli.NewStringSlice("*"),
+			EnvVars: []string{"CORS_ALLOWED_ORIGIN"},
+		},
+		&cli.BoolFlag{
+			Name:    "http-tracing",
+			Usage:   "Enable http tracing",
+			EnvVars: []string{"HTTP_TRACE_ENABLE"},
+		},
+		&cli.StringFlag{
+			Name:    "env",
+			Aliases: []string{"e"},
+			Value:   "default",
+			EnvVars: []string{"HIRO_ENV"},
+		},
 	}
 
 	app.Commands = []*cli.Command{
@@ -73,6 +90,8 @@ func main() {
 
 	app.Before = func(c *cli.Context) error {
 		var err error
+
+		loadConfig(c)
 
 		h, err = hiro.New(
 			hiro.WithDBSource(c.String("db")),

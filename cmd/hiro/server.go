@@ -46,7 +46,7 @@ func serverMain(c *cli.Context) error {
 
 	s := grpc.NewServer()
 
-	pb.RegisterHiroServer(s, hiro.NewServer(h))
+	pb.RegisterHiroServer(s, hiro.NewRPCServer(h))
 
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -54,7 +54,11 @@ func serverMain(c *cli.Context) error {
 		}
 	}()
 
-	server := api.NewServer()
+	server := api.NewServer(
+		api.WithAddr(c.String("http-addr")),
+		api.WithCORS(c.StringSlice("cors-allowed-origin")...),
+		api.WithTracing(c.Bool("http-tracing")),
+	)
 
 	server.Router("/oauth").AddRoutes(oauth.Routes(h.OAuthController())...)
 

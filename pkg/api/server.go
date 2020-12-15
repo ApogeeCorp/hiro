@@ -34,7 +34,6 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"path"
 	"reflect"
 	"runtime/debug"
@@ -46,10 +45,11 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"github.com/spf13/cast"
+	"github.com/mr-tron/base58"
 )
 
 type (
@@ -58,18 +58,19 @@ type (
 
 	// Server is an http server that provides basic REST funtionality
 	Server struct {
-		log        log.Interface
-		router     *mux.Router
-		addr       string
-		listener   net.Listener
-		srv        *http.Server
-		lock       sync.Mutex
-		basePath   string
-		name       string
-		version    string
-		corsOrigin []string
-		cache      *bigcache.BigCache
-		cacheTTL   time.Duration
+		log            log.Interface
+		router         *mux.Router
+		addr           string
+		listener       net.Listener
+		srv            *http.Server
+		lock           sync.Mutex
+		basePath       string
+		name           string
+		version        string
+		corsOrigin     []string
+		cache          *bigcache.BigCache
+		cacheTTL       time.Duration
+		tracingEnabled bool
 	}
 
 	// HandlerFunc is a generic handler server operations
@@ -257,7 +258,7 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 		var resp interface{}
 
 		cache := route.caching
-		trace := cast.ToBool(os.Getenv("HTTP_TRACE_ENABLE"))
+		trace := s.tracingEnabled
 
 		// disable caching if the header says so or its disabled via 0 ttl
 		if r.Header.Get("Cache-Control") == "no-cache" || s.cache == nil {
@@ -366,7 +367,17 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 		}
 
 		// add the log to the context
-		r = r.WithContext(context.WithValue(r.Context(), contextKeyLogger, s.log))
+		id := uuid.Must(uuid.NewUUID())
+		reqID := base58.Encode(id[:])
+
+		r = r.WithContext(
+			context.WithValue(
+				r.Context(),
+				contextKeyLogger,
+				s.log.WithField("req-id", reqID)))
+
+		w.Header().Set("X-Hiro-Request-ID", reqID)
+
 		rc.r = r
 
 		// Add any additional context from the caller
@@ -509,7 +520,7 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 			args = append(args, reflect.ValueOf(params))
 		}
 
-		if _, ok := os.LookupEnv("HTTP_TRACE_ENABLE"); ok {
+		if s.tracingEnabled {
 			if dump, err := httputil.DumpRequest(r, true); err == nil {
 				s.log.Debugf("%s -> %s", r.RequestURI, (dump))
 			}
@@ -587,6 +598,13 @@ func WithLog(l log.Interface) Option {
 func WithCORS(origin ...string) Option {
 	return func(s *Server) {
 		s.corsOrigin = origin
+	}
+}
+
+// WithTracing enables http tracing
+func WithTracing(t bool) Option {
+	return func(s *Server) {
+		s.tracingEnabled = t
 	}
 }
 

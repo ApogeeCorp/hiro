@@ -19,24 +19,12 @@
 
 package oauth
 
-import (
-	"context"
-
-	"github.com/ModelRocket/hiro/pkg/oauth/openid"
-	"github.com/ModelRocket/hiro/pkg/types"
-)
+import "github.com/ModelRocket/hiro/pkg/types"
 
 type (
-	// User is an oauth user interface
-	User interface {
-		// SubjectID is the user subject identifier
-		SubjectID() types.ID
-
-		// Profile returns the users openid profile
-		Profile() *openid.Profile
-
-		// Authorize authorizes the user for the specified grants, uris, and scopes
-		// Used for authorization_code flows
-		Authorize(ctx context.Context, aud Audience, scopes ...Scope) error
+	// Audience is the common oauth audience interface
+	Audience interface {
+		ID() types.ID
+		Name() string
 	}
 )

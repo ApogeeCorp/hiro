@@ -24,7 +24,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -545,67 +544,6 @@ func (b *Backend) ApplicationDelete(ctx context.Context, params ApplicationDelet
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete application %s: %s", params.ApplicationID, err)
 		return parseSQLError(err)
-	}
-
-	return nil
-}
-
-// ClientType returns the client type
-func (a Application) ClientType() oauth.ClientType {
-	return a.Type
-}
-
-// ClientAuthenticate authenticates the client with the id, secret, and scope
-// Used for client_credentials flows
-func (a Application) ClientAuthenticate(ctx context.Context, secret string) error {
-	if a.SecretKey != nil && *a.SecretKey == secret {
-		return nil
-	}
-
-	return oauth.ErrAccessDenied
-}
-
-// ClientAuthorize authorizes the client for the specified grants, uris, and scopes
-// Used for authorization_code flows
-func (a Application) ClientAuthorize(ctx context.Context, aud string, grant oauth.GrantType, uris []oauth.URI, scopes ...oauth.Scope) error {
-	if g, ok := a.Grants[aud]; ok {
-		if !g.Contains(grant) {
-			return oauth.ErrAccessDenied.WithMessage("grant type % not authorized for audience %s", grant, aud)
-		}
-	}
-
-	for _, uri := range uris {
-		found := false
-
-		u, err := uri.Parse()
-		if err != nil {
-			return api.ErrBadRequest.WithMessage("%w: uri %s is invalid", err, u.String())
-		}
-
-		for _, appURI := range a.URIs {
-			uu, _ := appURI.Parse()
-			if uu.Scheme == u.Scheme && u.Host == uu.Host {
-				if ok, _ := filepath.Match(uu.Path, u.Path); ok {
-					found = true
-					break
-				}
-			}
-		}
-
-		if !found {
-			return oauth.ErrAccessDenied.WithMessage("%s is not an authorized uri", u.String())
-		}
-	}
-
-	perms, ok := a.Permissions[aud]
-	if !ok {
-		return oauth.ErrAccessDenied.WithMessage("client is not authorized for audience %s", aud)
-	}
-
-	for _, s := range scopes {
-		if !perms.Every(s...) {
-			return oauth.ErrAccessDenied.WithMessage("client has insufficient access for request")
-		}
 	}
 
 	return nil
