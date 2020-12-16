@@ -90,10 +90,10 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 		}
 
 		issuer := URI(
-			fmt.Sprintf("https://%s%s?audience=%s",
+			fmt.Sprintf("https://%s%s",
 				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "/.well-known/jwks.json")),
-				aud.ID()))
+				path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud.ID().String()))),
+		)
 
 		tokens := make([]Token, 0)
 

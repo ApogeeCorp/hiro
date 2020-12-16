@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"path"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
@@ -54,6 +55,13 @@ func (u URI) Validate() error {
 // String converts the uri to a string
 func (u URI) String() string {
 	return string(u)
+}
+
+// Append appends the paths to the uri
+func (u URI) Append(paths ...string) URI {
+	v, _ := u.Parse()
+	v.Path = path.Join(append([]string{path.Dir(v.Path)}, paths...)...)
+	return URI(v.String())
 }
 
 // Parse parses the uri into a url.URL

@@ -20,6 +20,7 @@
 package oauth
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/types"
@@ -29,22 +30,25 @@ import (
 type (
 	// Token represents a revokable set of claims
 	Token struct {
-		ID        *types.ID  `json:"jti,omitempty"`
-		Issuer    *URI       `json:"iss,omitempty"`
-		Subject   *types.ID  `json:"sub,omitempty"`
-		Audience  types.ID   `json:"aud,omitempty"`
-		ClientID  types.ID   `json:"azp,omitempty"`
-		Use       TokenUse   `json:"use,omitempty"`
-		AuthTime  *time.Time `json:"auth_time,omitempty"`
-		Scope     Scope      `json:"scope,omitempty"`
-		IssuedAt  time.Time  `json:"iat,omitempty"`
-		ExpiresAt *time.Time `json:"exp,omitempty"`
-		RevokedAt *time.Time `json:"rev,omitempty"`
-		Claims    Claims     `json:"-"`
+		ID        *types.ID `json:"jti,omitempty"`
+		Issuer    *URI      `json:"iss,omitempty"`
+		Subject   *types.ID `json:"sub,omitempty"`
+		Audience  types.ID  `json:"aud,omitempty"`
+		ClientID  types.ID  `json:"azp,omitempty"`
+		Use       TokenUse  `json:"use,omitempty"`
+		AuthTime  *Time     `json:"auth_time,omitempty"`
+		Scope     Scope     `json:"scope,omitempty"`
+		IssuedAt  Time      `json:"iat,omitempty"`
+		ExpiresAt *Time     `json:"exp,omitempty"`
+		RevokedAt *Time     `json:"rev,omitempty"`
+		Claims    Claims    `json:"-"`
 	}
 
 	// TokenUse defines token usage
 	TokenUse string
+
+	// Time is a time structure used for tokens
+	Time time.Time
 )
 
 const (
@@ -76,4 +80,19 @@ func (t Token) Sign(s TokenSecret) (string, error) {
 	}
 
 	return c.Sign(s)
+}
+
+// MarshalJSON markshals the time to an epoch
+func (t Time) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Time(t).UTC().Unix())
+}
+
+// Time casts the oauth time back to a time.Time
+func (t Time) Time() time.Time {
+	return time.Time(t)
+}
+
+// Ptr returns a pointer to this time
+func (t Time) Ptr() *Time {
+	return &t
 }

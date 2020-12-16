@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS hiro.audiences(
     name VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
     token_secret JSONB NOT NULL,
+    session_lifetime BIGINT NOT NULL, 
     metadata JSONB
 );
 

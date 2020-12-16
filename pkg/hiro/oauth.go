@@ -56,12 +56,12 @@ type (
 	requestToken struct {
 		ID                  types.ID                  `db:"id"`
 		Type                oauth.RequestTokenType    `db:"type"`
-		CreatedAt           time.Time                 `db:"created_at"`
+		CreatedAt           oauth.Time                `db:"created_at"`
 		Audience            types.ID                  `db:"audience_id"`
 		ClientID            types.ID                  `db:"application_id"`
 		Subject             types.ID                  `db:"user_id,omitempty"`
 		Scope               oauth.Scope               `db:"scope,omitempty"`
-		ExpiresAt           time.Time                 `db:"expires_at"`
+		ExpiresAt           oauth.Time                `db:"expires_at"`
 		CodeChallenge       oauth.CodeChallenge       `db:"code_challenge"`
 		CodeChallengeMethod oauth.CodeChallengeMethod `db:"code_challenge_method"`
 		AppURI              oauth.URI                 `db:"app_uri"`
@@ -76,11 +76,11 @@ type (
 		Audience  types.ID       `db:"audience_id"`
 		ClientID  types.ID       `db:"application_id"`
 		Use       oauth.TokenUse `db:"token_use"`
-		AuthTime  *time.Time     `db:"-"`
+		AuthTime  *oauth.Time    `db:"-"`
 		Scope     oauth.Scope    `db:"scope"`
-		IssuedAt  time.Time      `db:"created_at"`
-		ExpiresAt *time.Time     `db:"expires_at"`
-		RevokedAt *time.Time     `db:"revoked_at"`
+		IssuedAt  oauth.Time     `db:"created_at"`
+		ExpiresAt *oauth.Time    `db:"expires_at"`
+		RevokedAt *oauth.Time    `db:"revoked_at"`
 		Claims    oauth.Claims   `db:"claims"`
 	}
 )
@@ -167,7 +167,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				req.ClientID,
 				req.Subject,
 				req.Scope,
-				req.ExpiresAt,
+				req.ExpiresAt.Time(),
 				req.CodeChallenge,
 				req.CodeChallengeMethod,
 				req.AppURI,
@@ -272,7 +272,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		}
 
 		token.Scope = nil
-		token.ExpiresAt = ptr.Time(time.Now().Add(aud.TokenSecret.Lifetime))
+		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
 
 		return token, nil
 	}
@@ -435,4 +435,8 @@ func (a oauthAudience) Name() string {
 
 func (a oauthAudience) Secret() oauth.TokenSecret {
 	return *a.TokenSecret
+}
+
+func (a oauthAudience) Permissions() oauth.Scope {
+	return a.Audience.Permissions
 }

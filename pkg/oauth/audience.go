@@ -27,5 +27,6 @@ type (
 		ID() types.ID
 		Name() string
 		Secret() TokenSecret
+		Permissions() Scope
 	}
 )

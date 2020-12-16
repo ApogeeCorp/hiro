@@ -252,6 +252,14 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 
 				return parseSQLError(err)
 			}
+		} else {
+			a, err := b.ApplicationGet(ctx, ApplicationGetInput{
+				ApplicationID: &params.ApplicationID,
+			})
+			if err != nil {
+				return err
+			}
+			app = *a
 		}
 
 		return b.applicationPatch(ctx, applicationPatchInput{&app, params.Permissions, params.Grants})

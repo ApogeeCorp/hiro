@@ -20,25 +20,23 @@
 package oauth
 
 import (
-	"time"
-
 	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type (
-	// RequestToken represents an oauth request used for authorization_code and refresh_token flows
+	// RequestToken represents an oauth request used for several different flows
 	// These tokens are generally single use and should not be exposed, other than their id
 	RequestToken struct {
 		ID                  types.ID
 		Type                RequestTokenType
-		CreatedAt           time.Time
+		CreatedAt           Time
 		Audience            types.ID
 		ClientID            types.ID
 		Subject             types.ID
 		Scope               Scope
-		ExpiresAt           time.Time
+		ExpiresAt           Time
 		CodeChallenge       CodeChallenge
 		CodeChallengeMethod CodeChallengeMethod
 		AppURI              URI

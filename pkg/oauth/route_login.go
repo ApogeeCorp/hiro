@@ -63,7 +63,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	if req.ExpiresAt.Before(time.Now()) {
+	if req.ExpiresAt.Time().Before(time.Now()) {
 		return api.Redirect(u, err)
 	}
 
@@ -108,7 +108,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
 		Subject:             user.SubjectID(),
-		ExpiresAt:           time.Now().Add(time.Minute * 10),
+		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,
 		CodeChallengeMethod: req.CodeChallengeMethod,

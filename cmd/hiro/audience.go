@@ -59,6 +59,11 @@ var (
 			Name:  "permissions",
 			Usage: "Specifiy the audience permissions",
 		},
+		&cli.DurationFlag{
+			Name:  "session_lifetime",
+			Usage: "Specify the audience browser session lifetime",
+			Value: time.Hour * 24 * 30,
+		},
 		&cli.PathFlag{
 			Name:      "token_rsa",
 			Usage:     "Specify an rsa token as a pem file",
@@ -127,6 +132,11 @@ func audienceCreate(c *cli.Context) error {
 		lifetime = time.Hour
 	}
 
+	sessionLifetime := c.Duration("session-lifetime")
+	if sessionLifetime == 0 {
+		sessionLifetime = time.Hour * 24 * 30
+	}
+
 	if h := c.String("token_hmac"); h != "" {
 		secret, err = oauth.NewTokenSecret(oauth.TokenAlgorithmHS256, []byte(h), lifetime)
 		if err != nil {
@@ -159,10 +169,11 @@ func audienceCreate(c *cli.Context) error {
 	}
 
 	aud, err := h.AudienceCreate(context.Background(), hiro.AudienceCreateInput{
-		Name:        c.String("name"),
-		Description: ptr.NilString(c.String("description")),
-		TokenSecret: secret,
-		Permissions: oauth.Scope(perms),
+		Name:            c.String("name"),
+		Description:     ptr.NilString(c.String("description")),
+		TokenSecret:     secret,
+		Permissions:     oauth.Scope(perms),
+		SessionLifetime: sessionLifetime,
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -265,11 +276,16 @@ func audienceUpdate(c *cli.Context) error {
 		AudienceID: types.ID(c.String("id")),
 	}
 
-	lifetime := time.Duration(c.Duration("token_lifetime"))
+	lifetime := c.Duration("token_lifetime")
 	if lifetime > 0 {
 		secret = &oauth.TokenSecret{
 			Lifetime: lifetime,
 		}
+	}
+
+	sessionLifetime := c.Duration("session_lifetime")
+	if sessionLifetime > 0 {
+		params.SessionLifetime = &sessionLifetime
 	}
 
 	if h := c.String("token_hmac"); h != "" {

@@ -753,21 +753,40 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
 
-  /.well-known/jwks.json:
+  /openid/{audience_id}/.well-known/openid-configuration:
+    parameters:
+      - name: "audience_id"
+        description: "The audience identifier"
+        in: path
+        type: string
+        required: true
+    get:
+      description: |
+        Return the openid config
+      operationId: "OpenIDConfig"
+      tags: ["Auth"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "string"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+  /openid/{audience_id}/.well-known/jwks.json:
+    parameters:
+      - name: "audience_id"
+        description: "The audience identifier"
+        in: path
+        type: string
+        required: true
     get:
       description: |
         Return the jwks which includes the rsa public key and ids for the service
       operationId: "PublicKeyGet"
       tags: ["Auth"]
-      parameters:
-        - name: "audience"
-          description: "The audience for the request"
-          type: "array"
-          items:
-            type: "string"
-          collectionFormat: "csv"
-          in: "query"
-          required: false
       responses:
         200:
           description: "ok"

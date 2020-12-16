@@ -37,33 +37,36 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID          types.ID           `json:"id" db:"id"`
-		Name        string             `json:"name" db:"name"`
-		Description *string            `json:"description,omitempty" db:"description"`
-		TokenSecret *oauth.TokenSecret `json:"token_secret,omitempty" db:"token_secret"`
-		CreatedAt   time.Time          `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time         `json:"updated_at,omitempty" db:"updated_at"`
-		Permissions oauth.Scope        `json:"permissions,omitempty" db:"-"`
-		Metadata    types.Metadata     `json:"metadata,omitempty" db:"metadata"`
+		ID              types.ID           `json:"id" db:"id"`
+		Name            string             `json:"name" db:"name"`
+		Description     *string            `json:"description,omitempty" db:"description"`
+		TokenSecret     *oauth.TokenSecret `json:"token_secret,omitempty" db:"token_secret"`
+		SessionLifetime time.Duration      `json:"session_lifetime,omitempty" db:"session_lifetime"`
+		CreatedAt       time.Time          `json:"created_at" db:"created_at"`
+		UpdatedAt       *time.Time         `json:"updated_at,omitempty" db:"updated_at"`
+		Permissions     oauth.Scope        `json:"permissions,omitempty" db:"-"`
+		Metadata        types.Metadata     `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name        string             `json:"name"`
-		Description *string            `json:"description,omitempty"`
-		TokenSecret *oauth.TokenSecret `json:"token,omitempty"`
-		Permissions oauth.Scope        `json:"permissions,omitempty"`
-		Metadata    types.Metadata     `json:"metadata,omitempty"`
+		Name            string             `json:"name"`
+		Description     *string            `json:"description,omitempty"`
+		TokenSecret     *oauth.TokenSecret `json:"token,omitempty"`
+		SessionLifetime time.Duration      `json:"session_lifetime,omitempty"`
+		Permissions     oauth.Scope        `json:"permissions,omitempty"`
+		Metadata        types.Metadata     `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID  types.ID           `json:"audience_id" structs:"-"`
-		Name        *string            `json:"name" structs:"name,omitempty"`
-		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
-		TokenSecret *oauth.TokenSecret `json:"token_secret,omitempty" structs:"token_secret,omitempty"`
-		Permissions oauth.Scope        `json:"permissions,omitempty" structs:"-"`
-		Metadata    types.Metadata     `json:"metadata,omitempty" structs:"-"`
+		AudienceID      types.ID           `json:"audience_id" structs:"-"`
+		Name            *string            `json:"name" structs:"name,omitempty"`
+		Description     *string            `json:"description,omitempty" structs:"description,omitempty"`
+		TokenSecret     *oauth.TokenSecret `json:"token_secret,omitempty" structs:"-"`
+		SessionLifetime *time.Duration     `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
+		Permissions     oauth.Scope        `json:"permissions,omitempty" structs:"-"`
+		Metadata        types.Metadata     `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -143,11 +146,13 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 				"name",
 				"description",
 				"token_secret",
+				"session_lifetime",
 				"metadata").
 			Values(
 				slug.Make(params.Name),
 				null.String(params.Description),
 				params.TokenSecret,
+				params.SessionLifetime,
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -195,8 +200,8 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 
 		updates := structs.Map(params)
 
-		if _, ok := updates["token"]; ok {
-			updates["token"] = sq.Expr(fmt.Sprintf("COALESCE(token, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
+		if params.TokenSecret != nil {
+			updates["token_secret"] = sq.Expr(fmt.Sprintf("COALESCE(token_secret, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
 		}
 
 		if len(params.Metadata) > 0 {
@@ -219,6 +224,14 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 
 				return parseSQLError(err)
 			}
+		} else {
+			a, err := b.AudienceGet(ctx, AudienceGetInput{
+				AudienceID: &params.AudienceID,
+			})
+			if err != nil {
+				return err
+			}
+			aud = *a
 		}
 
 		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)

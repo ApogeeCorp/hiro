@@ -33,5 +33,6 @@ message Audience {
     google.protobuf.Timestamp updated_at = 6;
     repeated string permissions = 7;
     google.protobuf.Struct metadata = 8;
+    int64 session_lifetime = 9;
 }
 

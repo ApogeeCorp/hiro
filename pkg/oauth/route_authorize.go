@@ -121,7 +121,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		Type:                RequestTokenTypeLogin,
 		Audience:            types.ID(params.Audience),
 		ClientID:            types.ID(params.ClientID),
-		ExpiresAt:           time.Now().Add(time.Minute * 10),
+		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,
 		CodeChallengeMethod: CodeChallengeMethod(safe.String(params.CodeChallengeMethod, CodeChallengeMethodS256)),
@@ -132,7 +132,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	if err != nil {
 		log.Error(err.Error())
 
-		return api.Redirect(u, err)
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("request token %s created", token)
 

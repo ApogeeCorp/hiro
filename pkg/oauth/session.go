@@ -19,9 +19,12 @@
 
 package oauth
 
+import "github.com/ModelRocket/hiro/pkg/types"
+
 type (
 	// Session represents an oauth session stored in a browser cookie
 	Session struct {
-
+		ID      types.ID `json:"id"`
+		Subject types.ID `json:"sub"`
 	}
 )
