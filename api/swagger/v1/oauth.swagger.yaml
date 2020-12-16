@@ -56,6 +56,9 @@ tags:
   - name: "Auth"
     description: |
       Auth operations provide signup, login and authorization services.
+  - name: "API"
+    description: |
+      API Operations
 
 securityDefinitions:
   OAuth:
@@ -855,3 +858,42 @@ paths:
             $ref: "#/definitions/ErrorResponse"
       security:
         - OAuth: ["openid", "profile"]
+
+  /swagger.{format}:
+    parameters:
+      - name: "format"
+        description: "The format to return"
+        in: "path"
+        type: "string"
+        enum: ["json", "yaml"]
+        required: true
+    get:
+      description: "Returns the swagger document"
+      operationId: "SpecGet"
+      tags: ["API"]
+      produces:
+        - "application/json"
+        - "text/yaml"
+      parameters:
+        - name: "pretty"
+          description: "Return a pretty doc"
+          in: "query"
+          type: "boolean"
+          required: false
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "string"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"

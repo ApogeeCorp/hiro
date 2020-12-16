@@ -17,5 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+//go:generate go-bindata -pkg oauth -o ./assets.go ../../api/swagger/v1/oauth.swagger.yaml
+
 // Package oauth provides the base auth interfaces
 package oauth

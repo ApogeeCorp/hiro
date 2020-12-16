@@ -48,5 +48,11 @@ type (
 
 		// TokenCreate creates a new token
 		TokenCreate(ctx context.Context, token Token) (Token, error)
+
+		// SessionCreate creates a new session and returns the id
+		SessionCreate(ctx context.Context, session Session) (types.ID, error)
+
+		// SessionGet gets a session by id
+		SessionGet(ctx context.Context, id types.ID) (Session, error)
 	}
 )

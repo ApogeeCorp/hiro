@@ -23,10 +23,14 @@ import "github.com/ModelRocket/hiro/pkg/types"
 
 type (
 	// Session represents an oauth session stored in a browser cookie
+	// and backed by the controller
 	Session struct {
 		ID        types.ID `json:"id"`
+		Audience  types.ID `json:"aud"`
 		Subject   types.ID `json:"sub"`
+		Data      string   `json:"data"`
 		CreatedAt Time     `json:"iat"`
 		ExpiresAt Time     `json:"exp"`
+		RevokedAt *Time    `json:"rev,omitempty"`
 	}
 )

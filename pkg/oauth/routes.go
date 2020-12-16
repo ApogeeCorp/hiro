@@ -31,5 +31,6 @@ func Routes(ctrl Controller) []api.Route {
 		api.NewRoute("/token").Post().Handler(token).Context(ctrl),
 		api.NewRoute("/openid/{audience_id}/.well-known/openid-configuration").Get().Handler(openidConfig).Context(ctrl),
 		api.NewRoute("/openid/{audience_id}/.well-known/jwks.json").Get().Handler(jwks).Context(ctrl),
+		api.NewRoute("/swagger.{format}").Get().Handler(specGet).Context(ctrl),
 	}
 }
