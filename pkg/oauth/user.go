@@ -30,7 +30,7 @@ type (
 		// SubjectID is the user subject identifier
 		SubjectID() types.ID
 
-		// Profile returns the users openid profile
+		// Profile returns the users openid profile claims, filtering on the provided scope
 		Profile() *openid.Profile
 
 		// Permissions returns the users permissions for the specified audience

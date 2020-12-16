@@ -27,29 +27,29 @@ import (
 )
 
 type (
-	// CodeChallenge is a PKCE challenge code
-	CodeChallenge string
+	// PKCEChallenge is a PKCE challenge code
+	PKCEChallenge string
 
-	// CodeChallengeMethod defines a code challenge method
-	CodeChallengeMethod string
+	// PKCEChallengeMethod defines a code challenge method
+	PKCEChallengeMethod string
 )
 
 const (
-	// CodeChallengeMethodS256 is a sha-256 code challenge method
-	CodeChallengeMethodS256 CodeChallengeMethod = "S256"
+	// PKCEChallengeMethodS256 is a sha-256 code challenge method
+	PKCEChallengeMethodS256 PKCEChallengeMethod = "S256"
 )
 
 // Validate validates the CodeChallengeMethod
-func (c CodeChallengeMethod) Validate() error {
-	return validation.Validate(&c, validation.In(CodeChallengeMethodS256))
+func (c PKCEChallengeMethod) Validate() error {
+	return validation.Validate(&c, validation.In(PKCEChallengeMethodS256))
 }
 
-func (c CodeChallengeMethod) String() string {
+func (c PKCEChallengeMethod) String() string {
 	return string(c)
 }
 
 // Verify verifies the challenge against the base64 encoded verifier
-func (c CodeChallenge) Verify(v string) error {
+func (c PKCEChallenge) Verify(v string) error {
 	sum := sha256.Sum256([]byte(v))
 	check := base64.RawURLEncoding.EncodeToString(sum[:])
 

@@ -36,8 +36,8 @@ type (
 		AppURI              URI                  `json:"app_uri"`
 		Audience            string               `json:"audience"`
 		ClientID            types.ID             `json:"client_id"`
-		CodeChallenge       CodeChallenge        `json:"code_challenge"`
-		CodeChallengeMethod *CodeChallengeMethod `json:"code_challenge_method"`
+		CodeChallenge       PKCEChallenge        `json:"code_challenge"`
+		CodeChallengeMethod *PKCEChallengeMethod `json:"code_challenge_method"`
 		RedirectURI         *URI                 `json:"redirect_uri"`
 		ResponseType        string               `json:"response_type"`
 		Scope               Scope                `json:"scope"`
@@ -124,7 +124,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,
-		CodeChallengeMethod: CodeChallengeMethod(safe.String(params.CodeChallengeMethod, CodeChallengeMethodS256)),
+		CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
 		AppURI:              params.AppURI,
 		RedirectURI:         params.RedirectURI,
 		State:               params.State,

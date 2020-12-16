@@ -62,7 +62,6 @@ var (
 		&cli.DurationFlag{
 			Name:  "session_lifetime",
 			Usage: "Specify the audience browser session lifetime",
-			Value: time.Hour * 24 * 30,
 		},
 		&cli.PathFlag{
 			Name:      "token_rsa",

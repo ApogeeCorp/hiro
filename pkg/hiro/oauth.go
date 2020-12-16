@@ -62,8 +62,8 @@ type (
 		Subject             types.ID                  `db:"user_id,omitempty"`
 		Scope               oauth.Scope               `db:"scope,omitempty"`
 		ExpiresAt           oauth.Time                `db:"expires_at"`
-		CodeChallenge       oauth.CodeChallenge       `db:"code_challenge"`
-		CodeChallengeMethod oauth.CodeChallengeMethod `db:"code_challenge_method"`
+		CodeChallenge       oauth.PKCEChallenge       `db:"code_challenge"`
+		CodeChallengeMethod oauth.PKCEChallengeMethod `db:"code_challenge_method"`
 		AppURI              oauth.URI                 `db:"app_uri"`
 		RedirectURI         *oauth.URI                `db:"redirect_uri"`
 		State               *string                   `db:"state,omitempty"`
@@ -260,20 +260,10 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		return token, err
 	}
 
-	// we don't store identity tokens, but we may need the user
+	// we don't store identity tokens, just give them a date and initialize claims
 	if token.Use == oauth.TokenUseIdentity {
-		if token.Scope.Contains(oauth.ScopeProfile) {
-			user, err := o.UserGet(ctx, token.Subject.String())
-			if err != nil {
-				return token, err
-			}
-
-			token.Claims.Encode(user.Profile())
-		}
-
-		token.Scope = nil
+		token.Claims = make(oauth.Claims)
 		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
-
 		return token, nil
 	}
 

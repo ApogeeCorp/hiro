@@ -37,8 +37,8 @@ type (
 		Subject             types.ID
 		Scope               Scope
 		ExpiresAt           Time
-		CodeChallenge       CodeChallenge
-		CodeChallengeMethod CodeChallengeMethod
+		CodeChallenge       PKCEChallenge
+		CodeChallengeMethod PKCEChallengeMethod
 		AppURI              URI
 		RedirectURI         *URI
 		State               *string

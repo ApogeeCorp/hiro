@@ -22,6 +22,7 @@ package oauth
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"time"
 
@@ -39,6 +40,14 @@ type (
 // Set sets a value in the claims
 func (c Claims) Set(key string, value interface{}) {
 	c[key] = value
+}
+
+// Delete delete the keys from the claim
+func (c Claims) Delete(keys ...string) Claims {
+	for _, key := range keys {
+		delete(c, key)
+	}
+	return c
 }
 
 // ID returns the token id
@@ -139,18 +148,32 @@ func (c Claims) Scan(value interface{}) error {
 
 // Encode encodes the value into a claims object
 func (c *Claims) Encode(v interface{}) Claims {
-	enc := structs.New(v)
-	enc.TagName = "json"
-
 	if *c == nil {
 		*c = make(Claims)
 	}
+
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Ptr && val.IsNil() {
+		return *c
+	}
+
+	enc := structs.New(v)
+	enc.TagName = "json"
 
 	for k, v := range enc.Map() {
 		c.Set(k, v)
 	}
 
 	return *c
+}
+
+// Merge merges claims
+func (c Claims) Merge(claims Claims) Claims {
+	for k, v := range claims {
+		c.Set(k, v)
+	}
+
+	return c
 }
 
 // Sign signs the claims using the token

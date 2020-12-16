@@ -67,8 +67,11 @@ securityDefinitions:
       openid: "Access a user's identity"
       profile: "Access a user's profile"
       offline_access: "Used by clients to request permission to use refresh tokens"
-      verify:email: "Required to verify a user's email address"
-      verify:phone: "Required to verify a user's phone number"
+      address: "Required to read the user's physical address"
+      email: "Required to read the user's email address"
+      phone: "Required to read the user's phone number"
+      email:verify: "Required to verify a user's email address"
+      phone:verify: "Required to verify a user's phone number"
 
 definitions:
   Profile:

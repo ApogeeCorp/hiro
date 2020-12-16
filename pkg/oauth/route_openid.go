@@ -78,7 +78,7 @@ func openidConfig(ctx context.Context, params *OIDConfigInput) api.Responder {
 		ScopesSupported        Scope       `json:"scopes_supported"`
 	}{
 		Issuer:                 issuer,
-		JWKSURI:                issuer.Append(".well-known/jwks.json"),
+		JWKSURI:                issuer.Append(aud.ID().String(), ".well-known/jwks.json"),
 		AuthorizationEndpoint:  issuer.Append("..", "authorize"),
 		ResponseTypesSupported: []string{"code"},
 		SubjectTypesSupported:  []string{"public"},

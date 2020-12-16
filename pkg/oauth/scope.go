@@ -44,11 +44,20 @@ const (
 	// ScopeOfflineAccess is the scope necessary to request a refresh_token
 	ScopeOfflineAccess = "offline_access"
 
-	// ScopeVerifyEmail is the scope required to verify a user's email address
-	ScopeVerifyEmail = "verify:email"
+	// ScopeAddress is required to read a user's physical address
+	ScopeAddress = "address"
 
-	// ScopeVerifyPhone is the scope required to verify a user's phone number
-	ScopeVerifyPhone = "verify:phone"
+	// ScopeEmail is the scope require to get a user's email address
+	ScopeEmail = "email"
+
+	// ScopeEmailVerify is the scope required to verify a user's email address
+	ScopeEmailVerify = "emai:verify"
+
+	// ScopePhone is the scope required to verify the user's phone number
+	ScopePhone = "phone"
+
+	// ScopePhoneVerify is the scope required to verify a user's phone number
+	ScopePhoneVerify = "phone:verify"
 )
 
 var (
@@ -57,8 +66,11 @@ var (
 		ScopeOpenID,
 		ScopeProfile,
 		ScopeOfflineAccess,
-		ScopeVerifyEmail,
-		ScopeVerifyPhone,
+		ScopeAddress,
+		ScopeEmail,
+		ScopeEmailVerify,
+		ScopePhone,
+		ScopePhoneVerify,
 	}
 )
 

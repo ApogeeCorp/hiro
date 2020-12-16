@@ -120,11 +120,48 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				Audience: req.Audience,
 				ClientID: req.ClientID,
 				Use:      TokenUseIdentity,
-				Scope:    req.Scope,
 				AuthTime: &req.CreatedAt,
 			})
 			if err != nil {
 				return ErrAccessDenied.WithError(err)
+			}
+
+			user, err := ctrl.UserGet(ctx, req.Subject.String())
+			if err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
+
+			if req.Scope.Contains(ScopeProfile) {
+				profile := make(Claims)
+				profile.Encode(user.Profile())
+
+				// the profile claim does not include these
+				profile.Delete(
+					"address",
+					"email",
+					"email_verified",
+					"phone_number",
+					"phone_number_verified")
+
+				id.Claims.Merge(profile)
+			}
+			if req.Scope.Contains(ScopeAddress) {
+				address := make(Claims)
+				address.Encode(user.Profile().Address)
+
+				id.Claims.Set("address", address)
+			}
+			if req.Scope.Contains(ScopePhone) {
+				phone := make(Claims)
+				phone.Encode(user.Profile().PhoneClaim)
+
+				id.Claims.Merge(phone)
+			}
+			if req.Scope.Contains(ScopeEmail) {
+				email := make(Claims)
+				email.Encode(user.Profile().EmailClaim)
+
+				id.Claims.Merge(email)
 			}
 
 			log.Debugf("identity token %s issued", id.ID)
