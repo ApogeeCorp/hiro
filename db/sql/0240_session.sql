@@ -2,7 +2,7 @@
 -- SQL in section 'Up' is executed when this migration is applied
 CREATE TABLE IF NOT EXISTS hiro.sessions(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    audience_id UUID NOT NULL,
+    audience_id UUID,
     user_id UUID,
     data TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

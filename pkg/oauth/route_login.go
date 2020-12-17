@@ -21,19 +21,21 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// LoginParams contains all the bound params for the login operation
 	LoginParams struct {
-		Login        string `json:"login"`
-		Password     string `json:"password"`
-		RequestToken string `json:"request_token"`
-		CodeVerifier string `json:"code_verifier"`
+		Login        string   `json:"login"`
+		Password     string   `json:"password"`
+		RequestToken types.ID `json:"request_token"`
+		CodeVerifier string   `json:"code_verifier"`
 	}
 )
 
@@ -102,7 +104,25 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 
 	log.Debugf("user %s authorized %s", user.SubjectID(), req.Scope)
 
-	// create a new login request
+	store, err := api.SessionStore(ctx).GetStore(ctx, aud.ID(), user.SubjectID())
+	if err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	// create the session
+	r, w := api.Request(ctx)
+	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	if err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	session.Values["sub"] = user.SubjectID().String()
+
+	if err := session.Save(r, w); err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	// create a new auth code
 	code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,

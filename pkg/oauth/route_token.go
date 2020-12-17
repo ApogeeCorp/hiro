@@ -36,7 +36,7 @@ type (
 		ClientID     types.ID  `json:"client_id"`
 		ClientSecret *string   `json:"client_secret"`
 		GrantType    GrantType `json:"grant_type"`
-		Code         *string   `json:"code,omitempty"`
+		Code         *types.ID `json:"code,omitempty"`
 		RedirectURI  *URI      `json:"redirect_uri,omitempty"`
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
@@ -126,7 +126,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				return ErrAccessDenied.WithError(err)
 			}
 
-			user, err := ctrl.UserGet(ctx, req.Subject.String())
+			user, err := ctrl.UserGet(ctx, req.Subject)
 			if err != nil {
 				return ErrAccessDenied.WithError(err)
 			}

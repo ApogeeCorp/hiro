@@ -21,6 +21,7 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -114,6 +115,59 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		log.Error(err.Error())
 
 		return ErrAccessDenied.WithError(err)
+	}
+
+	store, err := api.SessionStore(ctx).GetStore(ctx, aud.ID())
+	if err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	// check for a session
+	r, _ := api.Request(ctx)
+	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	if err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	if !session.IsNew {
+		if sub, ok := session.Values["sub"].(string); ok {
+			// create a new auth code
+			code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
+				Type:                RequestTokenTypeAuthCode,
+				Audience:            types.ID(params.Audience),
+				ClientID:            types.ID(params.ClientID),
+				Subject:             types.ID(sub),
+				ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
+				Scope:               params.Scope,
+				CodeChallenge:       params.CodeChallenge,
+				CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
+				AppURI:              params.AppURI,
+				RedirectURI:         params.RedirectURI,
+			})
+			if err != nil {
+				api.Redirect(u, ErrAccessDenied.WithError(err))
+			}
+
+			log.Debugf("auth code %s created", code)
+
+			if params.RedirectURI != nil {
+				u, err = params.RedirectURI.Parse()
+				if err != nil {
+					return ErrAccessDenied.WithError(err)
+				}
+			}
+
+			// parse the redirect uri
+			q := u.Query()
+			q.Set("code", code)
+
+			if params.State != nil {
+				q.Set("state", *params.State)
+			}
+			u.RawQuery = q.Encode()
+
+			return api.Redirect(u)
+		}
 	}
 
 	// create a new login request

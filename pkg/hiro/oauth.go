@@ -83,16 +83,6 @@ type (
 		RevokedAt *oauth.Time    `db:"revoked_at"`
 		Claims    oauth.Claims   `db:"claims"`
 	}
-
-	session struct {
-		ID        types.ID    `db:"id"`
-		Audience  types.ID    `db:"aud"`
-		Subject   types.ID    `db:"sub"`
-		Data      string      `db:"data"`
-		CreatedAt oauth.Time  `db:"iat"`
-		ExpiresAt oauth.Time  `db:"exp"`
-		RevokedAt *oauth.Time `db:"rev,omitempty"`
-	}
 )
 
 // OAuthController returns an oauth controller from a hiro.Backend
@@ -208,7 +198,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 }
 
 // RequestTokenGet looks up a request by id
-func (o *oauthController) RequestTokenGet(ctx context.Context, id string) (oauth.RequestToken, error) {
+func (o *oauthController) RequestTokenGet(ctx context.Context, id types.ID) (oauth.RequestToken, error) {
 	var req requestToken
 
 	log := api.Log(ctx).WithField("operation", "RequestGet").
@@ -219,7 +209,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string) (oauth
 		stmt, args, err := sq.Select("*").
 			From("hiro.request_tokens").
 			PlaceholderFormat(sq.Dollar).
-			Where(sq.Eq{"id": types.ID(id)}).
+			Where(sq.Eq{"id": id}).
 			Suffix("FOR UPDATE").
 			ToSql()
 		if err != nil {
@@ -324,9 +314,9 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 }
 
 // UserGet gets a user by id
-func (o *oauthController) UserGet(ctx context.Context, id string) (oauth.User, error) {
+func (o *oauthController) UserGet(ctx context.Context, id types.ID) (oauth.User, error) {
 	user, err := o.Backend.UserGet(ctx, UserGetInput{
-		UserID: ptr.ID(id),
+		UserID: &id,
 	})
 	if err != nil {
 		return nil, err
@@ -355,110 +345,6 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 	}
 
 	return &oauthUser{user}, nil
-}
-
-// SessionCreate creates a new session and returns the id
-func (o *oauthController) SessionCreate(ctx context.Context, sess oauth.Session) (types.ID, error) {
-	var out session
-
-	log := api.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
-
-	var p AudienceGetInput
-	if !sess.Audience.Valid() {
-		p.Name = ptr.String(sess.Audience)
-	} else {
-		p.AudienceID = &sess.Audience
-	}
-
-	aud, err := o.Backend.AudienceGet(ctx, p)
-	if err != nil {
-		return "", err
-	}
-
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
-		log.Debugf("creating new access token")
-
-		stmt, args, err := sq.Insert("hiro.sessions").
-			Columns(
-				"audience_id",
-				"user_id",
-				"data",
-				"expires_at").
-			Values(
-				aud.ID,
-				sess.Subject,
-				sess.Data,
-				time.Now().Add(aud.SessionLifetime),
-			).
-			PlaceholderFormat(sq.Dollar).
-			Suffix(`RETURNING *`).
-			ToSql()
-		if err != nil {
-			log.Error(err.Error())
-
-			return fmt.Errorf("%w: failed to build query statement", err)
-		}
-
-		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
-			log.Error(err.Error())
-
-			return parseSQLError(err)
-		}
-
-		return nil
-	}); err != nil {
-		return out.ID, err
-	}
-
-	return out.ID, nil
-}
-
-// SessionGet gets a session by id
-func (o *oauthController) SessionGet(ctx context.Context, id types.ID) (oauth.Session, error) {
-	var s session
-
-	log := api.Log(ctx).WithField("operation", "SessionGet").
-		WithField("id", id)
-
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
-
-		stmt, args, err := sq.Select("*").
-			From("hiro.sessions").
-			PlaceholderFormat(sq.Dollar).
-			Where(sq.Eq{"id": types.ID(id)}).
-			Suffix("FOR UPDATE").
-			ToSql()
-		if err != nil {
-			log.Error(err.Error())
-
-			return parseSQLError(err)
-		}
-
-		if err := tx.GetContext(ctx, &s, stmt, args...); err != nil {
-			log.Error(err.Error())
-
-			if errors.Is(err, sql.ErrNoRows) {
-				return oauth.ErrInvalidToken
-			}
-
-			return parseSQLError(err)
-		}
-
-		// delete expired sessions as we come accross them
-		if s.ExpiresAt.Time().Before(time.Now()) {
-			_, err = sq.Delete("hiro.request_tokens").
-				Where(sq.Eq{"id": types.ID(id)}).
-				PlaceholderFormat(sq.Dollar).
-				RunWith(tx).
-				ExecContext(ctx)
-		}
-
-		return err
-	}); err != nil {
-		return oauth.Session{}, err
-	}
-
-	return oauth.Session(s), nil
 }
 
 func (u oauthUser) SubjectID() types.ID {

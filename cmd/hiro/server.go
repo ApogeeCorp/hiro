@@ -30,6 +30,7 @@ import (
 	"github.com/apex/log"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 	"github.com/ModelRocket/hiro/pkg/oauth"
@@ -63,7 +64,11 @@ func serverMain(c *cli.Context) error {
 	// get the oauth controller from hiro
 	authCtrl := h.OAuthController()
 
-	server.Router("/oauth").AddRoutes(oauth.Routes(authCtrl)...)
+	sessStore := session.NewManager(h.SessionController())
+
+	server.Router("/oauth",
+		api.WithSessionStore(sessStore)).
+		AddRoutes(oauth.Routes(authCtrl)...)
 
 	ws := grpcweb.WrapServer(s)
 

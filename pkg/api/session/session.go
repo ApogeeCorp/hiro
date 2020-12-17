@@ -17,20 +17,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package oauth
+package session
 
-import "github.com/ModelRocket/hiro/pkg/types"
+import (
+	"time"
+
+	"github.com/ModelRocket/hiro/pkg/types"
+)
 
 type (
 	// Session represents an oauth session stored in a browser cookie
 	// and backed by the controller
 	Session struct {
-		ID        types.ID `json:"id"`
-		Audience  types.ID `json:"aud"`
-		Subject   types.ID `json:"sub"`
-		Data      string   `json:"data"`
-		CreatedAt Time     `json:"iat"`
-		ExpiresAt Time     `json:"exp"`
-		RevokedAt *Time    `json:"rev,omitempty"`
+		ID        types.ID   `json:"id"`
+		Audience  types.ID   `json:"aud"`
+		Subject   types.ID   `json:"sub"`
+		Data      string     `json:"data"`
+		CreatedAt time.Time  `json:"iat"`
+		ExpiresAt time.Time  `json:"exp"`
+		RevokedAt *time.Time `json:"rev,omitempty"`
 	}
 )

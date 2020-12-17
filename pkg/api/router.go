@@ -19,7 +19,10 @@
 
 package api
 
-import "github.com/gorilla/mux"
+import (
+	"github.com/ModelRocket/hiro/pkg/api/session"
+	"github.com/gorilla/mux"
+)
 
 type (
 	// Router is a router interface
@@ -35,6 +38,7 @@ type (
 		version    string
 		versioning bool
 		name       string
+		sessions   *session.Manager
 	}
 
 	// RouterOption specifies a router option
@@ -44,6 +48,7 @@ type (
 // AddRoutes adds a routes to the router
 func (r *router) AddRoutes(routes ...Route) {
 	for _, rt := range routes {
+		rt.router = r
 		r.Methods(rt.methods...).Path(rt.path).HandlerFunc(r.s.routeHandler(rt))
 	}
 }
@@ -60,6 +65,13 @@ func WithVersioning(version string) RouterOption {
 func WithName(name string) RouterOption {
 	return func(r *router) {
 		r.name = name
+	}
+}
+
+// WithSessionStore adds the session store to the router
+func WithSessionStore(store *session.Manager) RouterOption {
+	return func(r *router) {
+		r.sessions = store
 	}
 }
 

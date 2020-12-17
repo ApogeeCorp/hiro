@@ -41,6 +41,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/allegro/bigcache"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
@@ -97,6 +98,8 @@ var (
 	contextKeyRequest = contextKey("api:request")
 
 	contextKeyContext = contextKey("api:context")
+
+	contextKeySessions = contextKey("api:sessions")
 )
 
 // NewServer creates a new server object
@@ -333,6 +336,10 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 				s.WriteError(w, http.StatusInternalServerError, t)
 			}
 		}()
+
+		if route.router.sessions != nil {
+			r = r.WithContext(context.WithValue(r.Context(), contextKeySessions, route.router.sessions))
+		}
 
 		if len(route.authorizers) > 0 && route.authorizers[0] != nil {
 			for _, a := range route.authorizers {
@@ -684,6 +691,11 @@ func IsRequest(ctx context.Context) bool {
 // Context returns the request context object
 func Context(ctx context.Context) interface{} {
 	return ctx.Value(contextKeyContext)
+}
+
+// SessionStore returns the session store from the context
+func SessionStore(ctx context.Context) *session.Manager {
+	return ctx.Value(contextKeySessions).(*session.Manager)
 }
 
 // Request gets the reqest and response objects from the context

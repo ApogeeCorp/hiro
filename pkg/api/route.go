@@ -35,6 +35,7 @@ type (
 		validation  bool
 		context     interface{}
 		contextFunc ContextFunc
+		router      *router
 	}
 
 	// RouteOption defines route options

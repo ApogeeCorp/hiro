@@ -28,7 +28,7 @@ import (
 type (
 	// Controller defines an oauth server controller interface
 	Controller interface {
-		// AudienceGet returns an audience by id
+		// AudienceGet returns an audience by id or name
 		AudienceGet(ctx context.Context, id string) (Audience, error)
 
 		// ClientGet gets the client from the controller and optionally verfies the secret
@@ -38,21 +38,15 @@ type (
 		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)
 
 		// RequestTokenGet looks up a request by id from the controller
-		RequestTokenGet(ctx context.Context, id string) (RequestToken, error)
+		RequestTokenGet(ctx context.Context, id types.ID) (RequestToken, error)
 
 		// UserGet gets a user object by id
-		UserGet(ctx context.Context, id string) (User, error)
+		UserGet(ctx context.Context, id types.ID) (User, error)
 
 		// UserAuthenticate authenticates a user and returns a principal object
 		UserAuthenticate(ctx context.Context, login, password string) (User, error)
 
 		// TokenCreate creates a new token
 		TokenCreate(ctx context.Context, token Token) (Token, error)
-
-		// SessionCreate creates a new session and returns the id
-		SessionCreate(ctx context.Context, session Session) (types.ID, error)
-
-		// SessionGet gets a session by id
-		SessionGet(ctx context.Context, id types.ID) (Session, error)
 	}
 )

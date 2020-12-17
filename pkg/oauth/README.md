@@ -47,5 +47,3 @@ The package provides a `Routes` set that is designed to be used with the [api.Se
 ### `POST /login`
 
 ### `GET /token`
-
-## Sessions
