@@ -26,7 +26,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
@@ -132,7 +131,7 @@ func (u UserDeleteInput) ValidateWithContext(ctx context.Context) error {
 func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User, error) {
 	var user User
 
-	log := api.Log(ctx).WithField("operation", "UserCreate").WithField("login", params.Login)
+	log := b.Log(ctx).WithField("operation", "UserCreate").WithField("login", params.Login)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -198,7 +197,7 @@ func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User
 func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error) {
 	var user User
 
-	log := api.Log(ctx).WithField("operation", "UserUpdate").WithField("id", params.UserID)
+	log := b.Log(ctx).WithField("operation", "UserUpdate").WithField("id", params.UserID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -254,7 +253,7 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, error) {
 	var suffix string
 
-	log := api.Log(ctx).WithField("operation", "UserGet").
+	log := b.Log(ctx).WithField("operation", "UserGet").
 		WithField("id", params.UserID).
 		WithField("login", params.Login)
 
@@ -305,7 +304,7 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 
 // UserList returns a listing of users
 func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, error) {
-	log := api.Log(ctx).WithField("operation", "UserList")
+	log := b.Log(ctx).WithField("operation", "UserList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -347,7 +346,7 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 
 // UserDelete deletes an user by id
 func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error {
-	log := api.Log(ctx).WithField("operation", "UserDelete").WithField("user", params.UserID)
+	log := b.Log(ctx).WithField("operation", "UserDelete").WithField("user", params.UserID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -370,7 +369,7 @@ func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error 
 }
 
 func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
-	log := api.Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
+	log := b.Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
 
 	db := b.DB(ctx)
 
@@ -429,7 +428,7 @@ func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
 }
 
 func (b *Backend) userPreload(ctx context.Context, user User) (*User, error) {
-	log := api.Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
+	log := b.Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
 
 	db := b.DB(ctx)
 

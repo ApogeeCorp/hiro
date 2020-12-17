@@ -27,7 +27,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
@@ -62,7 +61,7 @@ func (b *Backend) SessionController() session.Controller {
 func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Session) error {
 	var out dbSession
 
-	log := api.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
+	log := s.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
 	var p AudienceGetInput
 	if !sess.Audience.Valid() {
@@ -120,7 +119,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Session) error {
 	var out dbSession
 
-	log := api.Log(ctx).WithField("operation", "SessionUpdate").
+	log := s.Log(ctx).WithField("operation", "SessionUpdate").
 		WithField("session_id", sess.ID).
 		WithField("user_id", sess.Subject)
 
@@ -160,7 +159,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (session.Session, error) {
 	var out dbSession
 
-	log := api.Log(ctx).WithField("operation", "SessionLoad").
+	log := s.Log(ctx).WithField("operation", "SessionLoad").
 		WithField("id", id)
 
 	if err := s.Transact(ctx, func(ctx context.Context, tx DB) error {
@@ -188,11 +187,15 @@ func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (sessi
 
 		// delete expired sessions as we come accross them
 		if out.ExpiresAt.Before(time.Now()) {
-			_, err = sq.Delete("hiro.sessions").
+			if _, err := sq.Delete("hiro.sessions").
 				Where(sq.Eq{"id": id}).
 				PlaceholderFormat(sq.Dollar).
 				RunWith(tx).
-				ExecContext(ctx)
+				ExecContext(ctx); err != nil {
+				return err
+			}
+
+			return session.ErrSessionExpired
 		}
 
 		return err
@@ -239,4 +242,26 @@ func (s *sessionController) SessionOptions(ctx context.Context, id types.ID) (se
 	copy(opts.Block[:], aud.TokenSecret.Bytes()[0:32])
 
 	return opts, nil
+}
+
+// SessionCleanup removes expired sessions
+func (s *sessionController) SessionCleanup(ctx context.Context) error {
+	log := s.Log(ctx).WithField("operation", "SessionCleanup")
+
+	log.Debug("cleaning up sessions")
+
+	db := s.DB(ctx)
+
+	if _, err := sq.Delete("hiro.sessions").
+		Where(
+			sq.LtOrEq{"expires_at": time.Now()},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup request tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	return nil
 }

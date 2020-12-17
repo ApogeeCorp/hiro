@@ -30,9 +30,16 @@ import (
 
 type (
 	// ID is the hiro uuid implementation wrapper that
-	// base58 encodes/decodes that values as text or json
+	// base58 encodes/decodes the values as text or json
 	ID string
 )
+
+// NewID generatesa new id
+func NewID() ID {
+	u := uuid.Must(uuid.NewRandom())
+
+	return ID(u[:])
+}
 
 // Valid returns true if the id is valid
 func (id ID) Valid() bool {
@@ -43,7 +50,7 @@ func (id ID) Valid() bool {
 	return true
 }
 
-// Validate validates the id
+// Validate validates the id as a uuid
 func (id ID) Validate() error {
 	data, err := base58.Decode(string(id))
 	if err != nil {

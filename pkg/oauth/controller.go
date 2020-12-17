@@ -48,5 +48,8 @@ type (
 
 		// TokenCreate creates a new token
 		TokenCreate(ctx context.Context, token Token) (Token, error)
+
+		// TokenCleanup should remove any expired or revoked tokens from the store
+		TokenCleanup(ctx context.Context) error
 	}
 )

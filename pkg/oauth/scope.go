@@ -62,15 +62,14 @@ const (
 
 var (
 	// Scopes is the list of all oauth scopes
+	// verify scopes have special use and should not be granted to users implicitly
 	Scopes = Scope{
 		ScopeOpenID,
 		ScopeProfile,
 		ScopeOfflineAccess,
 		ScopeAddress,
 		ScopeEmail,
-		ScopeEmailVerify,
 		ScopePhone,
-		ScopePhoneVerify,
 	}
 )
 

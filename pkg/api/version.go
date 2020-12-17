@@ -34,6 +34,7 @@ type (
 	Versioner interface {
 		Name() string
 		Version() string
+		RequireVersion() bool
 	}
 )
 
@@ -42,14 +43,14 @@ var (
 )
 
 // VersionMiddleware enforces versioning in the request path
-func VersionMiddleware(v Versioner, require bool, header ...string) func(http.Handler) http.Handler {
+func VersionMiddleware(v Versioner, header ...string) func(http.Handler) http.Handler {
 	apiVer, _ := semver.ParseTolerant(v.Version())
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 
-			if require {
+			if v.RequireVersion() {
 				ver, ok := vars["version"]
 				if !ok {
 					w.WriteHeader(http.StatusNotFound)

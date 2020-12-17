@@ -19,87 +19,48 @@ package main
 
 import (
 	"context"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/apex/log"
 
-	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/hiro/pb"
-	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/urfave/cli/v2"
-	"google.golang.org/grpc"
 )
 
 func serverMain(c *cli.Context) error {
-	lis, err := net.Listen("tcp", c.String("rpc-addr"))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-
-	pb.RegisterHiroServer(s, hiro.NewRPCServer(h))
-
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %s", err)
-		}
-	}()
-
-	server := api.NewServer(
-		api.WithAddr(c.String("http-addr")),
-		api.WithCORS(c.StringSlice("cors-allowed-origin")...),
-		api.WithTracing(c.Bool("http-tracing")),
+	d, err := hiro.NewDaemon(
+		hiro.WithServerAddr(c.String("server-addr")),
+		hiro.WithController(h),
 	)
-
-	// get the oauth controller from hiro
-	authCtrl := h.OAuthController()
-
-	sessStore := session.NewManager(h.SessionController())
-
-	server.Router("/oauth",
-		api.WithSessionStore(sessStore)).
-		AddRoutes(oauth.Routes(authCtrl)...)
-
-	ws := grpcweb.WrapServer(s)
-
-	server.Router("/").AddRoutes(api.NewRoute("").Handler(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc-web") {
-			ws.ServeHTTP(w, r)
-		}
-	}))
+	if err != nil {
+		return err
+	}
 
 	done := make(chan os.Signal, 1)
 
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err := server.Serve(); err != nil {
+		if err := d.Serve(func() {
+			log.Infof("hiro daemon started %s", c.String("server-addr"))
+		}); err != nil {
 			log.Fatalf("failed to start the atomic daemon %+v", err)
 		}
-
 	}()
-	log.Info("atomic daemon started")
 
 	<-done
-	log.Info("atomic dameon shutting down...")
+	log.Info("hiro dameon shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := d.Shutdown(ctx); err != nil {
 		log.Fatalf("shutdown:%+v", err)
 	}
-	log.Info("atomic shutdown")
+	log.Info("hiro shutdown")
 
 	return nil
 }

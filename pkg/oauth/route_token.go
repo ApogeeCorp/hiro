@@ -25,6 +25,7 @@ import (
 	"path"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -115,6 +116,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 		if req.Scope.Contains(ScopeOpenID) {
 			id, err := ctrl.TokenCreate(ctx, Token{
+				ID:       ptr.ID(types.NewID()),
 				Issuer:   &issuer,
 				Subject:  &req.Subject,
 				Audience: req.Audience,
@@ -164,7 +166,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				id.Claims.Merge(email)
 			}
 
-			log.Debugf("identity token %s issued", id.ID)
+			log.Debugf("identity token %s issued", id.ID.String())
 
 			tokens = append(tokens, id)
 		}

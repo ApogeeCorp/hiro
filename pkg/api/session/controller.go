@@ -44,6 +44,9 @@ type (
 
 		// SessionOptions returns the options from the audience
 		SessionOptions(ctx context.Context, aud types.ID) (Options, error)
+
+		// SessionCleanup should remove expired sessions from the store
+		SessionCleanup(ctx context.Context) error
 	}
 
 	// Options provide cookie hashing and encryption

@@ -66,7 +66,7 @@ func (s *store) New(r *http.Request, name string) (*sessions.Session, error) {
 			err = s.load(session)
 			if err == nil {
 				session.IsNew = false
-			} else if errors.Is(err, sql.ErrNoRows) {
+			} else if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrSessionExpired) {
 				err = nil
 			}
 		}

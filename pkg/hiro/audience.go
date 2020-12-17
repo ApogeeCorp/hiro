@@ -25,7 +25,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/types"
@@ -130,7 +129,7 @@ func (a AudienceDeleteInput) ValidateWithContext(ctx context.Context) error {
 func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
 	var aud Audience
 
-	log := api.Log(ctx).WithField("operation", "AudienceCreate").WithField("name", params.Name)
+	log := b.Log(ctx).WithField("operation", "AudienceCreate").WithField("name", params.Name)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -184,7 +183,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error) {
 	var aud Audience
 
-	log := api.Log(ctx).WithField("operation", "AudienceUpdate").WithField("id", params.AudienceID)
+	log := b.Log(ctx).WithField("operation", "AudienceUpdate").WithField("id", params.AudienceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -248,7 +247,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error) {
 	var suffix string
 
-	log := api.Log(ctx).WithField("operation", "AudienceGet").
+	log := b.Log(ctx).WithField("operation", "AudienceGet").
 		WithField("id", params.AudienceID).
 		WithField("name", params.Name)
 
@@ -299,7 +298,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 
 // AudienceList returns a listing of audiences
 func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error) {
-	log := api.Log(ctx).WithField("operation", "AudienceList")
+	log := b.Log(ctx).WithField("operation", "AudienceList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -340,7 +339,7 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 
 // AudienceDelete deletes an audience by id
 func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput) error {
-	log := api.Log(ctx).WithField("operation", "AudienceDelete").WithField("audience", params.AudienceID)
+	log := b.Log(ctx).WithField("operation", "AudienceDelete").WithField("audience", params.AudienceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -363,7 +362,7 @@ func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput
 }
 
 func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, permissions oauth.Scope) error {
-	log := api.Log(ctx).WithField("operation", "audienceUpdatePermissions").WithField("audience", aud.ID)
+	log := b.Log(ctx).WithField("operation", "audienceUpdatePermissions").WithField("audience", aud.ID)
 
 	if len(permissions) == 0 {
 		return nil
@@ -406,7 +405,7 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 }
 
 func (b *Backend) audienceGetPermissions(ctx context.Context, aud *Audience) error {
-	log := api.Log(ctx).WithField("operation", "audienceGetPermissions").WithField("audience", aud.ID)
+	log := b.Log(ctx).WithField("operation", "audienceGetPermissions").WithField("audience", aud.ID)
 
 	db := b.DB(ctx)
 

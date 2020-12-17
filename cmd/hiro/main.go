@@ -52,16 +52,10 @@ func main() {
 			EnvVars: []string{"DB_SOURCE"},
 		},
 		&cli.StringFlag{
-			Name:    "rpc-addr",
-			Usage:   "specify the rpc server listen address",
-			Value:   "0.0.0.0:9001",
-			EnvVars: []string{"RPC_ADDR"},
-		},
-		&cli.StringFlag{
-			Name:    "http-addr",
-			Usage:   "specify the http server listen address",
-			Value:   "0.0.0.0:9002",
-			EnvVars: []string{"HTTP_ADDR"},
+			Name:    "server-addr",
+			Usage:   "specify the server listen address",
+			Value:   "0.0.0.0:9000",
+			EnvVars: []string{"SERVER_ADDR"},
 		},
 		&cli.StringSliceFlag{
 			Name:    "cors-allowed-origin",

@@ -133,7 +133,7 @@ func (o *oauthController) ClientGet(ctx context.Context, id types.ID, secret ...
 func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.RequestToken) (string, error) {
 	var out requestToken
 
-	log := api.Log(ctx).WithField("operation", "RequestCreate").WithField("application", req.ClientID)
+	log := o.Log(ctx).WithField("operation", "RequestCreate").WithField("application", req.ClientID)
 
 	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new request token")
@@ -201,7 +201,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 func (o *oauthController) RequestTokenGet(ctx context.Context, id types.ID) (oauth.RequestToken, error) {
 	var req requestToken
 
-	log := api.Log(ctx).WithField("operation", "RequestGet").
+	log := o.Log(ctx).WithField("operation", "RequestGet").
 		WithField("id", id)
 
 	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
@@ -246,7 +246,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id types.ID) (oau
 func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (oauth.Token, error) {
 	var out accessToken
 
-	log := api.Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
+	log := o.Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
 
 	var p AudienceGetInput
 	if !token.Audience.Valid() {
@@ -345,6 +345,42 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 	}
 
 	return &oauthUser{user}, nil
+}
+
+// TokenCleanup should remove any expired or revoked tokens from the store
+func (o *oauthController) TokenCleanup(ctx context.Context) error {
+	log := o.Log(ctx).WithField("operation", "TokenCleanup")
+
+	log.Debugf("cleaning up request tokens")
+
+	db := o.DB(ctx)
+
+	if _, err := sq.Delete("hiro.request_tokens").
+		Where(
+			sq.LtOrEq{"expires_at": time.Now()},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup request tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	if _, err := sq.Delete("hiro.access_tokens").
+		Where(
+			sq.Or{
+				sq.Expr("revoked_at IS NOT NULL"),
+				sq.LtOrEq{"expires_at": time.Now()},
+			},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup access tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	return nil
 }
 
 func (u oauthUser) SubjectID() types.ID {

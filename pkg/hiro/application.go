@@ -27,7 +27,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/types"
@@ -151,7 +150,7 @@ func (a ApplicationDeleteInput) ValidateWithContext(ctx context.Context) error {
 func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreateInput) (*Application, error) {
 	var app Application
 
-	log := api.Log(ctx).WithField("operation", "ApplicationCreate").WithField("name", params.Name)
+	log := b.Log(ctx).WithField("operation", "ApplicationCreate").WithField("name", params.Name)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -212,7 +211,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdateInput) (*Application, error) {
 	var app Application
 
-	log := api.Log(ctx).WithField("operation", "ApplicationUpdate").WithField("id", params.ApplicationID)
+	log := b.Log(ctx).WithField("operation", "ApplicationUpdate").WithField("id", params.ApplicationID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -276,7 +275,7 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput) (*Application, error) {
 	var suffix string
 
-	log := api.Log(ctx).WithField("operation", "ApplicationGet").
+	log := b.Log(ctx).WithField("operation", "ApplicationGet").
 		WithField("id", params.ApplicationID).
 		WithField("name", params.Name)
 
@@ -327,7 +326,7 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 
 // ApplicationList returns a listing of applications
 func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInput) ([]*Application, error) {
-	log := api.Log(ctx).WithField("operation", "ApplicationList")
+	log := b.Log(ctx).WithField("operation", "ApplicationList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -368,7 +367,7 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 }
 
 func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchInput) error {
-	log := api.Log(ctx).WithField("operation", "applicationPatch").WithField("application", params.Application.ID)
+	log := b.Log(ctx).WithField("operation", "applicationPatch").WithField("application", params.Application.ID)
 
 	db := b.DB(ctx)
 
@@ -478,7 +477,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 }
 
 func (b *Backend) applicationPreload(ctx context.Context, app Application) (*Application, error) {
-	log := api.Log(ctx).WithField("operation", "applicationPreload").WithField("application", app.ID)
+	log := b.Log(ctx).WithField("operation", "applicationPreload").WithField("application", app.ID)
 
 	db := b.DB(ctx)
 
@@ -535,7 +534,7 @@ func (b *Backend) applicationPreload(ctx context.Context, app Application) (*App
 
 // ApplicationDelete deletes an application by id
 func (b *Backend) ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error {
-	log := api.Log(ctx).WithField("operation", "ApplicationDelete").WithField("application", params.ApplicationID)
+	log := b.Log(ctx).WithField("operation", "ApplicationDelete").WithField("application", params.ApplicationID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())

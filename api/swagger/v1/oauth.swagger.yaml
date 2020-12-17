@@ -463,7 +463,7 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
       security:
-        - OAuth: ["verify"]
+        - OAuth: ["email:verify"]
 
   /passwordSet:
     post:

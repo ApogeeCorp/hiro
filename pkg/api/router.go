@@ -20,18 +20,15 @@
 package api
 
 import (
+	"path"
+
 	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/gorilla/mux"
 )
 
 type (
-	// Router is a router interface
-	Router interface {
-		AddRoutes(routes ...Route)
-	}
-
-	// router is an api router
-	router struct {
+	// Router is an api Router
+	Router struct {
 		*mux.Router
 		s          *Server
 		basePath   string
@@ -40,47 +37,51 @@ type (
 		name       string
 		sessions   *session.Manager
 	}
-
-	// RouterOption specifies a router option
-	RouterOption func(r *router)
 )
 
-// AddRoutes adds a routes to the router
-func (r *router) AddRoutes(routes ...Route) {
+// WithRoutes adds a routes to the router
+func (r *Router) WithRoutes(routes ...Route) *Router {
 	for _, rt := range routes {
 		rt.router = r
-		r.Methods(rt.methods...).Path(rt.path).HandlerFunc(r.s.routeHandler(rt))
+		r.Methods(rt.methods...).
+			Path(rt.path).
+			HandlerFunc(r.s.routeHandler(rt))
 	}
+
+	return r
 }
 
 // WithVersioning enables versioning that will enforce a versioned path
-func WithVersioning(version string) RouterOption {
-	return func(r *router) {
-		r.versioning = true
-		r.version = version
-	}
+func (r *Router) WithVersioning() *Router {
+	r.versioning = true
+	r.basePath = path.Join(r.basePath, "{version}")
+	r.Router = r.s.router.PathPrefix(r.basePath).Subrouter()
+	return r
 }
 
 // WithName enables versioning that will enforce a versioned path
-func WithName(name string) RouterOption {
-	return func(r *router) {
-		r.name = name
-	}
+func (r *Router) WithName(name string) *Router {
+	r.name = name
+	return r
 }
 
-// WithSessionStore adds the session store to the router
-func WithSessionStore(store *session.Manager) RouterOption {
-	return func(r *router) {
-		r.sessions = store
-	}
+// WithSessionManager adds the session store to the router
+func (r *Router) WithSessionManager(store *session.Manager) *Router {
+	r.sessions = store
+	return r
 }
 
 // Version implements the Versioner interface
-func (r *router) Version() string {
+func (r Router) Version() string {
 	return r.version
 }
 
 // Name implements the Versioner interface
-func (r *router) Name() string {
+func (r Router) Name() string {
 	return r.name
+}
+
+// RequireVersion implements the Versioner interface
+func (r Router) RequireVersion() bool {
+	return r.versioning
 }

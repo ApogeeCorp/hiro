@@ -34,7 +34,6 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"path"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -55,7 +54,7 @@ import (
 
 type (
 	// Authorizer performs an authorization and returns a context or error on failure
-	Authorizer func(r *http.Request) (context.Context, error)
+	Authorizer func(r *http.Request) (interface{}, error)
 
 	// Server is an http server that provides basic REST funtionality
 	Server struct {
@@ -100,6 +99,8 @@ var (
 	contextKeyContext = contextKey("api:context")
 
 	contextKeySessions = contextKey("api:sessions")
+
+	contextKeyAuth = contextKey("api:auth")
 )
 
 // NewServer creates a new server object
@@ -108,7 +109,7 @@ func NewServer(opts ...Option) *Server {
 		defaultAddr     = "127.0.0.1:9000"
 		defaultCacheTTL = time.Hour
 		defaultVersion  = "1.0.0"
-		defaultName     = "ModelRocket"
+		defaultName     = "hiro"
 	)
 
 	s := &Server{
@@ -129,7 +130,7 @@ func NewServer(opts ...Option) *Server {
 	}
 
 	s.router.Use(s.LogMiddleware())
-	s.router.Use(VersionMiddleware(s, false))
+	s.router.Use(VersionMiddleware(s))
 
 	if s.cacheTTL > 0 {
 		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
@@ -221,12 +222,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // Router returns an api router at the specified base path
-func (s *Server) Router(basePath string, opts ...RouterOption) Router {
+func (s *Server) Router(basePath string, version ...string) *Router {
 	const (
 		defaultVersion = "1.0.0"
 	)
 
-	r := &router{
+	r := &Router{
+		Router:     s.router.PathPrefix(basePath).Subrouter(),
 		basePath:   basePath,
 		version:    defaultVersion,
 		versioning: false,
@@ -234,19 +236,11 @@ func (s *Server) Router(basePath string, opts ...RouterOption) Router {
 		s:          s,
 	}
 
-	for _, opt := range opts {
-		opt(r)
+	if len(version) > 0 {
+		r.version = version[0]
 	}
 
-	if r.versioning {
-		r.basePath = path.Join(r.basePath, "{version}")
-	}
-
-	r.Router = s.router.PathPrefix(r.basePath).Subrouter()
-
-	if r.versioning {
-		r.Use(VersionMiddleware(r, r.versioning, "X-API-Version"))
-	}
+	r.Use(VersionMiddleware(r, "X-API-Version"))
 
 	return r
 }
@@ -354,9 +348,10 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 					return
 				}
 
-				// add the auth context to the context
+				// add the first context we get and break
 				if ctx != nil {
-					r = r.WithContext(ctx)
+					r = r.WithContext(context.WithValue(r.Context(), contextKeyAuth, ctx))
+					break
 				}
 			}
 		}
@@ -592,6 +587,11 @@ func (s *Server) Name() string {
 	return s.name
 }
 
+// RequireVersion implements the Versioner interface
+func (s *Server) RequireVersion() bool {
+	return false
+}
+
 // WithLog specifies a new logger
 func WithLog(l log.Interface) Option {
 	return func(s *Server) {
@@ -691,6 +691,11 @@ func IsRequest(ctx context.Context) bool {
 // Context returns the request context object
 func Context(ctx context.Context) interface{} {
 	return ctx.Value(contextKeyContext)
+}
+
+// AuthContext returns the request auth context
+func AuthContext(ctx context.Context) interface{} {
+	return ctx.Value(contextKeyAuth)
 }
 
 // SessionManager returns the session store from the context
