@@ -117,7 +117,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	store, err := api.SessionStore(ctx).GetStore(ctx, aud.ID())
+	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID())
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}

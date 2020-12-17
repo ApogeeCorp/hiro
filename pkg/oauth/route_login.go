@@ -104,7 +104,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 
 	log.Debugf("user %s authorized %s", user.SubjectID(), req.Scope)
 
-	store, err := api.SessionStore(ctx).GetStore(ctx, aud.ID(), user.SubjectID())
+	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID(), user.SubjectID())
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}

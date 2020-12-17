@@ -693,8 +693,8 @@ func Context(ctx context.Context) interface{} {
 	return ctx.Value(contextKeyContext)
 }
 
-// SessionStore returns the session store from the context
-func SessionStore(ctx context.Context) *session.Manager {
+// SessionManager returns the session store from the context
+func SessionManager(ctx context.Context) *session.Manager {
 	return ctx.Value(contextKeySessions).(*session.Manager)
 }
 
