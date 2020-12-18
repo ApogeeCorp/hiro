@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -135,7 +136,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	log.Debugf("auth code %s created", code)
 
 	if req.RedirectURI == nil {
-		return api.NewResponse()
+		return api.NewResponse().WithStatus(http.StatusNoContent)
 	}
 
 	// parse the redirect uri

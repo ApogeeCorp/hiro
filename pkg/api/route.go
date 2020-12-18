@@ -153,3 +153,9 @@ func (r Route) Authorizers(a ...Authorizer) Route {
 	r.authorizers = a
 	return r
 }
+
+// Validate will validate parameters in the server
+func (r Route) Validate() Route {
+	r.validation = true
+	return r
+}

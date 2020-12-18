@@ -41,7 +41,7 @@ const (
 
 // Validate validates the CodeChallengeMethod
 func (c PKCEChallengeMethod) Validate() error {
-	return validation.Validate(&c, validation.In(PKCEChallengeMethodS256))
+	return validation.Validate(string(c), validation.In(PKCEChallengeMethodS256.String()))
 }
 
 func (c PKCEChallengeMethod) String() string {

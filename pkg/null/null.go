@@ -68,6 +68,11 @@ func Int64(i interface{}) sql.NullInt64 {
 	return sql.NullInt64{Valid: true, Int64: cast.ToInt64(i)}
 }
 
+// Timer is time interface
+type Timer interface {
+	Time() time.Time
+}
+
 // Time safely converts tm to a sql.NullTime
 func Time(tm interface{}) sql.NullTime {
 	switch t := tm.(type) {
@@ -79,6 +84,13 @@ func Time(tm interface{}) sql.NullTime {
 			return sql.NullTime{Valid: false}
 		}
 		return sql.NullTime{Valid: !t.IsZero(), Time: *t}
+
+	case Timer:
+		if t == nil {
+			return sql.NullTime{Valid: false}
+		}
+		_t := t.Time()
+		return sql.NullTime{Valid: !_t.IsZero(), Time: _t}
 	}
 
 	val := reflect.ValueOf(tm)

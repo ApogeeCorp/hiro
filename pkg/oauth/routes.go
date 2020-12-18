@@ -28,15 +28,17 @@ func Routes(ctrl Controller) []api.Route {
 	auth := NewAuthorizer(ctrl, WithPermitQueryToken(true))
 
 	return []api.Route{
-		api.NewRoute("/authorize").Get().Handler(authorize).Context(ctrl),
-		api.NewRoute("/login").Post().Handler(login).Context(ctrl),
-		api.NewRoute("/logout").Get().Handler(logout).Context(ctrl),
-		api.NewRoute("/signup").Post().Handler(signup).Context(ctrl),
-		api.NewRoute("/token").Post().Handler(token).Context(ctrl),
-		api.NewRoute("/userinfo").Get().Handler(userinfo).Context(ctrl).Authorizers(auth.AuthorizeScope("openid", "profile")),
-		api.NewRoute("/userinfo").Patch().Handler(userinfoUpdate).Context(ctrl).Authorizers(auth.AuthorizeScope("openid", "profile")),
-		api.NewRoute("/openid/{audience_id}/.well-known/openid-configuration").Get().Handler(openidConfig).Context(ctrl),
-		api.NewRoute("/openid/{audience_id}/.well-known/jwks.json").Get().Handler(jwks).Context(ctrl),
-		api.NewRoute("/swagger.{format}").Get().Handler(specGet).Context(ctrl),
+		api.NewRoute("/authorize").Get().Handler(authorize).Context(ctrl).Validate(),
+		api.NewRoute("/login").Post().Handler(login).Context(ctrl).Validate(),
+		api.NewRoute("/logout").Get().Handler(logout).Context(ctrl).Validate(),
+		api.NewRoute("/signup").Post().Handler(signup).Context(ctrl).Validate(),
+		api.NewRoute("/token").Post().Handler(token).Context(ctrl).Validate(),
+		api.NewRoute("/verify").Get().Handler(verify).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
+		api.NewRoute("/verify").Post().Handler(verifySend).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
+		api.NewRoute("/userinfo").Get().Handler(userinfo).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
+		api.NewRoute("/userinfo").Patch().Handler(userinfoUpdate).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
+		api.NewRoute("/openid/{audience_id}/.well-known/openid-configuration").Get().Handler(openidConfig).Context(ctrl).Validate(),
+		api.NewRoute("/openid/{audience_id}/.well-known/jwks.json").Get().Handler(jwks).Context(ctrl).Validate(),
+		api.NewRoute("/swagger.{format}").Get().Handler(specGet).Context(ctrl).Validate(),
 	}
 }

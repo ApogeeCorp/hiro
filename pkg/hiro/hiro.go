@@ -17,25 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package null
+//go:generate go-bindata -pkg hiro -o ./assets.go ../../api/swagger/v1/hiro.swagger.yaml
 
-import (
-	"database/sql"
-
-	"github.com/ModelRocket/hiro/pkg/types"
-)
-
-// ID returns a pointer to the id
-func ID(id interface{}) sql.NullString {
-	switch t := id.(type) {
-	case types.ID:
-		return String(t.String())
-
-	case *types.ID:
-		if t != nil {
-			return String(t.String())
-		}
-	}
-
-	return String(id)
-}
+// Package hiro is a foundational component for Model Rocket platform API services
+package hiro

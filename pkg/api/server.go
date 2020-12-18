@@ -416,9 +416,14 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 
 		if fn.Type().NumIn() > 1 {
 			pt := fn.Type().In(1)
-			if pt.Kind() == reflect.Ptr {
-				pt = pt.Elem()
+			if pt.Kind() != reflect.Ptr {
+				panic(ErrServerError.
+					WithDetail(
+						fmt.Sprintf("route %s %s parameter %s but be a pointer", r.Method, route.path, pt.Name())))
 			}
+
+			pt = pt.Elem()
+
 			params := reflect.New(pt).Interface()
 
 			decoder := schema.NewDecoder()

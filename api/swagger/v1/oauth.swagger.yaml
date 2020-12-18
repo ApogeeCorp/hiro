@@ -315,6 +315,8 @@ paths:
           type: "string"
           required: true
       responses:
+        204:
+          description: "no content"
         302:
           description: "found"
           headers:
@@ -439,7 +441,18 @@ paths:
         Verify is used to verify user email addresses.
       operationId: "Verify"
       tags: ["User"]
+      parameters:
+        - name: "redirect_uri"
+          description: "The uri to redirect after verification"
+          in: "query"
+          type: "string"
+        - name: "state"
+          description: "The redirect state"
+          in: "query"
+          type: "string"
       responses:
+        204:
+          description: "no content"
         302:
           description: "found"
           headers:

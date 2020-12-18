@@ -108,7 +108,7 @@ func (id *ID) Scan(value interface{}) error {
 	case nil:
 
 	default:
-		return errors.New("unexpected type for null.UUID")
+		return errors.New("unexpected type for types.ID")
 	}
 
 	return nil

@@ -21,15 +21,29 @@ package oauth
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"path"
+	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type (
 	// VerifyParams are the params for user verify
-	VerifyParams struct{}
+	VerifyParams struct {
+		RedirectURI *URI    `json:"redirect_uri"`
+		State       *string `json:"state,omitempty"`
+	}
+
+	// VerifySendParams are the params for the verification send method
+	VerifySendParams struct {
+		Method VerificationMethod `json:"method"`
+	}
 
 	// VerificationMethod is a method used to verify a users identity
 	VerificationMethod string
@@ -45,7 +59,14 @@ const (
 
 // Validate validates the params
 func (p VerifyParams) Validate() error {
-	return validation.ValidateStruct(&p)
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI))
+}
+
+// Validate validates the params
+func (p VerifySendParams) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Method, validation.Required))
 }
 
 func verify(ctx context.Context, params *VerifyParams) api.Responder {
@@ -55,27 +76,112 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 
 	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
 
-	user, err := ctrl.UserGet(ctx, *token.Subject)
+	if token.Use != TokenUseVerify {
+		return api.ErrForbidden
+	}
+
+	if params.RedirectURI != nil {
+		aud, err := ctrl.AudienceGet(ctx, token.Audience)
+		if err != nil {
+			return api.ErrForbidden.WithError(err)
+		}
+
+		client, err := ctrl.ClientGet(ctx, token.ClientID)
+		if err != nil {
+			return api.ErrForbidden.WithError(err)
+		}
+
+		if err := client.Authorize(ctx, aud, GrantTypeAuthNone, []URI{*params.RedirectURI}); err != nil {
+			return api.ErrForbidden.WithError(err)
+		}
+	}
+
+	var profile openid.Profile
+
+	if token.Scope.Contains(ScopeEmailVerify) {
+		profile.EmailClaim = new(openid.EmailClaim)
+		profile.EmailVerified = ptr.True
+	}
+
+	if token.Scope.Contains(ScopePhoneVerify) {
+		profile.PhoneClaim = new(openid.PhoneClaim)
+		profile.PhoneNumberVerified = ptr.True
+	}
+
+	err := ctrl.UserUpdate(ctx, *token.Subject, &profile)
+
+	if params.RedirectURI == nil {
+		if err != nil {
+			return api.Error(err)
+		}
+		return api.NewResponse().WithStatus(http.StatusNoContent)
+	}
+
+	u, err := params.RedirectURI.Parse()
+	if err != nil {
+		return api.ErrBadRequest.WithError(err)
+	}
+
+	if params.State != nil {
+		q := u.Query()
+		q.Set("state", *params.State)
+		u.RawQuery = q.Encode()
+	}
+
+	return api.Redirect(u, err)
+}
+
+func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
+	var token Token
+	var scope Scope
+
+	ctrl := api.Context(ctx).(Controller)
+
+	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
+
+	r, _ := api.Request(ctx)
+
+	switch params.Method {
+	case VerificationMethodEmail:
+		scope = MakeScope(ScopeEmailVerify)
+	case VerificationMethodPhone:
+		scope = MakeScope(ScopePhoneVerify)
+	}
+
+	issuer := URI(
+		fmt.Sprintf("https://%s%s",
+			r.Host,
+			path.Clean(path.Join(path.Dir(r.URL.Path), "openid", token.Audience))),
+	)
+
+	v, err := ctrl.TokenCreate(ctx, Token{
+		Issuer:    &issuer,
+		Subject:   token.Subject,
+		Audience:  token.Audience,
+		ClientID:  token.ClientID,
+		Use:       TokenUseVerify,
+		Revokable: true,
+		ExpiresAt: Time(time.Now().Add(time.Hour * 24)).Ptr(),
+		Scope:     scope,
+	})
+	if err != nil {
+		return ErrAccessDenied.WithError(err)
+	}
+
+	link, err := URI(
+		fmt.Sprintf("https://%s%s",
+			r.Host,
+			path.Clean(r.URL.Path))).Parse()
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}
+	q := link.Query()
+	q.Set("access_token", v.ID.String())
+	link.RawQuery = q.Encode()
 
-	profile := user.Profile()
-	if profile != nil {
-		if !token.Scope.Contains("address") {
-			profile.Address = nil
-		}
-		if !token.Scope.Contains("phone") {
-			profile.PhoneClaim = nil
-		}
-		if !token.Scope.Contains("email") {
-			profile.EmailClaim = nil
-		}
+	if err := ctrl.UserVerify(ctx, *token.Subject, params.Method, URI(link.String())); err != nil {
+		return api.ErrServerError.WithError(err)
 	}
 
-	if profile == nil {
-		profile = &openid.Profile{}
-	}
-
-	return api.NewResponse(profile)
+	return api.NewResponse().WithStatus(http.StatusNoContent)
 }

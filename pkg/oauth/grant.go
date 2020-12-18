@@ -40,6 +40,9 @@ type (
 )
 
 const (
+	// GrantTypeAuthNone is used to filter Authorization parameters
+	GrantTypeAuthNone GrantType = "none"
+
 	// GrantTypeAuthCode is the authorization_code grant type
 	GrantTypeAuthCode GrantType = "authorization_code"
 

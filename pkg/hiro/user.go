@@ -247,7 +247,7 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 		return nil, err
 	}
 
-	log.Debugf("user %s updated")
+	log.Debugf("user updated")
 
 	return b.userPreload(ctx, &user)
 }

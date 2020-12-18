@@ -106,7 +106,7 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 
 			if token.RevokedAt != nil {
 				return nil, ErrRevokedToken
-			} else if token.Claims.ExpiresAt().Before(time.Now()) {
+			} else if token.ExpiresAt != nil && token.ExpiresAt.Time().Before(time.Now()) {
 				return nil, ErrExpiredToken
 			}
 		} else {

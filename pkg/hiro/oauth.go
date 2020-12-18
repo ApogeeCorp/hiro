@@ -321,11 +321,11 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 				"claims",
 				"expires_at").
 			Values(
-				ptr.ID(token.ID),
-				null.String(token.Issuer),
+				token.ID,
+				token.Issuer,
 				aud.ID,
 				types.ID(token.ClientID),
-				null.ID(token.Subject),
+				ptr.ID(token.Subject),
 				token.Use,
 				token.Scope,
 				token.Claims,
@@ -562,9 +562,11 @@ func (c oauthClient) Type() oauth.ClientType {
 // Authorize authorizes the client for the specified grants, uris, and scopes
 // Used for authorization_code flows
 func (c oauthClient) Authorize(ctx context.Context, aud oauth.Audience, grant oauth.GrantType, uris []oauth.URI, scopes ...oauth.Scope) error {
-	if g, ok := c.Grants[aud.Name()]; ok {
-		if !g.Contains(grant) {
-			return oauth.ErrAccessDenied.WithMessage("grant type % not authorized for audience %s", grant, aud)
+	if grant != oauth.GrantTypeAuthNone {
+		if g, ok := c.Grants[aud.Name()]; ok {
+			if !g.Contains(grant) {
+				return oauth.ErrAccessDenied.WithMessage("grant type % not authorized for audience %s", grant, aud)
+			}
 		}
 	}
 
