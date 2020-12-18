@@ -40,7 +40,8 @@ type (
 		Scope     Scope     `json:"scope,omitempty"`
 		IssuedAt  Time      `json:"iat,omitempty"`
 		ExpiresAt *Time     `json:"exp,omitempty"`
-		RevokedAt *Time     `json:"rev,omitempty"`
+		Revokable bool      `json:"-"`
+		RevokedAt *Time     `json:"-"`
 		Claims    Claims    `json:"-"`
 	}
 

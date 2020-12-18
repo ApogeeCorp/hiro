@@ -72,20 +72,21 @@ func Int64(i interface{}) sql.NullInt64 {
 func Time(tm interface{}) sql.NullTime {
 	switch t := tm.(type) {
 	case time.Time:
-		return sql.NullTime{Valid: true, Time: t}
+		return sql.NullTime{Valid: !t.IsZero(), Time: t}
 
 	case *time.Time:
 		if t == nil {
 			return sql.NullTime{Valid: false}
 		}
-		return sql.NullTime{Valid: true, Time: *t}
+		return sql.NullTime{Valid: !t.IsZero(), Time: *t}
 	}
 
 	val := reflect.ValueOf(tm)
 	if val.Kind() == reflect.Ptr && val.IsNil() {
 		return sql.NullTime{Valid: false}
 	}
-	return sql.NullTime{Valid: true, Time: cast.ToTime(tm)}
+	t := cast.ToTime(tm)
+	return sql.NullTime{Valid: !t.IsZero(), Time: t}
 }
 
 // Bool safely converts b to a sql.NullBool

@@ -68,6 +68,22 @@ type (
 		RedirectURI         *oauth.URI                `db:"redirect_uri"`
 		State               *string                   `db:"state,omitempty"`
 	}
+
+	accessToken struct {
+		ID        *types.ID      `db:"id"`
+		Issuer    *oauth.URI     `db:"issuer"`
+		Subject   *types.ID      `db:"user_id,omitempty"`
+		Audience  types.ID       `db:"audience_id"`
+		ClientID  types.ID       `db:"application_id"`
+		Use       oauth.TokenUse `db:"token_use"`
+		AuthTime  *oauth.Time    `db:"-"`
+		Scope     oauth.Scope    `db:"scope"`
+		IssuedAt  oauth.Time     `db:"created_at"`
+		ExpiresAt *oauth.Time    `db:"expires_at"`
+		Revokable bool           `db:"-"`
+		RevokedAt *oauth.Time    `db:"revoked_at"`
+		Claims    oauth.Claims   `db:"claims"`
+	}
 )
 
 // OAuthController returns an oauth controller from a hiro.Backend
@@ -250,15 +266,77 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	token.ID = ptr.ID(types.NewID())
 	token.Audience = aud.ID
 	token.IssuedAt = oauth.Time(time.Now())
-	token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
+
+	if token.ExpiresAt == nil {
+		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
+	}
 
 	if token.Claims == nil {
 		token.Claims = make(oauth.Claims)
 	}
 
+	if !token.Revokable {
+		// ensure revokable tokens have a valid time
+		if token.ExpiresAt.Time().IsZero() {
+			token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
+		}
+
+		log.Debugf("token %s [%s] initialized", token.ID, token.Use)
+
+		return token, nil
+	}
+
+	var out accessToken
+
+	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+		log.Debugf("creating new access token")
+
+		stmt, args, err := sq.Insert("hiro.access_tokens").
+			Columns(
+				"id",
+				"issuer",
+				"audience_id",
+				"application_id",
+				"user_id",
+				"token_use",
+				"scope",
+				"claims",
+				"expires_at").
+			Values(
+				token.ID,
+				null.String(token.Issuer),
+				aud.ID,
+				token.ClientID,
+				token.Subject,
+				token.Use,
+				token.Scope,
+				token.Claims,
+				null.Time(token.ExpiresAt),
+			).
+			PlaceholderFormat(sq.Dollar).
+			Suffix(`RETURNING *`).
+			ToSql()
+		if err != nil {
+			log.Error(err.Error())
+
+			return fmt.Errorf("%w: failed to build query statement", err)
+		}
+
+		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
+			log.Error(err.Error())
+
+			return parseSQLError(err)
+		}
+
+		return nil
+	}); err != nil {
+		return oauth.Token(out), err
+	}
+
 	log.Debugf("token %s [%s] initialized", token.ID, token.Use)
 
-	return token, nil
+	return oauth.Token(out), nil
+
 }
 
 // UserGet gets a user by id
@@ -346,6 +424,22 @@ func (o *oauthController) TokenCleanup(ctx context.Context) error {
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to cleanup request tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	log.Debugf("cleaning up access tokens")
+
+	if _, err := sq.Delete("hiro.access_tokens").
+		Where(
+			sq.Or{
+				sq.Expr("revoked_at IS NOT NULL"),
+				sq.LtOrEq{"expires_at": time.Now()},
+			},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup access tokens %s", err)
 		return parseSQLError(err)
 	}
 
