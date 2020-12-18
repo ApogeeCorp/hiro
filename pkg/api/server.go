@@ -79,7 +79,7 @@ type (
 	// ContextFunc adds context to a request
 	ContextFunc func(context.Context) interface{}
 
-	// Option provides the server options, these will override th defaults and any atomic
+	// Option provides the server options, these will override th defaults and any hiro
 	// instance values.
 	Option func(*Server)
 

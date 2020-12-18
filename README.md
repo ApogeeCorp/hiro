@@ -23,7 +23,7 @@ This project follows the [Standard go Project Layout](https://github.com/golang-
 ├── db/                         // The default database components
 |   └── sql /                   // Postgres SQL scripts
 ├── deployments/                // Container and orchestration
-|   └── hiro/                   // Atomic backend deployments
+|   └── hiro/                   // Hiro backend deployments
 |       └── docker-compose.yml  // Docker compose script for backend services
 ├── pkg/                        // Library packages
 |   └── hiro/                   // The hiro backend implementation

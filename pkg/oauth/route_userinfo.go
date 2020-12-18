@@ -23,6 +23,8 @@ import (
 	"context"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -37,7 +39,30 @@ func (p UserinfoParams) Validate() error {
 }
 
 func userinfo(ctx context.Context, params *UserinfoParams) api.Responder {
-	//ctrl := api.Context(ctx).(Controller)
+	ctrl := api.Context(ctx).(Controller)
+	claims := api.AuthContext(ctx).(Claims)
 
-	return nil
+	user, err := ctrl.UserGet(ctx, types.ID(claims.Subject()))
+	if err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	profile := user.Profile()
+	if profile != nil {
+		if !claims.Scope().Contains("address") {
+			profile.Address = nil
+		}
+		if !claims.Scope().Contains("phone") {
+			profile.PhoneClaim = nil
+		}
+		if !claims.Scope().Contains("email") {
+			profile.EmailClaim = nil
+		}
+	}
+
+	if profile == nil {
+		profile = &openid.Profile{}
+	}
+
+	return api.NewResponse(profile)
 }

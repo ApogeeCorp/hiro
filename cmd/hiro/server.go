@@ -1,6 +1,8 @@
 /*
- * This file is part of the Atomic Stack (https://github.com/libatomic/atomic).
- * Copyright (c) 2020 Atomic Publishing.
+ * This file is part of the Model Rocket Hiro Stack
+ * Copyright (c) 2020 Model Rocket LLC.
+ *
+ * https://github.com/ModelRocket/hiro
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +51,7 @@ func serverMain(c *cli.Context) error {
 		if err := d.Serve(func() {
 			log.Infof("hiro daemon started %s", c.String("server-addr"))
 		}); err != nil {
-			log.Fatalf("failed to start the atomic daemon %+v", err)
+			log.Fatalf("failed to start the hiro daemon %+v", err)
 		}
 	}()
 
