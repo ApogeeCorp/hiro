@@ -17,22 +17,25 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package oauth
+package null
 
 import (
-	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"database/sql"
+
+	"github.com/ModelRocket/hiro/pkg/types"
 )
 
-type (
-	// User is an oauth user interface
-	User interface {
-		// Subject is the user subject identifier
-		Subject() string
+// ID returns a pointer to the id
+func ID(id interface{}) sql.NullString {
+	switch t := id.(type) {
+	case types.ID:
+		return String(t.String())
 
-		// Profile returns the users openid profile claims, filtering on the provided scope
-		Profile() *openid.Profile
-
-		// Permissions returns the users permissions for the specified audience
-		Permissions(aud Audience) Scope
+	case *types.ID:
+		if t != nil {
+			return String(t.String())
+		}
 	}
-)
+
+	return String(id)
+}

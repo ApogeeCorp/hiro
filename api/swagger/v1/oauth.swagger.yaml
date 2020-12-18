@@ -460,7 +460,7 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
       security:
-        - OAuth: ["email:verify"]
+        - OAuth: ["openid", "profile"]
 
   /passwordSet:
     post:

@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
@@ -37,8 +36,8 @@ type (
 		ctx     context.Context
 		codecs  []securecookie.Codec
 		options *sessions.Options
-		aud     types.ID
-		sub     types.ID
+		aud     string
+		sub     string
 	}
 )
 
@@ -81,7 +80,7 @@ func (s *store) New(r *http.Request, name string) (*sessions.Session, error) {
 func (s *store) Save(r *http.Request, w http.ResponseWriter, session *sessions.Session) error {
 	// Set delete if max-age is < 0
 	if session.Options.MaxAge < 0 {
-		if err := s.SessionDestroy(s.ctx, types.ID(session.ID)); err != nil {
+		if err := s.SessionDestroy(s.ctx, string(session.ID)); err != nil {
 			return err
 		}
 		http.SetCookie(w, sessions.NewCookie(session.Name(), "", session.Options))
@@ -126,7 +125,7 @@ func (s *store) MaxLength(l int) {
 // load fetches a session by ID from the database and decodes its content
 // into session.Values.
 func (s *store) load(session *sessions.Session) error {
-	sess, err := s.SessionLoad(s.ctx, types.ID(session.ID))
+	sess, err := s.SessionLoad(s.ctx, string(session.ID))
 	if err != nil {
 		return err
 	}
@@ -156,7 +155,7 @@ func (s *store) save(session *sessions.Session) error {
 	}
 
 	sess := &Session{
-		ID:        types.ID(session.ID),
+		ID:        string(session.ID),
 		Audience:  s.aud,
 		Subject:   s.sub,
 		Data:      encoded,
@@ -165,7 +164,7 @@ func (s *store) save(session *sessions.Session) error {
 
 	if session.IsNew {
 		err = s.SessionCreate(s.ctx, sess)
-		session.ID = sess.ID.String()
+		session.ID = sess.ID
 	} else {
 		err = s.SessionUpdate(s.ctx, sess)
 	}

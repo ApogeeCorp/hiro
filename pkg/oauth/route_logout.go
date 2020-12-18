@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 	"github.com/gorilla/sessions"
@@ -33,10 +32,10 @@ import (
 type (
 	// LogoutParams are the params to log a user out
 	LogoutParams struct {
-		Audience    types.ID `json:"audience"`
-		ClientID    types.ID `json:"client_id"`
-		RedirectURI *URI     `json:"redirect_uri"`
-		State       *string  `json:"state"`
+		Audience    string  `json:"audience"`
+		ClientID    string  `json:"client_id"`
+		RedirectURI *URI    `json:"redirect_uri"`
+		State       *string `json:"state"`
 	}
 )
 
@@ -62,7 +61,7 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	aud, err := ctrl.AudienceGet(ctx, params.Audience.String())
+	aud, err := ctrl.AudienceGet(ctx, params.Audience)
 	if err != nil {
 		return ErrAccessDenied.WithError(err)
 	}
@@ -100,7 +99,7 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 	if !session.IsNew {
 		session.Options.MaxAge = -1
 
-		api.SessionManager(ctx).SessionDestroy(ctx, types.ID(session.ID))
+		api.SessionManager(ctx).SessionDestroy(ctx, string(session.ID))
 
 		if err := sessions.Save(r, w); err != nil {
 			return api.Redirect(u, api.ErrServerError.WithError(err))

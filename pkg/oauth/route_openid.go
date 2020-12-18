@@ -79,7 +79,7 @@ func openidConfig(ctx context.Context, params *OIDConfigInput) api.Responder {
 		ScopesSupported        Scope       `json:"scopes_supported"`
 	}{
 		Issuer:                 issuer,
-		JWKSURI:                issuer.Append(aud.ID().String(), ".well-known/jwks.json"),
+		JWKSURI:                issuer.Append(aud.ID(), ".well-known/jwks.json"),
 		AuthorizationEndpoint:  issuer.Append("..", "authorize"),
 		ResponseTypesSupported: []string{"code"},
 		SubjectTypesSupported:  []string{"public"},
@@ -110,7 +110,7 @@ func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 	}
 
 	key := jose.JSONWebKey{
-		KeyID:     aud.ID().String(),
+		KeyID:     aud.ID(),
 		Key:       &aud.Secret().key.(*rsa.PrivateKey).PublicKey,
 		Algorithm: aud.Secret().Algorithm.String(),
 		Use:       "sig",

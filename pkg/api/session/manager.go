@@ -23,7 +23,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/patrickmn/go-cache"
@@ -46,10 +45,10 @@ func NewManager(ctrl Controller) *Manager {
 }
 
 // GetStore gets a store for the given context
-func (s *Manager) GetStore(ctx context.Context, aud types.ID, sub ...types.ID) (sessions.Store, error) {
+func (s *Manager) GetStore(ctx context.Context, aud string, sub ...string) (sessions.Store, error) {
 	var opts *Options
 
-	if c, ok := s.optionCache.Get(aud.String()); ok {
+	if c, ok := s.optionCache.Get(aud); ok {
 		opts = c.(*Options)
 	} else {
 		o, err := s.SessionOptions(ctx, aud)
@@ -61,10 +60,10 @@ func (s *Manager) GetStore(ctx context.Context, aud types.ID, sub ...types.ID) (
 
 		opts.codecs = securecookie.CodecsFromPairs(opts.Hash[:], opts.Block[:])
 
-		s.optionCache.Set(aud.String(), opts, cache.DefaultExpiration)
+		s.optionCache.Set(aud, opts, cache.DefaultExpiration)
 	}
 
-	var _sub types.ID
+	var _sub string
 
 	if len(sub) > 0 {
 		_sub = sub[0]

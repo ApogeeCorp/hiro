@@ -25,18 +25,17 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// SignupParams are used in the signup route
 	SignupParams struct {
-		Login        string    `json:"login"`
-		Password     string    `json:"password"`
-		InviteToken  *types.ID `json:"invite_token,omitempty"`
-		RequestToken types.ID  `json:"request_token"`
-		CodeVerifier string    `json:"code_verifier"`
+		Login        string  `json:"login"`
+		Password     string  `json:"password"`
+		InviteToken  *string `json:"invite_token,omitempty"`
+		RequestToken string  `json:"request_token"`
+		CodeVerifier string  `json:"code_verifier"`
 	}
 )
 
@@ -76,7 +75,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 	}
 
 	// ensure the request audience is valid
-	aud, err := ctrl.AudienceGet(ctx, req.Audience.String())
+	aud, err := ctrl.AudienceGet(ctx, req.Audience)
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
@@ -94,7 +93,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
-	log.Debugf("user %s created", user.SubjectID())
+	log.Debugf("user %s created", user.Subject())
 
 	perms := user.Permissions(aud)
 	if len(perms) == 0 {
@@ -109,9 +108,9 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		return ErrAccessDenied.WithMessage("user has insufficient access for request")
 	}
 
-	log.Debugf("user %s authorized %s", user.SubjectID(), req.Scope)
+	log.Debugf("user %s authorized %s", user.Subject(), req.Scope)
 
-	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID(), user.SubjectID())
+	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID(), user.Subject())
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}
@@ -123,7 +122,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		return api.ErrServerError.WithError(err)
 	}
 
-	session.Values["sub"] = user.SubjectID().String()
+	session.Values["sub"] = user.Subject()
 
 	if err := session.Save(r, w); err != nil {
 		return api.ErrServerError.WithError(err)
@@ -134,7 +133,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
-		Subject:             user.SubjectID(),
+		Subject:             user.Subject(),
 		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,

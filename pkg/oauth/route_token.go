@@ -26,17 +26,16 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// TokenParams is the parameters for the token request
 	TokenParams struct {
-		ClientID     types.ID  `json:"client_id"`
+		ClientID     string    `json:"client_id"`
 		ClientSecret *string   `json:"client_secret"`
 		GrantType    GrantType `json:"grant_type"`
-		Code         *types.ID `json:"code,omitempty"`
+		Code         *string   `json:"code,omitempty"`
 		RedirectURI  *URI      `json:"redirect_uri,omitempty"`
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
@@ -84,7 +83,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			return ErrAccessDenied.WithDetail("client_id mismatch")
 		}
 
-		aud, err := ctrl.AudienceGet(ctx, req.Audience.String())
+		aud, err := ctrl.AudienceGet(ctx, req.Audience)
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
 		}
@@ -92,7 +91,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 		issuer := URI(
 			fmt.Sprintf("https://%s%s",
 				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud.ID().String()))),
+				path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud.ID()))),
 		)
 
 		tokens := make([]Token, 0)

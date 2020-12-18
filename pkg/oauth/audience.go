@@ -19,12 +19,10 @@
 
 package oauth
 
-import "github.com/ModelRocket/hiro/pkg/types"
-
 type (
 	// Audience is the common oauth audience interface
 	Audience interface {
-		ID() types.ID
+		ID() string
 		Name() string
 		Secret() TokenSecret
 		Permissions() Scope

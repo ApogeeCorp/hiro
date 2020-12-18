@@ -45,6 +45,9 @@ var (
 
 	// ErrServerError should be returned for internal errors
 	ErrServerError = Errorf("server error").WithStatus(http.StatusInternalServerError)
+
+	// ErrAuthUnacceptable should be returned when an authorizer could not find data to decode
+	ErrAuthUnacceptable = Errorf("no acceptable authorization data found").WithStatus(http.StatusUnauthorized)
 )
 
 type (

@@ -22,7 +22,6 @@ package oauth
 import (
 	"context"
 
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -30,7 +29,7 @@ type (
 	// Client is an oauth client interface
 	Client interface {
 		// ClientID returns the client id
-		ClientID() types.ID
+		ClientID() string
 
 		// Type returns the client type
 		Type() ClientType

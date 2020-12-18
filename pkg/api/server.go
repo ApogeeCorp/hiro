@@ -53,9 +53,6 @@ import (
 )
 
 type (
-	// Authorizer performs an authorization and returns a context or error on failure
-	Authorizer func(r *http.Request) (interface{}, error)
-
 	// Server is an http server that provides basic REST funtionality
 	Server struct {
 		log            log.Interface
@@ -99,8 +96,6 @@ var (
 	contextKeyContext = contextKey("api:context")
 
 	contextKeySessions = contextKey("api:sessions")
-
-	contextKeyAuth = contextKey("api:auth")
 )
 
 // NewServer creates a new server object
@@ -267,15 +262,21 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 
 		defer func() {
 			if err := recover(); err != nil {
-				debug.PrintStack()
 
-				if e, ok := err.(error); ok {
-					s.WriteError(w, http.StatusInternalServerError, e)
-				} else {
-					w.WriteHeader(http.StatusInternalServerError)
+				if _, ok := err.(Responder); !ok {
+					debug.PrintStack()
+
+					if e, ok := err.(error); ok {
+						s.WriteError(w, http.StatusInternalServerError, e)
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+
+					return
 				}
 
-				return
+				// ensure the error is returned properly
+				resp = err
 			}
 
 			switch t := resp.(type) {
@@ -334,9 +335,10 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 		}
 
 		if len(route.authorizers) > 0 && route.authorizers[0] != nil {
+			prins := make([]Principal, 0)
 			for _, a := range route.authorizers {
 				ctx, err := a(r)
-				if err != nil {
+				if err != nil && !errors.Is(err, ErrAuthUnacceptable) {
 					if r, ok := err.(Responder); ok {
 						resp = r
 					} else {
@@ -346,11 +348,14 @@ func (s *Server) routeHandler(route Route) http.HandlerFunc {
 					return
 				}
 
-				// add the first context we get and break
 				if ctx != nil {
-					r = r.WithContext(context.WithValue(r.Context(), contextKeyAuth, ctx))
-					break
+					// append this to the principal chain
+					prins = append(prins, ctx)
 				}
+			}
+
+			if len(prins) > 0 {
+				r = r.WithContext(context.WithValue(r.Context(), contextKeyAuth, prins))
 			}
 		}
 
@@ -689,11 +694,6 @@ func IsRequest(ctx context.Context) bool {
 // Context returns the request context object
 func Context(ctx context.Context) interface{} {
 	return ctx.Value(contextKeyContext)
-}
-
-// AuthContext returns the request auth context
-func AuthContext(ctx context.Context) interface{} {
-	return ctx.Value(contextKeyAuth)
 }
 
 // SessionManager returns the session store from the context

@@ -21,7 +21,6 @@ package oauth
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
@@ -29,27 +28,16 @@ import (
 )
 
 type (
-	// UserInfoParams are the params for user info
-	UserInfoParams struct{}
-
-	// UserInfoUpdateParams are the params to update the user profile
-	UserInfoUpdateParams struct {
-		*openid.Profile
-	}
+	// VerifyParams are the params for user verify
+	VerifyParams struct{}
 )
 
 // Validate validates the params
-func (p UserInfoParams) Validate() error {
+func (p VerifyParams) Validate() error {
 	return validation.ValidateStruct(&p)
 }
 
-// Validate validates the params
-func (p UserInfoUpdateParams) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Profile, validation.Required))
-}
-
-func userinfo(ctx context.Context, params *UserInfoParams) api.Responder {
+func verify(ctx context.Context, params *VerifyParams) api.Responder {
 	var token Token
 
 	ctrl := api.Context(ctx).(Controller)
@@ -79,36 +67,4 @@ func userinfo(ctx context.Context, params *UserInfoParams) api.Responder {
 	}
 
 	return api.NewResponse(profile)
-}
-
-func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Responder {
-	var token Token
-
-	ctrl := api.Context(ctx).(Controller)
-
-	api.RequirePrincipal(ctx, &token)
-
-	if params.Profile.Address != nil && !token.Scope.Contains("address") {
-		return api.ErrForbidden
-	}
-
-	if params.PhoneNumberVerified != nil && !token.Scope.Contains("phone:verify") {
-		return api.ErrForbidden.WithDetail("phone:verify scope required")
-	}
-	if params.Profile.PhoneClaim != nil && !token.Scope.Contains("phone") {
-		return api.ErrForbidden
-	}
-
-	if params.EmailVerified != nil && !token.Scope.Contains("email:verify") {
-		return api.ErrForbidden.WithDetail("email:verify scope required")
-	}
-	if params.Profile.EmailClaim != nil && !token.Scope.Contains("email") {
-		return api.ErrForbidden
-	}
-
-	if err := ctrl.UserUpdate(ctx, *token.Subject, params.Profile); err != nil {
-		return api.ErrServerError.WithError(err)
-	}
-
-	return api.NewResponse().WithStatus(http.StatusNoContent)
 }

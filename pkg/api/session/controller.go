@@ -22,7 +22,6 @@ package session
 import (
 	"context"
 
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
@@ -31,7 +30,7 @@ type (
 	// Controller represents the backend session storage interface
 	Controller interface {
 		// SessionLoad loads a session by id
-		SessionLoad(ctx context.Context, id types.ID) (Session, error)
+		SessionLoad(ctx context.Context, id string) (Session, error)
 
 		// SessionCreate creates a session
 		SessionCreate(ctx context.Context, session *Session) error
@@ -40,10 +39,10 @@ type (
 		SessionUpdate(ctx context.Context, session *Session) error
 
 		// SessionDestroy destroys a session by id
-		SessionDestroy(ctx context.Context, id types.ID) error
+		SessionDestroy(ctx context.Context, id string) error
 
 		// SessionOptions returns the options from the audience
-		SessionOptions(ctx context.Context, aud types.ID) (Options, error)
+		SessionOptions(ctx context.Context, aud string) (Options, error)
 
 		// SessionCleanup should remove expired sessions from the store
 		SessionCleanup(ctx context.Context) error

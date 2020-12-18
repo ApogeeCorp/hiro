@@ -20,19 +20,27 @@
 package oauth
 
 import (
-	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"encoding/json"
+	"time"
 )
 
 type (
-	// User is an oauth user interface
-	User interface {
-		// Subject is the user subject identifier
-		Subject() string
 
-		// Profile returns the users openid profile claims, filtering on the provided scope
-		Profile() *openid.Profile
-
-		// Permissions returns the users permissions for the specified audience
-		Permissions(aud Audience) Scope
-	}
+	// Time is a time structure used for tokens
+	Time time.Time
 )
+
+// MarshalJSON markshals the time to an epoch
+func (t Time) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Time(t).UTC().Unix())
+}
+
+// Time casts the oauth time back to a time.Time
+func (t Time) Time() time.Time {
+	return time.Time(t)
+}
+
+// Ptr returns a pointer to this time
+func (t Time) Ptr() *Time {
+	return &t
+}

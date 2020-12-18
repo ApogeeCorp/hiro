@@ -23,7 +23,6 @@ import (
 	"context"
 
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
-	"github.com/ModelRocket/hiro/pkg/types"
 )
 
 type (
@@ -33,16 +32,16 @@ type (
 		AudienceGet(ctx context.Context, id string) (Audience, error)
 
 		// ClientGet gets the client from the controller and optionally verfies the secret
-		ClientGet(ctx context.Context, id types.ID, secret ...string) (Client, error)
+		ClientGet(ctx context.Context, id string, secret ...string) (Client, error)
 
 		// RequestTokenCreate creates a new authentication request token using the controller
 		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)
 
 		// RequestTokenGet looks up a request by id from the controller
-		RequestTokenGet(ctx context.Context, id types.ID, t ...RequestTokenType) (RequestToken, error)
+		RequestTokenGet(ctx context.Context, id string, t ...RequestTokenType) (RequestToken, error)
 
-		// UserGet gets a user object by id
-		UserGet(ctx context.Context, id types.ID) (User, error)
+		// UserGet gets a user object by subject identifier
+		UserGet(ctx context.Context, sub string) (User, error)
 
 		// UserAuthenticate authenticates a user and returns a principal object
 		UserAuthenticate(ctx context.Context, login, password string) (User, error)
@@ -51,7 +50,7 @@ type (
 		UserCreate(ctx context.Context, login, password string, req RequestToken) (User, error)
 
 		// UserUpdate updates a user's profile
-		UserUpdate(ctx context.Context, id types.ID, profile *openid.Profile) error
+		UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error
 
 		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)

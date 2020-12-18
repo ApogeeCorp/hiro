@@ -26,7 +26,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -36,7 +35,7 @@ type (
 	AuthorizeParams struct {
 		AppURI              URI                  `json:"app_uri"`
 		Audience            string               `json:"audience"`
-		ClientID            types.ID             `json:"client_id"`
+		ClientID            string               `json:"client_id"`
 		CodeChallenge       PKCEChallenge        `json:"code_challenge"`
 		CodeChallengeMethod *PKCEChallengeMethod `json:"code_challenge_method"`
 		RedirectURI         *URI                 `json:"redirect_uri"`
@@ -134,9 +133,9 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 			// create a new auth code
 			code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 				Type:                RequestTokenTypeAuthCode,
-				Audience:            types.ID(params.Audience),
-				ClientID:            types.ID(params.ClientID),
-				Subject:             types.ID(sub),
+				Audience:            string(params.Audience),
+				ClientID:            string(params.ClientID),
+				Subject:             string(sub),
 				ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 				Scope:               params.Scope,
 				CodeChallenge:       params.CodeChallenge,
@@ -173,8 +172,8 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	// create a new login request
 	token, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeLogin,
-		Audience:            types.ID(params.Audience),
-		ClientID:            types.ID(params.ClientID),
+		Audience:            string(params.Audience),
+		ClientID:            string(params.ClientID),
 		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,

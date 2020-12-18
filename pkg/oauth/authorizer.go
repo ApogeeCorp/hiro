@@ -74,7 +74,7 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 		opt(o)
 	}
 
-	return func(r *http.Request) (interface{}, error) {
+	return func(r *http.Request) (api.Principal, error) {
 		ctx := r.Context()
 
 		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -84,13 +84,18 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 
 		if bearer == "" {
 			if o.optional {
-				return ctx, nil
+				return nil, api.ErrAuthUnacceptable
 			}
 
 			return nil, fmt.Errorf("%w: token not present", ErrAccessDenied)
 		}
 
-		claims, err := ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
+		// check for a token id
+		if len(bearer) == 22 {
+
+		}
+
+		token, err := ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
 			aud, err := a.ctrl.AudienceGet(ctx, c.Audience())
 			if err != nil {
 				return TokenSecret{}, err
@@ -101,7 +106,7 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 			return nil, err
 		}
 
-		return claims, nil
+		return token, nil
 	}
 }
 

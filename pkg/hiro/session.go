@@ -40,13 +40,13 @@ type (
 	}
 
 	dbSession struct {
-		ID        types.ID   `db:"id"`
-		Audience  types.ID   `db:"audience_id"`
-		Subject   types.ID   `db:"user_id"`
-		Data      string     `db:"data"`
-		CreatedAt time.Time  `db:"created_at"`
-		ExpiresAt time.Time  `db:"expires_at"`
-		RevokedAt *time.Time `db:"revoked_at,omitempty"`
+		ID         types.ID   `db:"id"`
+		AudienceID types.ID   `db:"audience_id"`
+		UserID     types.ID   `db:"user_id"`
+		Data       string     `db:"data"`
+		CreatedAt  time.Time  `db:"created_at"`
+		ExpiresAt  time.Time  `db:"expires_at"`
+		RevokedAt  *time.Time `db:"revoked_at,omitempty"`
 	}
 )
 
@@ -64,10 +64,10 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 	log := s.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
 	var p AudienceGetInput
-	if !sess.Audience.Valid() {
-		p.Name = ptr.String(sess.Audience)
+	if !types.ID(sess.Audience).Valid() {
+		p.Name = &sess.Audience
 	} else {
-		p.AudienceID = &sess.Audience
+		p.AudienceID = ptr.ID(sess.Audience)
 	}
 
 	aud, err := s.Backend.AudienceGet(ctx, p)
@@ -86,7 +86,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 				"expires_at").
 			Values(
 				aud.ID,
-				sess.Subject,
+				types.ID(sess.Subject),
 				sess.Data,
 				time.Now().Add(aud.SessionLifetime),
 			).
@@ -110,7 +110,15 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 		return err
 	}
 
-	*sess = session.Session(out)
+	*sess = session.Session{
+		ID:        out.ID.String(),
+		Audience:  out.AudienceID.String(),
+		Subject:   out.UserID.String(),
+		Data:      out.Data,
+		CreatedAt: out.CreatedAt,
+		ExpiresAt: out.ExpiresAt,
+		RevokedAt: out.RevokedAt,
+	}
 
 	return nil
 }
@@ -129,7 +137,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 		stmt, args, err := sq.Update("hiro.sessions").
 			Set("data", sess.Data).
 			Set("expires_at", sess.ExpiresAt).
-			Where(sq.Eq{"id": sess.ID}).
+			Where(sq.Eq{"id": types.ID(sess.ID)}).
 			PlaceholderFormat(sq.Dollar).
 			Suffix(`RETURNING *`).
 			ToSql()
@@ -150,13 +158,21 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 		return err
 	}
 
-	*sess = session.Session(out)
+	*sess = session.Session{
+		ID:        out.ID.String(),
+		Audience:  out.AudienceID.String(),
+		Subject:   out.UserID.String(),
+		Data:      out.Data,
+		CreatedAt: out.CreatedAt,
+		ExpiresAt: out.ExpiresAt,
+		RevokedAt: out.RevokedAt,
+	}
 
 	return nil
 }
 
 // SessionLoad gets a session by id
-func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (session.Session, error) {
+func (s *sessionController) SessionLoad(ctx context.Context, id string) (session.Session, error) {
 	var out dbSession
 
 	log := s.Log(ctx).WithField("operation", "SessionLoad").
@@ -167,7 +183,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (sessi
 		stmt, args, err := sq.Select("*").
 			From("hiro.sessions").
 			PlaceholderFormat(sq.Dollar).
-			Where(sq.Eq{"id": id}).
+			Where(sq.Eq{"id": types.ID(id)}).
 			ToSql()
 		if err != nil {
 			log.Error(err.Error())
@@ -188,7 +204,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (sessi
 		// delete expired sessions as we come accross them
 		if out.ExpiresAt.Before(time.Now()) {
 			if _, err := sq.Delete("hiro.sessions").
-				Where(sq.Eq{"id": id}).
+				Where(sq.Eq{"id": types.ID(id)}).
 				PlaceholderFormat(sq.Dollar).
 				RunWith(tx).
 				ExecContext(ctx); err != nil {
@@ -203,14 +219,22 @@ func (s *sessionController) SessionLoad(ctx context.Context, id types.ID) (sessi
 		return session.Session{}, err
 	}
 
-	return session.Session(out), nil
+	return session.Session{
+		ID:        out.ID.String(),
+		Audience:  out.AudienceID.String(),
+		Subject:   out.UserID.String(),
+		Data:      out.Data,
+		CreatedAt: out.CreatedAt,
+		ExpiresAt: out.ExpiresAt,
+		RevokedAt: out.RevokedAt,
+	}, nil
 }
 
-func (s *sessionController) SessionDestroy(ctx context.Context, id types.ID) error {
+func (s *sessionController) SessionDestroy(ctx context.Context, id string) error {
 	db := s.Backend.DB(ctx)
 
 	if _, err := sq.Delete("hiro.sessions").
-		Where(sq.Eq{"id": id}).
+		Where(sq.Eq{"id": types.ID(id)}).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
@@ -220,12 +244,12 @@ func (s *sessionController) SessionDestroy(ctx context.Context, id types.ID) err
 	return nil
 }
 
-func (s *sessionController) SessionOptions(ctx context.Context, id types.ID) (session.Options, error) {
+func (s *sessionController) SessionOptions(ctx context.Context, id string) (session.Options, error) {
 	var p AudienceGetInput
-	if !id.Valid() {
-		p.Name = ptr.String(id)
+	if !types.ID(id).Valid() {
+		p.Name = &id
 	} else {
-		p.AudienceID = &id
+		p.AudienceID = ptr.ID(id)
 	}
 
 	aud, err := s.Backend.AudienceGet(ctx, p)
@@ -238,6 +262,7 @@ func (s *sessionController) SessionOptions(ctx context.Context, id types.ID) (se
 			MaxAge: int(aud.SessionLifetime.Seconds()),
 		},
 	}
+
 	copy(opts.Hash[:], ([]byte(aud.ID))[0:32])
 	copy(opts.Block[:], aud.TokenSecret.Bytes()[0:32])
 

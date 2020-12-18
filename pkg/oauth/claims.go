@@ -37,9 +37,19 @@ type (
 	Claims map[string]interface{}
 )
 
-// Set sets a value in the claims
+// Set implements the api.Claims interface
 func (c Claims) Set(key string, value interface{}) {
 	c[key] = value
+}
+
+// Get implements the api.Claims interface
+func (c Claims) Get(key string) interface{} {
+	return c[key]
+}
+
+// All implements the api.Claims interface
+func (c Claims) All() map[string]interface{} {
+	return map[string]interface{}(c)
 }
 
 // Delete delete the keys from the claim
@@ -193,29 +203,4 @@ func (c Claims) Sign(s TokenSecret) (string, error) {
 	}
 
 	return token.SignedString(s.SigningKey())
-}
-
-// ParseBearer parses the jwt token into claims
-func ParseBearer(bearer string, keyFn func(c Claims) (TokenSecret, error)) (Claims, error) {
-	var c Claims
-
-	token, err := jwt.Parse(bearer, func(token *jwt.Token) (interface{}, error) {
-		c = Claims(token.Claims.(jwt.MapClaims))
-
-		secret, err := keyFn(c)
-		if err != nil {
-			return nil, err
-		}
-
-		return secret.VerifyKey(), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, ErrInvalidToken
-	}
-
-	return c, nil
 }
