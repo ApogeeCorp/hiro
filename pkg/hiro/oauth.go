@@ -424,6 +424,59 @@ func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.
 	}, nil
 }
 
+// TokenRevoke revokes a token by id
+func (o *oauthController) TokenRevoke(ctx context.Context, id types.ID) error {
+	log := o.Log(ctx).
+		WithField("operation", "TokenRevoke").
+		WithField("token_id", id)
+
+	db := o.DB(ctx)
+
+	if _, err := sq.Delete("hiro.access_tokens").
+		Where(
+			sq.Eq{"id": id},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to revoke access token: %s", err)
+		return parseSQLError(err)
+	}
+
+	log.Debugf("access token deleted")
+
+	return nil
+}
+
+// TokenRevokeAll will remove all tokens for a subject
+func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses ...oauth.TokenUse) error {
+	log := o.Log(ctx).
+		WithField("operation", "TokenRevokeAll")
+
+	query := sq.Delete("hiro.access_tokens").
+		Where(
+			sq.Eq{"user_id": types.ID(sub)},
+		)
+
+	if len(uses) > 0 {
+		query = query.Where(sq.Eq{"token_use": uses})
+	}
+
+	db := o.DB(ctx)
+
+	if _, err := query.
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to revoke access token: %s", err)
+		return parseSQLError(err)
+	}
+
+	log.Debugf("access token deleted")
+
+	return nil
+}
+
 // TokenCleanup should remove any expired or revoked tokens from the store
 func (o *oauthController) TokenCleanup(ctx context.Context) error {
 	log := o.Log(ctx).WithField("operation", "TokenCleanup")

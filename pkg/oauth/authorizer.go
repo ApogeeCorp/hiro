@@ -130,7 +130,13 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 			return nil, api.ErrAuthUnacceptable
 		}
 
-		return token, nil
+		for _, s := range o.scope {
+			if token.Scope.Every(s...) {
+				return token, nil
+			}
+		}
+
+		return nil, api.ErrForbidden
 	}
 }
 

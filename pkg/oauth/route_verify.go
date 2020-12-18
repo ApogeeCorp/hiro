@@ -80,6 +80,9 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 		return api.ErrForbidden
 	}
 
+	// we revoke verify tokens once they have been used
+	ctrl.TokenRevoke(ctx, token.ID)
+
 	if params.RedirectURI != nil {
 		aud, err := ctrl.AudienceGet(ctx, token.Audience)
 		if err != nil {
@@ -133,7 +136,7 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 
 func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	var token Token
-	var scope Scope
+	scope := Scope{ScopeOpenID, ScopeProfile}
 
 	ctrl := api.Context(ctx).(Controller)
 
@@ -143,9 +146,9 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 
 	switch params.Method {
 	case VerificationMethodEmail:
-		scope = MakeScope(ScopeEmailVerify)
+		scope = append(scope, ScopeEmailVerify)
 	case VerificationMethodPhone:
-		scope = MakeScope(ScopePhoneVerify)
+		scope = append(scope, ScopePhoneVerify)
 	}
 
 	issuer := URI(
@@ -153,6 +156,9 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 			r.Host,
 			path.Clean(path.Join(path.Dir(r.URL.Path), "openid", token.Audience))),
 	)
+
+	// revoke any existing verify tokens
+	ctrl.TokenRevokeAll(ctx, *token.Subject, TokenUseVerify)
 
 	v, err := ctrl.TokenCreate(ctx, Token{
 		Issuer:    &issuer,
