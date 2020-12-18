@@ -837,10 +837,8 @@ paths:
           schema:
             $ref: "#/definitions/Profile"
       responses:
-        200:
-          description: "ok"
-          schema:
-            $ref: "#/definitions/Profile"
+        204:
+          description: "no content"
         400:
           description: "bad parameter"
           schema:

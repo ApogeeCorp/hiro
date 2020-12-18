@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 
+	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/types"
 )
 
@@ -48,6 +49,9 @@ type (
 
 		// UserCreate creates a user using the request which can either be the authorize or an invite token
 		UserCreate(ctx context.Context, login, password string, req RequestToken) (User, error)
+
+		// UserUpdate updates a user's profile
+		UserUpdate(ctx context.Context, id types.ID, profile *openid.Profile) error
 
 		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)

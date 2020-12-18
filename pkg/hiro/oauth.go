@@ -320,6 +320,16 @@ func (o *oauthController) UserCreate(ctx context.Context, login, password string
 	return &oauthUser{user}, nil
 }
 
+// UserUpdate updates a user's profile
+func (o *oauthController) UserUpdate(ctx context.Context, id types.ID, profile *openid.Profile) error {
+	_, err := o.Backend.UserUpdate(ctx, UserUpdateInput{
+		UserID:  id,
+		Profile: profile,
+	})
+
+	return err
+}
+
 // TokenCleanup should remove any expired or revoked tokens from the store
 func (o *oauthController) TokenCleanup(ctx context.Context) error {
 	log := o.Log(ctx).WithField("operation", "TokenCleanup")

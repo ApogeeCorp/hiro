@@ -21,6 +21,7 @@ package oauth
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
@@ -29,16 +30,27 @@ import (
 )
 
 type (
-	// UserinfoParams are the params for user info
-	UserinfoParams struct{}
+	// UserInfoParams are the params for user info
+	UserInfoParams struct{}
+
+	// UserInfoUpdateParams are the params to update the user profile
+	UserInfoUpdateParams struct {
+		*openid.Profile
+	}
 )
 
 // Validate validates the params
-func (p UserinfoParams) Validate() error {
+func (p UserInfoParams) Validate() error {
 	return validation.ValidateStruct(&p)
 }
 
-func userinfo(ctx context.Context, params *UserinfoParams) api.Responder {
+// Validate validates the params
+func (p UserInfoUpdateParams) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Profile, validation.Required))
+}
+
+func userinfo(ctx context.Context, params *UserInfoParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 	claims := api.AuthContext(ctx).(Claims)
 
@@ -65,4 +77,33 @@ func userinfo(ctx context.Context, params *UserinfoParams) api.Responder {
 	}
 
 	return api.NewResponse(profile)
+}
+
+func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+	claims := api.AuthContext(ctx).(Claims)
+
+	if params.Profile.Address != nil && !claims.Scope().Contains("address") {
+		return ErrAccessDenied
+	}
+
+	if params.PhoneNumberVerified != nil && !claims.Scope().Contains("phone:verify") {
+		return ErrAccessDenied.WithDetail("phone:verify scope required")
+	}
+	if params.Profile.PhoneClaim != nil && !claims.Scope().Contains("phone") {
+		return ErrAccessDenied
+	}
+
+	if params.EmailVerified != nil && !claims.Scope().Contains("email:verify") {
+		return ErrAccessDenied.WithDetail("email:verify scope required")
+	}
+	if params.Profile.EmailClaim != nil && !claims.Scope().Contains("email") {
+		return ErrAccessDenied
+	}
+
+	if err := ctrl.UserUpdate(ctx, types.ID(claims.Subject()), params.Profile); err != nil {
+		return api.ErrServerError.WithError(err)
+	}
+
+	return api.NewResponse().WithStatus(http.StatusNoContent)
 }
