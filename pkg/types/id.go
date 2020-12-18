@@ -38,7 +38,7 @@ type (
 func NewID() ID {
 	u := uuid.Must(uuid.NewRandom())
 
-	return ID(u[:])
+	return ID(base58.Encode(u[:]))
 }
 
 // Valid returns true if the id is valid

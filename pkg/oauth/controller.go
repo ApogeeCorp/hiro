@@ -49,7 +49,7 @@ type (
 		// UserCreate creates a user using the request which can either be the authorize or an invite token
 		UserCreate(ctx context.Context, login, password string, req RequestToken) (User, error)
 
-		// TokenCreate creates a new token
+		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)
 
 		// TokenCleanup should remove any expired or revoked tokens from the store

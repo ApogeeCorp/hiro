@@ -141,3 +141,9 @@ func (r Route) Context(c interface{}) Route {
 	r.context = c
 	return r
 }
+
+// Authorizers sets the authorizers
+func (r Route) Authorizers(a ...Authorizer) Route {
+	r.authorizers = a
+	return r
+}

@@ -59,6 +59,12 @@ const (
 
 	// ScopePhoneVerify is the scope required to verify a user's phone number
 	ScopePhoneVerify = "phone:verify"
+
+	// ScopeTokenRead is provided for token introspection
+	ScopeTokenRead = "token:read"
+
+	// ScopeTokenRevoke is required for token revocation
+	ScopeTokenRevoke = "token:revoke"
 )
 
 var (
@@ -70,7 +76,11 @@ var (
 		ScopeOfflineAccess,
 		ScopeAddress,
 		ScopeEmail,
+		ScopeEmailVerify,
 		ScopePhone,
+		ScopePhoneVerify,
+		ScopeTokenRead,
+		ScopeTokenRevoke,
 	}
 )
 
@@ -150,12 +160,12 @@ func (s *Scope) UnmarshalText(v []byte) error {
 
 // MarshalJSON handles json marshaling of this type
 func (s Scope) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]string(s.Unique()))
+	return json.Marshal(strings.Join([]string(s.Unique()), " "))
 }
 
 // Value returns Permissions as a value that can be stored as json in the database
 func (s Scope) Value() (driver.Value, error) {
-	return json.Marshal(s)
+	return json.Marshal([]string(s.Unique()))
 }
 
 // Scan reads a json value from the database into a Permissions

@@ -75,6 +75,8 @@ securityDefinitions:
       phone: "Required to read the user's phone number"
       email:verify: "Required to verify a user's email address"
       phone:verify: "Required to verify a user's phone number"
+      token:read: "Read token information"
+      token:revoke: "Revoke tokens"
 
 definitions:
   Profile:
@@ -798,7 +800,7 @@ paths:
           schema:
             $ref: "#/definitions/ErrorResponse"
 
-  /userInfo:
+  /userinfo:
     get:
       description: |
         Get the current user profile data

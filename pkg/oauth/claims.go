@@ -192,13 +192,22 @@ func (c Claims) Sign(s TokenSecret) (string, error) {
 
 	}
 
-	return token.SignedString(s.key)
+	return token.SignedString(s.SigningKey())
 }
 
 // ParseBearer parses the jwt token into claims
-func ParseBearer(bearer string, key interface{}) (Claims, error) {
+func ParseBearer(bearer string, keyFn func(c Claims) (TokenSecret, error)) (Claims, error) {
+	var c Claims
+
 	token, err := jwt.Parse(bearer, func(token *jwt.Token) (interface{}, error) {
-		return key, nil
+		c = Claims(token.Claims.(jwt.MapClaims))
+
+		secret, err := keyFn(c)
+		if err != nil {
+			return nil, err
+		}
+
+		return secret.VerifyKey(), nil
 	})
 	if err != nil {
 		return nil, err
@@ -208,5 +217,5 @@ func ParseBearer(bearer string, key interface{}) (Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	return Claims(token.Claims.(jwt.MapClaims)), nil
+	return c, nil
 }

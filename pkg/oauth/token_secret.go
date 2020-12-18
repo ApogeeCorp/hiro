@@ -40,7 +40,7 @@ type (
 	// TokenSecret is a token secret
 	TokenSecret struct {
 		Algorithm TokenAlgorithm `json:"algorithm,omitempty"`
-		Key       string         `json:"key,omitempty"`
+		RawKey    string         `json:"key,omitempty"`
 		Lifetime  time.Duration  `json:"lifetime"`
 		key       interface{}
 	}
@@ -181,14 +181,14 @@ func (t *TokenSecret) UnmarshalJSON(data []byte) error {
 	}
 
 	t.Algorithm = val.Algorithm
-	t.Key = val.EncodedKey
+	t.RawKey = val.EncodedKey
 	t.Lifetime = val.Lifetime
 
 	if err := t.Algorithm.Validate(); err != nil {
 		return err
 	}
 
-	key, err := base64.RawURLEncoding.DecodeString(t.Key)
+	key, err := base64.RawURLEncoding.DecodeString(t.RawKey)
 	if err != nil {
 		return fmt.Errorf("%w: failed to decode rsa token secret", err)
 	}
@@ -244,4 +244,28 @@ func (t TokenSecret) Bytes() []byte {
 	}
 
 	return []byte{}
+}
+
+// SigningKey returns the signing key
+func (t TokenSecret) SigningKey() interface{} {
+	switch t.Algorithm {
+	case TokenAlgorithmHS256:
+		return t.key.([]byte)
+	case TokenAlgorithmRS256:
+		return t.key.(*rsa.PrivateKey)
+	}
+
+	return nil
+}
+
+// VerifyKey returns the verification key
+func (t TokenSecret) VerifyKey() interface{} {
+	switch t.Algorithm {
+	case TokenAlgorithmHS256:
+		return t.key
+	case TokenAlgorithmRS256:
+		return &(t.key.(*rsa.PrivateKey).PublicKey)
+	}
+
+	return nil
 }

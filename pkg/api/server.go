@@ -132,29 +132,8 @@ func NewServer(opts ...Option) *Server {
 	s.router.Use(s.LogMiddleware())
 	s.router.Use(VersionMiddleware(s))
 
-	if s.cacheTTL > 0 {
-		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
-	}
-
-	return s
-}
-
-// Serve starts the http server
-func (s *Server) Serve() error {
-	var listener net.Listener
-	var err error
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if s.srv != nil {
-		return errors.New("server already running")
-	}
-
-	handler := http.Handler(s.router)
-
 	if len(s.corsOrigin) > 0 {
-		handler = handlers.CORS(
+		s.router.Use(handlers.CORS(
 			handlers.AllowedOrigins(s.corsOrigin),
 			handlers.AllowedMethods([]string{"OPTIONS", "HEAD", "GET", "POST", "PUT", "DELETE"}),
 			handlers.ExposedHeaders([]string{
@@ -176,11 +155,30 @@ func (s *Server) Serve() error {
 				"X-Original-Method",
 				"X-Redirected-From"}),
 			handlers.AllowCredentials(),
-		)(handler)
+		))
+	}
+
+	if s.cacheTTL > 0 {
+		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
+	}
+
+	return s
+}
+
+// Serve starts the http server
+func (s *Server) Serve() error {
+	var listener net.Listener
+	var err error
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.srv != nil {
+		return errors.New("server already running")
 	}
 
 	s.srv = &http.Server{
-		Handler: handler,
+		Handler: s.router,
 	}
 
 	if s.listener != nil {
