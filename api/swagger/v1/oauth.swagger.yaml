@@ -461,6 +461,36 @@ paths:
             $ref: "#/definitions/ErrorResponse"
       security:
         - OAuth: ["openid", "profile"]
+    post:
+      description: |
+        Send's a verification token to the current user for the specified contact method
+      operationId: "VerifySend"
+      tags: ["Auth"]
+      consumes: ["application/x-www-form-urlencoded"]
+      parameters:
+        - name: "method"
+          type: "string"
+          description: "The contact method to verify"
+          enum: ["email", "phone"]
+          in: "formData"
+          required: true
+      responses:
+        204:
+          description: "no content"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["openid", "profile"]
 
   /passwordSet:
     post:
@@ -825,7 +855,7 @@ paths:
             $ref: "#/definitions/ErrorResponse"
       security:
         - OAuth: ["openid", "profile"]
-    put:
+    patch:
       description: |
         Update the user's profile
       operationId: "UserInfoUpdate"

@@ -70,7 +70,7 @@ type (
 	}
 
 	accessToken struct {
-		ID            *types.ID      `db:"id"`
+		ID            types.ID       `db:"id"`
 		Issuer        *oauth.URI     `db:"issuer"`
 		UserID        *types.ID      `db:"user_id,omitempty"`
 		Audience      types.ID       `db:"audience_id"`
@@ -204,7 +204,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 
 // RequestTokenGet looks up a request by id
 func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...oauth.RequestTokenType) (oauth.RequestToken, error) {
-	var req requestToken
+	var out requestToken
 
 	log := o.Log(ctx).WithField("operation", "RequestGet").
 		WithField("id", id)
@@ -227,7 +227,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 			return parseSQLError(err)
 		}
 
-		if err := tx.GetContext(ctx, &req, stmt, args...); err != nil {
+		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
 			log.Error(err.Error())
 
 			if errors.Is(err, sql.ErrNoRows) {
@@ -249,19 +249,19 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 	}
 
 	return oauth.RequestToken{
-		ID:                  req.ID.String(),
-		Type:                req.Type,
-		CreatedAt:           req.CreatedAt,
-		Audience:            req.Audience.String(),
-		ClientID:            req.ApplicationID.String(),
-		Subject:             req.UserID.String(),
-		Scope:               req.Scope,
-		ExpiresAt:           req.ExpiresAt,
-		CodeChallenge:       req.CodeChallenge,
-		CodeChallengeMethod: req.CodeChallengeMethod,
-		AppURI:              req.AppURI,
-		RedirectURI:         req.RedirectURI,
-		State:               req.State,
+		ID:                  out.ID.String(),
+		Type:                out.Type,
+		CreatedAt:           out.CreatedAt,
+		Audience:            out.Audience.String(),
+		ClientID:            out.ApplicationID.String(),
+		Subject:             out.UserID.String(),
+		Scope:               out.Scope,
+		ExpiresAt:           out.ExpiresAt,
+		CodeChallenge:       out.CodeChallenge,
+		CodeChallengeMethod: out.CodeChallengeMethod,
+		AppURI:              out.AppURI,
+		RedirectURI:         out.RedirectURI,
+		State:               out.State,
 	}, nil
 }
 
@@ -281,7 +281,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		return token, err
 	}
 
-	token.ID = ptr.String(types.NewID().String())
+	token.ID = types.NewID()
 	token.Audience = aud.ID.String()
 	token.IssuedAt = oauth.Time(time.Now())
 
@@ -354,7 +354,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	log.Debugf("token %s [%s] created", token.ID, token.Use)
 
 	return oauth.Token{
-		ID:        ptr.NilString(out.ID),
+		ID:        out.ID,
 		Issuer:    out.Issuer,
 		Subject:   ptr.NilString(out.UserID),
 		Audience:  out.Audience.String(),
@@ -367,7 +367,99 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		RevokedAt: out.RevokedAt,
 		Claims:    out.Claims,
 	}, nil
+}
 
+// TokenGet gets a token by id
+func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.TokenUse) (oauth.Token, error) {
+	var out accessToken
+
+	log := o.Log(ctx).WithField("operation", "TokenGet").
+		WithField("id", id)
+
+	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+		query := sq.Select("*").
+			From("hiro.access_tokens").
+			PlaceholderFormat(sq.Dollar).
+			Where(sq.Eq{"id": types.ID(id)})
+
+		if len(use) > 0 {
+			query = query.Where(sq.Eq{"use": use})
+		}
+
+		stmt, args, err := query.ToSql()
+		if err != nil {
+			log.Error(err.Error())
+
+			return parseSQLError(err)
+		}
+
+		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
+			log.Error(err.Error())
+
+			if errors.Is(err, sql.ErrNoRows) {
+				return oauth.ErrInvalidToken
+			}
+
+			return parseSQLError(err)
+		}
+
+		return nil
+	}); err != nil {
+		return oauth.Token{}, err
+	}
+
+	return oauth.Token{
+		ID:        out.ID,
+		Issuer:    out.Issuer,
+		Subject:   ptr.NilString(out.UserID),
+		Audience:  out.Audience.String(),
+		ClientID:  out.ApplicationID.String(),
+		Use:       out.Use,
+		Scope:     out.Scope,
+		IssuedAt:  out.CreatedAt,
+		ExpiresAt: out.ExpiresAt,
+		Revokable: true,
+		RevokedAt: out.RevokedAt,
+		Claims:    out.Claims,
+	}, nil
+}
+
+// TokenCleanup should remove any expired or revoked tokens from the store
+func (o *oauthController) TokenCleanup(ctx context.Context) error {
+	log := o.Log(ctx).WithField("operation", "TokenCleanup")
+
+	log.Debugf("cleaning up request tokens")
+
+	db := o.DB(ctx)
+
+	if _, err := sq.Delete("hiro.request_tokens").
+		Where(
+			sq.LtOrEq{"expires_at": time.Now()},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup request tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	log.Debugf("cleaning up access tokens")
+
+	if _, err := sq.Delete("hiro.access_tokens").
+		Where(
+			sq.Or{
+				sq.Expr("revoked_at IS NOT NULL"),
+				sq.LtOrEq{"expires_at": time.Now()},
+			},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to cleanup access tokens %s", err)
+		return parseSQLError(err)
+	}
+
+	return nil
 }
 
 // UserGet gets a user by id
@@ -439,41 +531,9 @@ func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *o
 	return err
 }
 
-// TokenCleanup should remove any expired or revoked tokens from the store
-func (o *oauthController) TokenCleanup(ctx context.Context) error {
-	log := o.Log(ctx).WithField("operation", "TokenCleanup")
-
-	log.Debugf("cleaning up request tokens")
-
-	db := o.DB(ctx)
-
-	if _, err := sq.Delete("hiro.request_tokens").
-		Where(
-			sq.LtOrEq{"expires_at": time.Now()},
-		).
-		PlaceholderFormat(sq.Dollar).
-		RunWith(db).
-		ExecContext(ctx); err != nil {
-		log.Errorf("failed to cleanup request tokens %s", err)
-		return parseSQLError(err)
-	}
-
-	log.Debugf("cleaning up access tokens")
-
-	if _, err := sq.Delete("hiro.access_tokens").
-		Where(
-			sq.Or{
-				sq.Expr("revoked_at IS NOT NULL"),
-				sq.LtOrEq{"expires_at": time.Now()},
-			},
-		).
-		PlaceholderFormat(sq.Dollar).
-		RunWith(db).
-		ExecContext(ctx); err != nil {
-		log.Errorf("failed to cleanup access tokens %s", err)
-		return parseSQLError(err)
-	}
-
+// UserVerify should create a email with the verification link for the user
+func (o *oauthController) UserVerify(ctx context.Context, sub string, method oauth.VerificationMethod, uri oauth.URI) error {
+	o.Log(ctx).WithField("operation", "UserVerify").Debugf("%s", uri)
 	return nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 )
@@ -35,8 +36,9 @@ type (
 	}
 
 	authorizer struct {
-		ctrl             Controller
-		permitQueryToken bool
+		ctrl              Controller
+		permitQueryToken  bool
+		permitQueryBearer bool
 	}
 
 	// AuthOption is an authorizer option
@@ -75,11 +77,16 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 	}
 
 	return func(r *http.Request) (api.Principal, error) {
+		var token Token
+		var err error
+		var isQuery bool
+
 		ctx := r.Context()
 
 		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if bearer == "" && a.permitQueryToken {
+		if bearer == "" {
 			bearer = r.URL.Query().Get("access_token")
+			isQuery = true
 		}
 
 		if bearer == "" {
@@ -91,19 +98,36 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 		}
 
 		// check for a token id
-		if len(bearer) == 22 {
+		if isQuery && len(bearer) == 22 && a.permitQueryToken {
+			token, err = a.ctrl.TokenGet(ctx, bearer)
+			if err != nil {
+				return nil, ErrAccessDenied.WithError(err)
+			}
 
+			if token.RevokedAt != nil {
+				return nil, ErrRevokedToken
+			} else if token.Claims.ExpiresAt().Before(time.Now()) {
+				return nil, ErrExpiredToken
+			}
+		} else {
+			if isQuery && !a.permitQueryBearer {
+				return nil, ErrAccessDenied.WithDetail("access token not permited in query")
+			}
+			token, err = ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
+				aud, err := a.ctrl.AudienceGet(ctx, c.Audience())
+				if err != nil {
+					return TokenSecret{}, err
+				}
+				return aud.Secret(), nil
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		token, err := ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
-			aud, err := a.ctrl.AudienceGet(ctx, c.Audience())
-			if err != nil {
-				return TokenSecret{}, err
-			}
-			return aud.Secret(), nil
-		})
-		if err != nil {
-			return nil, err
+		// Identity tokens cannot be used for access
+		if token.Use == TokenUseIdentity {
+			return nil, api.ErrAuthUnacceptable
 		}
 
 		return token, nil
@@ -124,9 +148,16 @@ func WithOptional() AuthOption {
 	}
 }
 
-// WithPermitQueryToken enforces the user roles
+// WithPermitQueryToken allows token ids to be passed in the query supporting persistent tokens
 func WithPermitQueryToken(permit bool) AuthorizerOption {
 	return func(a *authorizer) {
 		a.permitQueryToken = permit
+	}
+}
+
+// WithPermitQueryBearer allows full bearer tokens to be passed in to the query
+func WithPermitQueryBearer(permit bool) AuthorizerOption {
+	return func(a *authorizer) {
+		a.permitQueryBearer = permit
 	}
 }

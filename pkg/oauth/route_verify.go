@@ -30,6 +30,17 @@ import (
 type (
 	// VerifyParams are the params for user verify
 	VerifyParams struct{}
+
+	// VerificationMethod is a method used to verify a users identity
+	VerificationMethod string
+)
+
+const (
+	// VerificationMethodEmail is for email verification
+	VerificationMethodEmail VerificationMethod = "email"
+
+	// VerificationMethodPhone is for phone verification
+	VerificationMethodPhone VerificationMethod = "phone"
 )
 
 // Validate validates the params

@@ -27,16 +27,18 @@ import (
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/mitchellh/mapstructure"
+	"github.com/patrickmn/go-cache"
 )
 
 type (
 	// Token represents a revokable set of claims
 	Token struct {
-		ID        *string  `json:"jti,omitempty"`
+		ID        types.ID `json:"jti,omitempty"`
 		Issuer    *URI     `json:"iss,omitempty"`
 		Subject   *string  `json:"sub,omitempty"`
 		Audience  string   `json:"aud,omitempty"`
@@ -62,6 +64,13 @@ const (
 
 	// TokenUseIdentity is a token to be used for identity
 	TokenUseIdentity TokenUse = "identity"
+
+	// TokenUseVerify is a token to be used for verification purposes
+	TokenUseVerify TokenUse = "verify"
+)
+
+var (
+	tokenCache = cache.New(time.Second*90, time.Minute*3)
 )
 
 // NewToken intializes a token of use type
@@ -182,12 +191,18 @@ func ParseBearer(bearer string, keyFn func(c Claims) (TokenSecret, error)) (Toke
 		return Token{}, ErrInvalidToken
 	}
 
+	if t, ok := tokenCache.Get(c.ID()); ok {
+		return t.(Token), nil
+	}
+
 	rval, err := TokenFromClaims(c)
 	if err != nil {
 		return Token{}, ErrInvalidToken.WithDetail(err)
 	}
 
 	rval.Bearer = ptr.String(bearer)
+
+	tokenCache.Set(rval.ID.String(), rval, cache.DefaultExpiration)
 
 	return rval, nil
 }

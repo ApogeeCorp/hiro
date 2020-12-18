@@ -211,7 +211,7 @@ func sql0200_request_tokenSql() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "sql/0200_request_token.sql", size: 1178, mode: os.FileMode(493), modTime: time.Unix(1608239640, 0)}
+	info := bindataFileInfo{name: "sql/0200_request_token.sql", size: 1178, mode: os.FileMode(493), modTime: time.Unix(1608323271, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

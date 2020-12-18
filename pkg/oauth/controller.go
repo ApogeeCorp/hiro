@@ -52,8 +52,14 @@ type (
 		// UserUpdate updates a user's profile
 		UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error
 
+		// UserVerify should create a email with the verification link for the user
+		UserVerify(ctx context.Context, sub string, method VerificationMethod, uri URI) error
+
 		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)
+
+		// TokenGet gets a token by id
+		TokenGet(ctx context.Context, id string, use ...TokenUse) (Token, error)
 
 		// TokenCleanup should remove any expired or revoked tokens from the store
 		TokenCleanup(ctx context.Context) error

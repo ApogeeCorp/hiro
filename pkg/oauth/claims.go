@@ -33,7 +33,7 @@ import (
 )
 
 type (
-	// Claims is token claims
+	// Claims is generic map of token claims that may represent a jwt
 	Claims map[string]interface{}
 )
 

@@ -118,6 +118,12 @@ func (r Route) Put() Route {
 	return r
 }
 
+// Patch adds patch to the route
+func (r Route) Patch() Route {
+	r.methods = append(r.methods, http.MethodPatch)
+	return r
+}
+
 // Get adds get to the route
 func (r Route) Get() Route {
 	r.methods = append(r.methods, http.MethodGet)

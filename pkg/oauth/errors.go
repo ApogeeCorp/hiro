@@ -45,7 +45,10 @@ var (
 	// ErrInvalidToken is returned when the token is not valid
 	ErrInvalidToken = ErrAccessDenied.WithDetail("invalid token")
 
-	// ErrExpiredToken is returned when the token is not valid
+	// ErrRevokedToken is returned when the token is revoked
+	ErrRevokedToken = ErrAccessDenied.WithDetail("revoked token")
+
+	// ErrExpiredToken is returned when the token is expired
 	ErrExpiredToken = ErrAccessDenied.WithDetail("expired token")
 
 	// ErrPasswordLen is returned when a password does not meet length requirements
