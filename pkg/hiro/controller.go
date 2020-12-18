@@ -38,6 +38,13 @@ type (
 		ApplicationUpdate(ctx context.Context, params ApplicationUpdateInput) (*Application, error)
 		ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error
 
+		// Role interface
+		RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error)
+		RoleGet(ctx context.Context, params RoleGetInput) (*Role, error)
+		RoleList(ctx context.Context, params RoleListInput) ([]*Role, error)
+		RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error)
+		RoleDelete(ctx context.Context, params RoleDeleteInput) error
+
 		// User interface
 		UserCreate(ctx context.Context, params UserCreateInput) (*User, error)
 		UserGet(ctx context.Context, params UserGetInput) (*User, error)

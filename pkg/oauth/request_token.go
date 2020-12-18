@@ -52,6 +52,9 @@ const (
 	// RequestTokenTypeLogin is used for login or signup routes
 	RequestTokenTypeLogin RequestTokenType = "login"
 
+	// RequestTokenTypeInvite is used for login or signup routes
+	RequestTokenTypeInvite RequestTokenType = "invite"
+
 	// RequestTokenTypeAuthCode is used to request token
 	RequestTokenTypeAuthCode RequestTokenType = "auth_code"
 
@@ -62,7 +65,11 @@ const (
 // Validate validates the Request
 func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
-		validation.Field(&r.Type, validation.Required, validation.In(RequestTokenTypeLogin, RequestTokenTypeAuthCode, RequestTokenTypeRefreshToken)),
+		validation.Field(&r.Type, validation.Required, validation.In(
+			RequestTokenTypeLogin,
+			RequestTokenTypeInvite,
+			RequestTokenTypeAuthCode,
+			RequestTokenTypeRefreshToken)),
 		validation.Field(&r.Audience, validation.Required),
 		validation.Field(&r.ClientID, validation.Required),
 		validation.Field(&r.Subject, validation.NilOrNotEmpty),

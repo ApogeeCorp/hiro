@@ -62,10 +62,10 @@ tags:
 
 securityDefinitions:
   OAuth:
-    type: oauth2
-    flow: accessCode
-    authorizationUrl: https://auth.server.local/oauth/authorize
-    tokenUrl: https://auth.server.local/api/token
+    type: "oauth2"
+    flow: "accessCode"
+    authorizationUrl: "https://auth.server.local/oauth/authorize"
+    tokenUrl: "https://auth.server.local/api/token"
     scopes:
       openid: "Access a user's identity"
       profile: "Access a user's profile"
@@ -394,26 +394,21 @@ paths:
           description: "The user's password"
           in: "formData"
           required: true
-        - name: "email"
-          type: "string"
-          description: "The user's email address"
-          format: "email"
-          in: "formData"
-          required: true
-        - name: "name"
-          type: "string"
-          description: "The user's full name"
-          in: "formData"
-        - name: "invite_code"
+        - name: "invite_token"
           type: "string"
           description: |
-            Inivitation codes allow for users to sign up when public sign up is disabled.
+            Inivitation tokens allow for users to sign up when public sign up is disabled.
           in: "formData"
         - name: "request_token"
           type: "string"
           description: |
             "The authorization request token"
           in: "formData"
+          required: true
+        - name: "code_verifier"
+          description: "The PKCE code verifier"
+          in: "formData"
+          type: "string"
           required: true
       responses:
         302:

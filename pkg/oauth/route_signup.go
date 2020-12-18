@@ -30,29 +30,31 @@ import (
 )
 
 type (
-	// LoginParams contains all the bound params for the login operation
-	LoginParams struct {
-		Login        string   `json:"login"`
-		Password     string   `json:"password"`
-		RequestToken types.ID `json:"request_token"`
-		CodeVerifier string   `json:"code_verifier"`
+	// SignupParams are used in the signup route
+	SignupParams struct {
+		Login        string    `json:"login"`
+		Password     string    `json:"password"`
+		InviteToken  *types.ID `json:"invite_token,omitempty"`
+		RequestToken types.ID  `json:"request_token"`
+		CodeVerifier string    `json:"code_verifier"`
 	}
 )
 
-// Validate validates LoginParams
-func (p LoginParams) Validate() error {
+// Validate validates SignupParams
+func (p SignupParams) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.Login, validation.Required),
 		validation.Field(&p.Password, validation.Required),
+		validation.Field(&p.InviteToken, validation.NilOrNotEmpty),
 		validation.Field(&p.RequestToken, validation.Required),
 		validation.Field(&p.CodeVerifier, validation.Required),
 	)
 }
 
-func login(ctx context.Context, params *LoginParams) api.Responder {
+func signup(ctx context.Context, params *SignupParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "login").WithField("login", params.Login)
+	log := api.Log(ctx).WithField("operation", "signup").WithField("login", params.Login)
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
 	if err != nil {
@@ -79,11 +81,20 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
 
-	user, err := ctrl.UserAuthenticate(ctx, params.Login, params.Password)
+	invite := req
+
+	if params.InviteToken != nil {
+		invite, err = ctrl.RequestTokenGet(ctx, *params.InviteToken, RequestTokenTypeInvite)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+	}
+
+	user, err := ctrl.UserCreate(ctx, params.Login, params.Password, invite)
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
-	log.Debugf("user %s authenticated", user.SubjectID())
+	log.Debugf("user %s created", user.SubjectID())
 
 	perms := user.Permissions(aud)
 	if len(perms) == 0 {

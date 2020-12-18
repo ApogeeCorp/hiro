@@ -24,7 +24,6 @@ import (
 	"os"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
@@ -43,17 +42,17 @@ var (
 			Name:  "password",
 			Usage: "The user password",
 		},
-		&cli.GenericFlag{
-			Name:    "permissions",
-			Aliases: []string{"p"},
-			Usage:   "User permissions, in the format audience=perm1,perm2,permn",
-			Value:   permArg{},
+		&cli.StringSliceFlag{
+			Name:  "roles",
+			Usage: "Roles to grant the user",
+			Value: cli.NewStringSlice("user"),
 		},
 	}
 
 	userCommand = &cli.Command{
-		Name:  "users",
-		Usage: "User management",
+		Name:    "users",
+		Aliases: []string{"user"},
+		Usage:   "User management",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "id",
@@ -101,21 +100,12 @@ var (
 func userCreate(c *cli.Context) error {
 	var err error
 
-	perms := oauth.ScopeSet(c.Generic("permissions").(permArg))
-
-	// default to hiro permissions
-	if len(perms) == 0 {
-		perms = oauth.ScopeSet{
-			"hiro": append(oauth.Scopes, hiro.Scopes...),
-		}
-	}
-
 	h.PasswordManager().EnforcePasswordPolicy(false)
 
 	user, err := h.UserCreate(context.Background(), hiro.UserCreateInput{
-		Login:       c.String("login"),
-		Password:    ptr.NilString(c.String("password")),
-		Permissions: perms,
+		Login:    c.String("login"),
+		Password: ptr.NilString(c.String("password")),
+		Roles:    c.StringSlice("roles"),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -189,17 +179,19 @@ func userList(c *cli.Context) error {
 	fmt.Printf("Found %d user(s)\n\n", len(users))
 
 	type entry struct {
-		ID        types.ID `header:"id"`
-		Login     string   `header:"login"`
-		CreatedAt string   `header:"created_at"`
+		ID          types.ID `header:"id"`
+		Login       string   `header:"login"`
+		CreatedAt   string   `header:"created_at"`
+		Permissions string   `header:"permissions"`
 	}
 
 	list := make([]entry, 0)
 	for _, u := range users {
 		list = append(list, entry{
-			ID:        u.ID,
-			Login:     u.Login,
-			CreatedAt: humanize.Time(u.CreatedAt),
+			ID:          u.ID,
+			Login:       u.Login,
+			CreatedAt:   humanize.Time(u.CreatedAt),
+			Permissions: fmt.Sprint(u.Permissions),
 		})
 	}
 	tableprinter.Print(os.Stdout, list)
@@ -212,8 +204,8 @@ func userUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.UserUpdateInput{
-		UserID:      types.ID(c.String("id")),
-		Permissions: oauth.ScopeSet(c.Generic("permissions").(permArg)),
+		UserID: types.ID(c.String("id")),
+		Roles:  c.StringSlice("roles"),
 	}
 
 	user, err := h.UserUpdate(context.Background(), params)

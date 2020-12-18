@@ -198,20 +198,24 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 }
 
 // RequestTokenGet looks up a request by id
-func (o *oauthController) RequestTokenGet(ctx context.Context, id types.ID) (oauth.RequestToken, error) {
+func (o *oauthController) RequestTokenGet(ctx context.Context, id types.ID, t ...oauth.RequestTokenType) (oauth.RequestToken, error) {
 	var req requestToken
 
 	log := o.Log(ctx).WithField("operation", "RequestGet").
 		WithField("id", id)
 
 	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
-
-		stmt, args, err := sq.Select("*").
+		query := sq.Select("*").
 			From("hiro.request_tokens").
 			PlaceholderFormat(sq.Dollar).
 			Where(sq.Eq{"id": id}).
-			Suffix("FOR UPDATE").
-			ToSql()
+			Suffix("FOR UPDATE")
+
+		if len(t) > 0 {
+			query = query.Where(sq.Eq{"type": t[0]})
+		}
+
+		stmt, args, err := query.ToSql()
 		if err != nil {
 			log.Error(err.Error())
 
@@ -342,6 +346,31 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 
 	if !o.passwords.CheckPasswordHash(password, *user.PasswordHash) {
 		return nil, oauth.ErrAccessDenied
+	}
+
+	return &oauthUser{user}, nil
+}
+
+// UserCreate creates a user
+func (o *oauthController) UserCreate(ctx context.Context, login, password string, req oauth.RequestToken) (oauth.User, error) {
+	var roles []string
+
+	switch req.Type {
+	case oauth.RequestTokenTypeLogin:
+		roles = []string{"user"}
+
+	case oauth.RequestTokenTypeInvite:
+		roles = req.Scope
+	}
+
+	user, err := o.Backend.UserCreate(ctx, UserCreateInput{
+		Login:             login,
+		Password:          &password,
+		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
+		Roles:             roles,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &oauthUser{user}, nil

@@ -70,7 +70,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 	switch params.GrantType {
 	case GrantTypeAuthCode:
-		req, err := ctrl.RequestTokenGet(ctx, *params.Code)
+		req, err := ctrl.RequestTokenGet(ctx, *params.Code, RequestTokenTypeAuthCode)
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
 		}
@@ -133,37 +133,39 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				return ErrAccessDenied.WithError(err)
 			}
 
-			if req.Scope.Contains(ScopeProfile) {
-				profile := make(Claims)
-				profile.Encode(user.Profile())
+			if user.Profile() != nil {
+				if req.Scope.Contains(ScopeProfile) {
+					profile := make(Claims)
+					profile.Encode(user.Profile())
 
-				// the profile claim does not include these
-				profile.Delete(
-					"address",
-					"email",
-					"email_verified",
-					"phone_number",
-					"phone_number_verified")
+					// the profile claim does not include these
+					profile.Delete(
+						"address",
+						"email",
+						"email_verified",
+						"phone_number",
+						"phone_number_verified")
 
-				id.Claims.Merge(profile)
-			}
-			if req.Scope.Contains(ScopeAddress) {
-				address := make(Claims)
-				address.Encode(user.Profile().Address)
+					id.Claims.Merge(profile)
+				}
+				if req.Scope.Contains(ScopeAddress) {
+					address := make(Claims)
+					address.Encode(user.Profile().Address)
 
-				id.Claims.Set("address", address)
-			}
-			if req.Scope.Contains(ScopePhone) {
-				phone := make(Claims)
-				phone.Encode(user.Profile().PhoneClaim)
+					id.Claims.Set("address", address)
+				}
+				if req.Scope.Contains(ScopePhone) {
+					phone := make(Claims)
+					phone.Encode(user.Profile().PhoneClaim)
 
-				id.Claims.Merge(phone)
-			}
-			if req.Scope.Contains(ScopeEmail) {
-				email := make(Claims)
-				email.Encode(user.Profile().EmailClaim)
+					id.Claims.Merge(phone)
+				}
+				if req.Scope.Contains(ScopeEmail) {
+					email := make(Claims)
+					email.Encode(user.Profile().EmailClaim)
 
-				id.Claims.Merge(email)
+					id.Claims.Merge(email)
+				}
 			}
 
 			log.Debugf("identity token %s issued", id.ID.String())

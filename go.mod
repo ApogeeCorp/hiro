@@ -29,12 +29,13 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23 // indirect
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
-	github.com/lib/pq v1.2.0
+	github.com/lib/pq v1.3.0
 	github.com/libatomic/oauth v1.0.0-alpha.79
 	github.com/manifoldco/promptui v0.8.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
 	github.com/mr-tron/base58 v1.2.0
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 	github.com/ory/dockertest/v3 v3.6.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rs/cors v1.7.0 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cast v1.3.1
 	github.com/urfave/cli/v2 v2.3.0
+	gitlab.com/ModelRocket/reno v1.1.28
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e

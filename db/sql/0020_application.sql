@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL UNIQUE,
+    slug VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
     type TEXT NOT NULL DEFAULT 'web',
     secret_key TEXT,
@@ -15,6 +16,16 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
 );
 
 CREATE INDEX application_credentials ON hiro.applications(id, secret_key);
+
+CREATE TRIGGER update_timestamp
+  BEFORE UPDATE ON hiro.applications
+  FOR EACH ROW
+  EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
+
+CREATE TRIGGER update_slug
+  BEFORE INSERT OR UPDATE ON hiro.applications
+  FOR EACH ROW
+  EXECUTE PROCEDURE hiro.update_slug("name", "slug");
 
 CREATE TABLE IF NOT EXISTS hiro.application_permissions(
   application_id UUID NOT NULL REFERENCES hiro.applications(id) ON DELETE CASCADE,
@@ -33,11 +44,6 @@ CREATE TABLE IF NOT EXISTS hiro.application_grants(
   grant_type hiro.GRANT_TYPE NOT NULL,
   PRIMARY KEY(application_id, audience_id, grant_type)
 );
-
-CREATE TRIGGER update_timestamp
-  BEFORE UPDATE ON hiro.applications
-  FOR EACH ROW
-  EXECUTE PROCEDURE update_timestamp("updated_at");
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied

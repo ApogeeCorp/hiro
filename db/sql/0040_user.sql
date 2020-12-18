@@ -11,21 +11,15 @@ CREATE TABLE IF NOT EXISTS hiro.users(
     metadata JSONB
 );
 
-CREATE TABLE IF NOT EXISTS hiro.user_permissions(
-  user_id UUID NOT NULL REFERENCES hiro.users(id) ON DELETE CASCADE,
-  audience_id UUID NOT NULL,
-  permission TEXT NOT NULL,
-  FOREIGN KEY(audience_id, permission) 
-    REFERENCES hiro.audience_permissions(audience_id, permission) 
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-  PRIMARY KEY(user_id, audience_id, permission)
-);
-
 CREATE TRIGGER update_timestamp
   BEFORE UPDATE ON hiro.users
   FOR EACH ROW
-  EXECUTE PROCEDURE update_timestamp("updated_at");
+  EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
+
+CREATE TABLE IF NOT EXISTS hiro.user_roles(
+  user_id UUID NOT NULL REFERENCES hiro.users(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES hiro.roles(id) ON DELETE CASCADE
+);
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied

@@ -38,13 +38,16 @@ type (
 		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)
 
 		// RequestTokenGet looks up a request by id from the controller
-		RequestTokenGet(ctx context.Context, id types.ID) (RequestToken, error)
+		RequestTokenGet(ctx context.Context, id types.ID, t ...RequestTokenType) (RequestToken, error)
 
 		// UserGet gets a user object by id
 		UserGet(ctx context.Context, id types.ID) (User, error)
 
 		// UserAuthenticate authenticates a user and returns a principal object
 		UserAuthenticate(ctx context.Context, login, password string) (User, error)
+
+		// UserCreate creates a user using the request which can either be the authorize or an invite token
+		UserCreate(ctx context.Context, login, password string, req RequestToken) (User, error)
 
 		// TokenCreate creates a new token
 		TokenCreate(ctx context.Context, token Token) (Token, error)

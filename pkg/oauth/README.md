@@ -11,6 +11,10 @@ The comsumer only needs to implements the `Controller` and associated interfaces
 
 ### Interfaces
 
+#### Client
+
+#### User
+
 ## Flows
 
 Hiro OAuth supports a limited set of authorization flows. This is due both to need, but also to avoid unecessary security risk.

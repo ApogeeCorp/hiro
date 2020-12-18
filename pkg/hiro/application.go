@@ -32,7 +32,6 @@ import (
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/gosimple/slug"
 )
 
 type (
@@ -40,6 +39,7 @@ type (
 	Application struct {
 		ID          types.ID         `json:"id" db:"id"`
 		Name        string           `json:"name" db:"name"`
+		Slug        string           `json:"slug" db:"slug"`
 		Description *string          `json:"description,omitempty" db:"description"`
 		Type        oauth.ClientType `json:"type" db:"type"`
 		SecretKey   *string          `json:"secret_key,omitempty" db:"secret_key"`
@@ -175,7 +175,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 				"uris",
 				"metadata").
 			Values(
-				slug.Make(params.Name),
+				params.Name,
 				null.String(params.Description),
 				params.Type,
 				hex.EncodeToString(key),
@@ -204,7 +204,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 
 	log.Debugf("application %s created", app.ID)
 
-	return b.applicationPreload(ctx, app)
+	return b.applicationPreload(ctx, &app)
 }
 
 // ApplicationUpdate updates an application by id, including child objects
@@ -268,7 +268,7 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 
 	log.Debugf("application %s updated", app.Name)
 
-	return b.applicationPreload(ctx, app)
+	return b.applicationPreload(ctx, &app)
 }
 
 // ApplicationGet gets an application by id and optionally preloads child objects
@@ -298,7 +298,10 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 	if params.ApplicationID != nil {
 		query = query.Where(sq.Eq{"id": *params.ApplicationID})
 	} else if params.Name != nil {
-		query = query.Where(sq.Eq{"name": *params.Name})
+		query = query.Where(sq.Or{
+			sq.Eq{"name": *params.Name},
+			sq.Eq{"slug": *params.Name},
+		})
 	} else {
 		return nil, fmt.Errorf("%w: application id or name required", ErrInputValidation)
 	}
@@ -321,7 +324,7 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 		return nil, parseSQLError(err)
 	}
 
-	return b.applicationPreload(ctx, app)
+	return b.applicationPreload(ctx, &app)
 }
 
 // ApplicationList returns a listing of applications
@@ -357,8 +360,7 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 	}
 
 	for _, app := range apps {
-		app, err = b.applicationPreload(ctx, *app)
-		if err != nil {
+		if _, err = b.applicationPreload(ctx, app); err != nil {
 			return nil, err
 		}
 	}
@@ -389,9 +391,10 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 
 		if _, err := sq.Delete("hiro.application_permissions").
 			Where(
-				sq.Eq{"audience_id": types.ID(audID)},
-				sq.Eq{"application_id": params.Application.ID},
-			).
+				sq.Eq{
+					"audience_id":    types.ID(audID),
+					"application_id": params.Application.ID,
+				}).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
@@ -476,7 +479,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 	return nil
 }
 
-func (b *Backend) applicationPreload(ctx context.Context, app Application) (*Application, error) {
+func (b *Backend) applicationPreload(ctx context.Context, app *Application) (*Application, error) {
 	log := b.Log(ctx).WithField("operation", "applicationPreload").WithField("application", app.ID)
 
 	db := b.DB(ctx)
@@ -529,7 +532,7 @@ func (b *Backend) applicationPreload(ctx context.Context, app Application) (*App
 		app.Grants.Append(g.Audience, g.Grant)
 	}
 
-	return &app, nil
+	return app, nil
 }
 
 // ApplicationDelete deletes an application by id

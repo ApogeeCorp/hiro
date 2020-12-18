@@ -22,6 +22,7 @@ package hiro
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -44,6 +46,7 @@ type (
 		Password          *string         `json:"-" db:"-"`
 		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		Roles             []string        `json:"roles,omitempty"`
 		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" db:"-"`
 		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
 		Metadata          types.Metadata  `json:"metadata,omitempty" db:"metadata"`
@@ -53,7 +56,7 @@ type (
 	UserCreateInput struct {
 		Login             string          `json:"login"`
 		Password          *string         `json:"password,omitempty"`
-		Permissions       oauth.ScopeSet  `json:"permissions,omitempty"`
+		Roles             []string        `json:"roles,omitempty"`
 		Profile           *openid.Profile `json:"profile,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" `
 		Metadata          types.Metadata  `json:"metadata,omitempty"`
@@ -63,7 +66,7 @@ type (
 	UserUpdateInput struct {
 		UserID            types.ID        `json:"user_id" structs:"-"`
 		Password          *string         `json:"password,omitempty" structs:"-"`
-		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" structs:"-"`
+		Roles             []string        `json:"roles,omitempty" structs:"-"`
 		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" structs:"password_expires_at,omitempty"`
 		Metadata          types.Metadata  `json:"metadata,omitempty" structs:"-"`
@@ -87,8 +90,8 @@ type (
 	}
 
 	userPatchInput struct {
-		User        *User
-		Permissions oauth.ScopeSet
+		User  *User
+		Roles []string
 	}
 )
 
@@ -96,7 +99,7 @@ type (
 func (u UserCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&u,
 		validation.Field(&u.Login, validation.Required),
-		validation.Field(&u.Permissions, validation.NilOrNotEmpty),
+		validation.Field(&u.Roles, validation.NilOrNotEmpty),
 	)
 }
 
@@ -183,14 +186,14 @@ func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User
 			return parseSQLError(err)
 		}
 
-		return b.userPatch(ctx, userPatchInput{&user, params.Permissions})
+		return b.userPatch(ctx, userPatchInput{&user, params.Roles})
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("user %s created", user.ID)
 
-	return &user, nil
+	return b.userPreload(ctx, &user)
 }
 
 // UserUpdate updates an user by id, including child objects
@@ -239,14 +242,14 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 			}
 		}
 
-		return b.userPatch(ctx, userPatchInput{&user, params.Permissions})
+		return b.userPatch(ctx, userPatchInput{&user, params.Roles})
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("user %s updated")
 
-	return b.userPreload(ctx, user)
+	return b.userPreload(ctx, &user)
 }
 
 // UserGet gets an user by id and optionally preloads child objects
@@ -290,16 +293,16 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 		return nil, parseSQLError(err)
 	}
 
-	app := User{}
+	user := User{}
 
 	row := db.QueryRowxContext(ctx, stmt, args...)
-	if err := row.StructScan(&app); err != nil {
+	if err := row.StructScan(&user); err != nil {
 		log.Error(err.Error())
 
 		return nil, parseSQLError(err)
 	}
 
-	return b.userPreload(ctx, app)
+	return b.userPreload(ctx, &user)
 }
 
 // UserList returns a listing of users
@@ -329,19 +332,18 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 		return nil, err
 	}
 
-	apps := make([]*User, 0)
-	if err := db.SelectContext(ctx, &apps, stmt, args...); err != nil {
+	users := make([]*User, 0)
+	if err := db.SelectContext(ctx, &users, stmt, args...); err != nil {
 		return nil, parseSQLError(err)
 	}
 
-	for _, app := range apps {
-		app, err = b.userPreload(ctx, *app)
-		if err != nil {
+	for _, user := range users {
+		if _, err = b.userPreload(ctx, user); err != nil {
 			return nil, err
 		}
 	}
 
-	return apps, nil
+	return users, nil
 }
 
 // UserDelete deletes an user by id
@@ -369,65 +371,67 @@ func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error 
 }
 
 func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
+	if len(params.Roles) == 0 {
+		return nil
+	}
+
 	log := b.Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
 
 	db := b.DB(ctx)
 
-	for audID, perms := range params.Permissions {
-		if !types.ID(audID).Valid() {
-			aud, err := b.AudienceGet(ctx, AudienceGetInput{
-				Name: &audID,
-			})
-			if err != nil {
-				err = fmt.Errorf("%w: lookup for audience named %s failed", err, audID)
+	if _, err := sq.Delete("hiro.user_roles").
+		Where(
+			sq.Eq{"user_id": params.User.ID},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to delete roles for user: %s", err)
 
-				log.Error(err.Error())
+		return parseSQLError(err)
+	}
 
-				return err
-			}
-
-			audID = aud.ID.String()
+	for _, role := range params.Roles {
+		input := RoleGetInput{
+			Preload: ptr.False,
 		}
 
-		if _, err := sq.Delete("hiro.user_permissions").
-			Where(
-				sq.Eq{"audience_id": types.ID(audID)},
-				sq.Eq{"user_id": params.User.ID},
+		if roleID := types.ID(role); roleID.Valid() {
+			input.RoleID = &roleID
+		} else {
+			input.Name = &role
+		}
+
+		r, err := b.RoleGet(ctx, input)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.New("role not found")
+			}
+			return err
+		}
+
+		if _, err := sq.Insert("hiro.user_roles").
+			Columns("user_id", "role_id").
+			Values(
+				params.User.ID,
+				r.ID,
 			).
-			PlaceholderFormat(sq.Dollar).
+			Suffix("ON CONFLICT DO NOTHING").
 			RunWith(db).
+			PlaceholderFormat(sq.Dollar).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for user: %s", audID, err)
+			log.Errorf("failed to update user permissions: %s", err)
 
 			return parseSQLError(err)
 		}
 
-		for _, p := range perms {
-			_, err := sq.Insert("hiro.user_permissions").
-				Columns("user_id", "audience_id", "permission").
-				Values(
-					params.User.ID,
-					types.ID(audID),
-					p,
-				).
-				Suffix("ON CONFLICT DO NOTHING").
-				RunWith(db).
-				PlaceholderFormat(sq.Dollar).
-				ExecContext(ctx)
-			if err != nil {
-				log.Errorf("failed to update user permissions %s: %s", audID, err)
-
-				return parseSQLError(err)
-			}
-		}
-
-		params.User.Permissions = params.Permissions
+		params.User.Roles = params.Roles
 	}
 
 	return nil
 }
 
-func (b *Backend) userPreload(ctx context.Context, user User) (*User, error) {
+func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
 	log := b.Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
 
 	db := b.DB(ctx)
@@ -439,12 +443,28 @@ func (b *Backend) userPreload(ctx context.Context, user User) (*User, error) {
 
 	if err := db.SelectContext(
 		ctx,
+		&user.Roles,
+		`SELECT R.slug
+		 FROM hiro.user_roles u
+		 LEFT JOIN hiro.roles R
+			 ON  u.role_id = r.id
+		 WHERE u.user_id=$1`,
+		user.ID); err != nil {
+		log.Errorf("failed to load user roles %s: %s", user.ID, err)
+
+		return nil, parseSQLError(err)
+	}
+
+	if err := db.SelectContext(
+		ctx,
 		&perms,
-		`SELECT a.name as audience, p.permission 
-		 FROM hiro.user_permissions p
+		`SELECT a.name as audience, p.permission
+		 FROM hiro.user_roles r 
+		 LEFT JOIN hiro.role_permissions p
+		 	ON p.role_id = r.role_id
 		 LEFT JOIN hiro.audiences a
-		 	ON  a.id = p.audience_id
-		 WHERE p.user_id=$1`,
+			 ON  a.id = p.audience_id
+		 WHERE r.user_id=$1`,
 		user.ID); err != nil {
 		log.Errorf("failed to load user permissions %s: %s", user.ID, err)
 
@@ -456,5 +476,5 @@ func (b *Backend) userPreload(ctx context.Context, user User) (*User, error) {
 		user.Permissions.Append(p.Audience, p.Permission)
 	}
 
-	return &user, nil
+	return user, nil
 }

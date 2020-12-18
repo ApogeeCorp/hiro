@@ -1,0 +1,68 @@
+# A Swagger 2.0 (a.k.a. OpenAPI) definition of the hiro API.
+#
+# This is used for generating API documentation and the types used by the
+# client/server. See api/README.md for more information.
+#
+# Some style notes:
+# - This file is used by ReDoc, which allows GitHub Flavored Markdown in
+#   descriptions.
+# - There is no maximum line length, for ease of editing and pretty diffs.
+# - operationIds are in the format "NounVerb", with a singular noun.
+
+swagger: "2.0"
+schemes:
+  - "http"
+  - "https"
+produces:
+  - "application/json"
+  - "application/xml"
+consumes:
+  - "application/json"
+  - "application/x-www-form-urlencoded"
+
+info:
+  title: "Hiro API"
+  version: "1.0.0"
+  description: |
+    This API provides the methods for managing hiro objects. This is not a user api
+    and should only be used for back office management. 
+
+    # Authentication
+
+    Hiro uses OAuth 2.0 for authentication and authorization.
+
+    # Errors
+
+    The API uses standard HTTP status codes to indicate the success or failure
+    of the API call. The body of the response will be JSON in the following
+    format:
+    ```
+    {
+      "message": "object not found",
+      "detail": "user does not exist",
+    }
+    ```
+
+tags:
+  - name: "Hiro"
+    description: |
+      Hiro API Operations.
+
+securityDefinitions:
+  OAuth:
+    type: "oauth2"
+    flow: "accessCode"
+    authorizationUrl: "https://auth.server.local/oauth/authorize"
+    tokenUrl: "https://auth.server.local/api/token"
+    scopes:
+      audience:read: "Read audiences"
+      audience:write: "Create or modify audiences"
+      application:read: "Read applications"
+      application:write: "Create or modify applications"
+      role:read: "Read user roles"
+      role:write: "Create or modify user roles"
+      user:read: "Read users"
+      user:write: "Write or moditfy users"
+
+definitions:
+  {}

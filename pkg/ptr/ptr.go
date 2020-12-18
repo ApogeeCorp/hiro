@@ -42,6 +42,14 @@ type (
 	}
 )
 
+var (
+	// False is the false pointer
+	False = Bool(false)
+
+	// True is the true pointer
+	True = Bool(true)
+)
+
 // Pointer returns a new Pointers for the value
 func Pointer(v interface{}) Pointers {
 	return &ptr{v}

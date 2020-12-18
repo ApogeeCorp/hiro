@@ -30,7 +30,6 @@ import (
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/gosimple/slug"
 )
 
 type (
@@ -38,6 +37,7 @@ type (
 	Audience struct {
 		ID              types.ID           `json:"id" db:"id"`
 		Name            string             `json:"name" db:"name"`
+		Slug            string             `json:"slug" db:"slug"`
 		Description     *string            `json:"description,omitempty" db:"description"`
 		TokenSecret     *oauth.TokenSecret `json:"token_secret,omitempty" db:"token_secret"`
 		SessionLifetime time.Duration      `json:"session_lifetime,omitempty" db:"session_lifetime"`
@@ -148,7 +148,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 				"session_lifetime",
 				"metadata").
 			Values(
-				slug.Make(params.Name),
+				params.Name,
 				null.String(params.Description),
 				params.TokenSecret,
 				params.SessionLifetime,
@@ -270,7 +270,10 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 	if params.AudienceID != nil {
 		query = query.Where(sq.Eq{"id": *params.AudienceID})
 	} else if params.Name != nil {
-		query = query.Where(sq.Eq{"name": *params.Name})
+		query = query.Where(sq.Or{
+			sq.Eq{"name": *params.Name},
+			sq.Eq{"slug": *params.Name},
+		})
 	} else {
 		return nil, fmt.Errorf("%w: audience id or name required", ErrInputValidation)
 	}

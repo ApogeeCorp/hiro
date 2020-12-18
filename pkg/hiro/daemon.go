@@ -60,6 +60,14 @@ type (
 		sched       *gocron.Scheduler
 	}
 
+	// Job is a job handler that the daemon will schedule
+	Job struct {
+		Function interface{}
+		Params   []interface{}
+		Interval time.Duration
+		At       *time.Time
+	}
+
 	// DaemonOption is a daemon option
 	DaemonOption func(d *Daemon)
 )
@@ -287,4 +295,17 @@ func (d *Daemon) Shutdown(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// AddJob adds a job to the daemon scheduler
+func (d *Daemon) AddJob(job Job) error {
+	j := d.sched.Every(uint64(job.Interval.Seconds())).Seconds()
+
+	if job.At != nil {
+		j = j.At(job.At.UTC().Format("15:04:05"))
+	}
+
+	j.Do(job.Function, job.Params...)
+
+	return nil
 }

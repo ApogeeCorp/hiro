@@ -70,7 +70,7 @@ var (
 
 	applicationCommand = &cli.Command{
 		Name:    "application",
-		Aliases: []string{"app"},
+		Aliases: []string{"app", "apps"},
 		Usage:   "Application management",
 		Flags: []cli.Flag{
 			&cli.StringFlag{

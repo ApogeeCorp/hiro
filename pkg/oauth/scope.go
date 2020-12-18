@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -159,6 +160,10 @@ func (s Scope) Value() (driver.Value, error) {
 
 // Scan reads a json value from the database into a Permissions
 func (s *Scope) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -216,4 +221,13 @@ func (p ScopeSet) Scan(value interface{}) error {
 	}
 
 	return nil
+}
+
+func (p ScopeSet) String() string {
+	parts := make([]string, 0)
+	for k, v := range p {
+		parts = append(parts, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
+	}
+
+	return strings.Join(parts, ", ")
 }

@@ -80,6 +80,7 @@ func main() {
 		audienceCommand,
 		applicationCommand,
 		userCommand,
+		roleCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {
