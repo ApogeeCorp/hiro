@@ -170,6 +170,11 @@ func passwordCreate(ctx context.Context, params *PasswordGetInput) api.Responder
 		if err != nil {
 			return api.Redirect(u, ErrAccessDenied.WithError(err))
 		}
+		if req.State != nil {
+			q := u.Query()
+			q.Set("state", *req.State)
+			u.RawQuery = q.Encode()
+		}
 
 		return api.Redirect(u)
 	}
