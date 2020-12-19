@@ -77,6 +77,8 @@ securityDefinitions:
       phone:verify: "Required to verify a user's phone number"
       token:read: "Read token information"
       token:revoke: "Revoke tokens"
+      login: "This scope will create a browser session when used"
+      password: "This scope allows a user to change their password"
 
 definitions:
   Profile:
@@ -286,6 +288,44 @@ definitions:
 
 paths:
   /login:
+    get:
+      description: |
+        Uses the token to create a session for the user and redirects accordingly
+      operationId: "SessionCreate"
+      tags: ["Auth"]
+      parameters:
+        - name: "redirect_uri"
+          description: "The redirect uri"
+          in: "query"
+          type: "string"
+          required: true
+        - name: "state"
+          description: "State to pass to the redirect uri"
+          in: "query"
+          type: "string"
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["login"]
+
     post:
       description: |
         Authenticates a user the `oauth.Controller` interface.
@@ -397,7 +437,7 @@ paths:
           type: "string"
           description: "The user's password"
           in: "formData"
-          required: true
+          required: false
         - name: "invite_token"
           type: "string"
           description: |
@@ -505,30 +545,67 @@ paths:
       security:
         - OAuth: ["openid", "profile"]
 
-  /passwordSet:
+  /password:
+    get:
+      description: "Get a password for the user"
+      operationId: "PasswordGet"
+      tags: ["User"]
+      parameters:
+        - name: "login"
+          description: "The user's login"
+          in: "query"
+          type: "string"
+          required: true
+        - name: "type"
+          description: "The password type to generate"
+          in: "query"
+          type: "string"
+          enum: ["link", "code", "reset"]
+          required: true
+        - name: "request_token"
+          type: "string"
+          description: |
+            "The authorization request token"
+          in: "formData"
+          required: true
+        - name: "code_verifier"
+          description: "The PKCE code verifier"
+          in: "formData"
+          type: "string"
+          required: true
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"        
     post:
       description: "Set a user's password"
       operationId: "PasswordSet"
       tags: ["User"]
       consumes: ["application/x-www-form-urlencoded"]
       parameters:
-        - name: "login"
-          description: "The user's login"
-          in: "formData"
-          type: "string"
-          required: true
         - name: "password"
           type: "string"
           description: "The new password"
           in: "formData"
           required: true
         - name: "reset_code"
-          type: "string"
-          description: "The reset verification code"
-          in: "formData"
-          required: true
-        - name: "code_verifier"
-          description: "The PKCE code verifier"
+          description: "The password reset code"
           in: "formData"
           type: "string"
           required: true
@@ -557,59 +634,8 @@ paths:
           description: "internal server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
-
-  /passwordReset:
-    post:
-      description: |
-        The password reset flow will call the `oauth.Controller.UserResetPassword` method. 
-
-        This method should send the user a reset password link with a unique reset code that can 
-        be used to call `oauth.Controller.UserSetPassword`.
-      operationId: "PasswordReset"
-      tags: ["User"]
-      consumes: ["application/x-www-form-urlencoded"]
-      parameters:
-        - name: "login"
-          description: "The user's login"
-          in: "formData"
-          type: "string"
-          required: true
-        - name: "code_verifier"
-          description: "The PKCE code verifier"
-          in: "formData"
-          type: "string"
-          required: true
-        - name: "request_token"
-          description: |
-            "The authorization request token"
-          in: "formData"
-          type: "string"
-          required: true
-        - name: "redirect_uri"
-          type: "string"
-          description: "The uri to redirect to after password reset request"
-          in: "formData"
-          format: "uri"
-      responses:
-        302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
-        400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["password"]
 
   /authorize:
     get:

@@ -17,7 +17,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Package oauth provides the base auth interfaces
 package oauth
 
 import (

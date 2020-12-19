@@ -32,7 +32,7 @@ type (
 	// SignupParams are used in the signup route
 	SignupParams struct {
 		Login        string  `json:"login"`
-		Password     string  `json:"password"`
+		Password     *string `json:"password,omitempty"`
 		InviteToken  *string `json:"invite_token,omitempty"`
 		RequestToken string  `json:"request_token"`
 		CodeVerifier string  `json:"code_verifier"`
@@ -43,7 +43,7 @@ type (
 func (p SignupParams) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.Login, validation.Required),
-		validation.Field(&p.Password, validation.Required),
+		validation.Field(&p.Password, validation.NilOrNotEmpty),
 		validation.Field(&p.InviteToken, validation.NilOrNotEmpty),
 		validation.Field(&p.RequestToken, validation.Required),
 		validation.Field(&p.CodeVerifier, validation.Required),

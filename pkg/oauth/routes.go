@@ -35,6 +35,7 @@ func Routes(ctrl Controller) []api.Route {
 		api.NewRoute("/token").Post().Handler(token).Context(ctrl).Validate(),
 		api.NewRoute("/verify").Get().Handler(verify).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
 		api.NewRoute("/verify").Post().Handler(verifySend).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
+		api.NewRoute("/password").Post().Handler(passwordCreate).Context(ctrl).Validate(),
 		api.NewRoute("/userinfo").Get().Handler(userinfo).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
 		api.NewRoute("/userinfo").Patch().Handler(userinfoUpdate).Context(ctrl).Validate().Authorizers(auth.AuthorizeScope("openid", "profile")),
 		api.NewRoute("/openid/{audience_id}/.well-known/openid-configuration").Get().Handler(openidConfig).Context(ctrl).Validate(),

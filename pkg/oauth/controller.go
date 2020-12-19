@@ -41,20 +41,20 @@ type (
 		// RequestTokenGet looks up a request by id from the controller
 		RequestTokenGet(ctx context.Context, id string, t ...RequestTokenType) (RequestToken, error)
 
-		// UserGet gets a user object by subject identifier
+		// UserGet gets a user object by subject identifier or login
 		UserGet(ctx context.Context, sub string) (User, error)
 
 		// UserAuthenticate authenticates a user and returns a principal object
 		UserAuthenticate(ctx context.Context, login, password string) (User, error)
 
 		// UserCreate creates a user using the request which can either be the authorize or an invite token
-		UserCreate(ctx context.Context, login, password string, req RequestToken) (User, error)
+		UserCreate(ctx context.Context, login string, password *string, req RequestToken) (User, error)
 
 		// UserUpdate updates a user's profile
 		UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error
 
-		// UserVerify should create a email with the verification link for the user
-		UserVerify(ctx context.Context, sub string, method VerificationMethod, uri URI) error
+		// UserNotify should create a email with the verification link for the user
+		UserNotify(ctx context.Context, note Notification) error
 
 		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)

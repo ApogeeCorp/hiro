@@ -21,6 +21,7 @@ package types
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -69,6 +70,12 @@ func (id ID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(id.String())
 }
 
+// Hex encode the id as hex
+func (id ID) Hex() string {
+	b, _ := base58.Decode(id.String())
+	return hex.EncodeToString(b)
+}
+
 // UnmarshalJSON handles the unmarshaling of this type
 func (id *ID) UnmarshalJSON(b []byte) error {
 	if b == nil {
@@ -80,8 +87,11 @@ func (id *ID) UnmarshalJSON(b []byte) error {
 	return id.Validate()
 }
 
-func (id ID) String() string {
-	return string(id)
+func (id *ID) String() string {
+	if id == nil {
+		return ""
+	}
+	return string(*id)
 }
 
 // Scan implements the Scanner interface.

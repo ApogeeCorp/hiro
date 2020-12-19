@@ -57,6 +57,11 @@ func (u URI) String() string {
 	return string(u)
 }
 
+// Ptr returns a pointer to the URI
+func (u URI) Ptr() *URI {
+	return &u
+}
+
 // Append appends the paths to the uri
 func (u URI) Append(paths ...string) URI {
 	v, _ := u.Parse()

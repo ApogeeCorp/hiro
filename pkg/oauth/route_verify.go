@@ -47,6 +47,19 @@ type (
 
 	// VerificationMethod is a method used to verify a users identity
 	VerificationMethod string
+
+	// VerificationNotification  is a verification notification interface
+	VerificationNotification interface {
+		Notification
+		URI() URI
+		Method() VerificationMethod
+	}
+
+	verifyNotification struct {
+		sub    string
+		uri    URI
+		method VerificationMethod
+	}
 )
 
 const (
@@ -185,9 +198,29 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	q.Set("access_token", v.ID.String())
 	link.RawQuery = q.Encode()
 
-	if err := ctrl.UserVerify(ctx, *token.Subject, params.Method, URI(link.String())); err != nil {
+	if err := ctrl.UserNotify(ctx, &verifyNotification{
+		sub:    *token.Subject,
+		method: params.Method,
+		uri:    URI(link.String()),
+	}); err != nil {
 		return api.ErrServerError.WithError(err)
 	}
 
 	return api.NewResponse().WithStatus(http.StatusNoContent)
+}
+
+func (n verifyNotification) Type() NotificationType {
+	return NotificationTypeVerify
+}
+
+func (n verifyNotification) Subject() string {
+	return n.sub
+}
+
+func (n verifyNotification) URI() URI {
+	return n.uri
+}
+
+func (n verifyNotification) Method() VerificationMethod {
+	return n.method
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/apex/log"
 )
 
 type (
@@ -517,9 +518,14 @@ func (o *oauthController) TokenCleanup(ctx context.Context) error {
 
 // UserGet gets a user by id
 func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, error) {
-	user, err := o.Backend.UserGet(ctx, UserGetInput{
-		UserID: ptr.ID(sub),
-	})
+	var in UserGetInput
+
+	if types.ID(sub).Valid() {
+		in.UserID = ptr.ID(sub)
+	} else {
+		in.Login = &sub
+	}
+	user, err := o.Backend.UserGet(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +556,7 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 }
 
 // UserCreate creates a user
-func (o *oauthController) UserCreate(ctx context.Context, login, password string, req oauth.RequestToken) (oauth.User, error) {
+func (o *oauthController) UserCreate(ctx context.Context, login string, password *string, req oauth.RequestToken) (oauth.User, error) {
 	var roles []string
 
 	switch req.Type {
@@ -563,7 +569,7 @@ func (o *oauthController) UserCreate(ctx context.Context, login, password string
 
 	user, err := o.Backend.UserCreate(ctx, UserCreateInput{
 		Login:             login,
-		Password:          &password,
+		Password:          password,
 		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
 		Roles:             roles,
 	})
@@ -585,8 +591,21 @@ func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *o
 }
 
 // UserVerify should create a email with the verification link for the user
-func (o *oauthController) UserVerify(ctx context.Context, sub string, method oauth.VerificationMethod, uri oauth.URI) error {
-	o.Log(ctx).WithField("operation", "UserVerify").Debugf("%s", uri)
+func (o *oauthController) UserNotify(ctx context.Context, note oauth.Notification) error {
+	o.Log(ctx).WithField("operation", "UserNotify").
+		WithField("type", note.Type()).
+		WithField("sub", note.Subject())
+
+	switch note.Type() {
+	case oauth.NotificationTypeVerify:
+		log.Debugf("link: %s", note.(oauth.VerificationNotification).URI())
+
+	case oauth.NotificationTypePassword:
+		log.Debugf("link: %s", note.(oauth.PasswordNotification).URI())
+
+	case oauth.NotificationTypeInvite:
+	}
+
 	return nil
 }
 

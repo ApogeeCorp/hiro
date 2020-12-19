@@ -28,7 +28,6 @@ require (
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23 // indirect
-	github.com/kr/pretty v0.2.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/lib/pq v1.3.0
