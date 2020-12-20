@@ -224,6 +224,14 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 			updates["profile"] = sq.Expr(fmt.Sprintf("COALESCE(profile, '{}') || %s", sq.Placeholders(1)), params.Profile)
 		}
 
+		if params.Password != nil {
+			hash, err := b.passwords.HashPassword(*params.Password)
+			if err != nil {
+				return err
+			}
+			updates["password_hash"] = hash
+		}
+
 		if len(updates) > 0 {
 			stmt, args, err := q.Where(sq.Eq{"id": params.UserID}).
 				SetMap(updates).

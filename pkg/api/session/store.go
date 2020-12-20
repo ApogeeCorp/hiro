@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
@@ -155,7 +156,7 @@ func (s *store) save(session *sessions.Session) error {
 	}
 
 	sess := &Session{
-		ID:        string(session.ID),
+		ID:        types.ID(session.ID),
 		Audience:  s.aud,
 		Subject:   s.sub,
 		Data:      encoded,
@@ -164,7 +165,7 @@ func (s *store) save(session *sessions.Session) error {
 
 	if session.IsNew {
 		err = s.SessionCreate(s.ctx, sess)
-		session.ID = sess.ID
+		session.ID = sess.ID.String()
 	} else {
 		err = s.SessionUpdate(s.ctx, sess)
 	}

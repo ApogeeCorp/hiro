@@ -24,10 +24,15 @@ type (
 	Notification interface {
 		Type() NotificationType
 		Subject() string
+		Channels() []NotificationChannel
+		URI() *URI
 	}
 
 	// NotificationType is a notification type
 	NotificationType string
+
+	// NotificationChannel is the channel to notify
+	NotificationChannel string
 )
 
 const (
@@ -39,4 +44,10 @@ const (
 
 	// NotificationTypeInvite are invitation notification
 	NotificationTypeInvite NotificationType = "invite"
+
+	// NotificationChannelEmail is an email notification
+	NotificationChannelEmail NotificationChannel = "email"
+
+	// NotificationChannelPhone is an sms notification
+	NotificationChannelPhone NotificationChannel = "phone"
 )

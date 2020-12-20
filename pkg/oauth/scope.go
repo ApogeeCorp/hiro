@@ -66,8 +66,8 @@ const (
 	// ScopeTokenRevoke is required for token revocation
 	ScopeTokenRevoke = "token:revoke"
 
-	// ScopeLogin creates a login session
-	ScopeLogin = "login"
+	// ScopeSession creates a login session
+	ScopeSession = "session"
 
 	// ScopePassword allows a user to set their password
 	ScopePassword = "password"

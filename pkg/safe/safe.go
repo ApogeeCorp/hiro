@@ -71,6 +71,24 @@ func Int64(i interface{}, def ...int64) int64 {
 	return cast.ToInt64(i)
 }
 
+// Int returns a safe int64 from the value or default if nil
+func Int(i interface{}, def ...int) int {
+	switch t := i.(type) {
+	case int:
+		return t
+	case *int:
+		if t == nil {
+			if len(def) > 0 {
+				return def[0]
+			}
+			break
+		}
+		return *t
+	}
+
+	return cast.ToInt(i)
+}
+
 // StrEqual compares to values as strings safely
 func StrEqual(s1, s2 interface{}) bool {
 	return String(s1) == String(s2)

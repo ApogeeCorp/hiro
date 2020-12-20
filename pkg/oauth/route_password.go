@@ -21,22 +21,35 @@ package oauth
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"io"
+	"net/http"
 	"path"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type (
-	// PasswordGetInput is the input to the password get route
-	PasswordGetInput struct {
-		Login        string       `json:"login"`
-		Type         PasswordType `json:"type"`
-		RequestToken string       `json:"request_token"`
-		CodeVerifier string       `json:"code_verifier"`
+	// PasswordCreateParams is the input to the password get route
+	PasswordCreateParams struct {
+		Login        string                `json:"login"`
+		Notify       []NotificationChannel `json:"notify"`
+		Type         PasswordType          `json:"type"`
+		RequestToken string                `json:"request_token"`
+		RedirectURI  *URI                  `json:"redirect_uri,omitempty"`
+		CodeVerifier string                `json:"code_verifier"`
+	}
+
+	// PasswordUpdateParams are used by the password update route
+	PasswordUpdateParams struct {
+		Password    string `json:"password"`
+		ResetToken  string `json:"reset_token"`
+		RedirectURI *URI   `json:"redirect_uri"`
 	}
 
 	// PasswordType defines a password type
@@ -46,15 +59,15 @@ type (
 	PasswordNotification interface {
 		Notification
 		PasswordType() PasswordType
-		URI() *URI
-		Code() *string
+		Code() string
 	}
 
 	passwordNotification struct {
 		login        string
 		passwordType PasswordType
 		uri          *URI
-		code         *string
+		code         string
+		notify       []NotificationChannel
 	}
 )
 
@@ -65,8 +78,12 @@ const (
 	// PasswordTypeCode is a one-time use password code
 	PasswordTypeCode PasswordType = "code"
 
-	// PasswordTypeReset sends both a link and code
+	// PasswordTypeReset sends both a link with the password scope and a code
 	PasswordTypeReset PasswordType = "reset"
+)
+
+var (
+	passcodeAlpha = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
 )
 
 // Validate validates the PasswordType
@@ -75,19 +92,30 @@ func (p PasswordType) Validate() error {
 }
 
 // Validate validates PasswordGetInput
-func (p PasswordGetInput) Validate() error {
+func (p PasswordCreateParams) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.Login, validation.Required),
 		validation.Field(&p.Type, validation.Required),
+		validation.Field(&p.Notify, validation.Required, validation.Each(validation.In(NotificationChannelEmail, NotificationChannelPhone))),
 		validation.Field(&p.RequestToken, validation.Required),
+		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
 		validation.Field(&p.CodeVerifier, validation.Required),
 	)
 }
 
-func passwordCreate(ctx context.Context, params *PasswordGetInput) api.Responder {
+// Validate validates PasswordGetInput
+func (p PasswordUpdateParams) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Password, validation.Required),
+		validation.Field(&p.ResetToken, validation.Required),
+		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
+	)
+}
+
+func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "login").WithField("login", params.Login)
+	log := api.Log(ctx).WithField("operation", "passwordCreate").WithField("login", params.Login)
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
 	if err != nil {
@@ -112,12 +140,55 @@ func passwordCreate(ctx context.Context, params *PasswordGetInput) api.Responder
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
+	req.Subject = user.Subject()
 
-	switch params.Type {
-	case PasswordTypeLink:
-		req.Scope = append(req.Scope, ScopeLogin)
+	// The new token is for sessions which should be one time use
+	req.Type = RequestTokenTypeSession
+
+	// Links are cood for 1 hour, codes are good for 10 minutes
+	if params.Type.IsLink() {
+		req.ExpiresAt = Time(time.Now().Add(time.Hour * 1))
+	} else {
 		req.ExpiresAt = Time(time.Now().Add(time.Minute * 10))
+	}
 
+	if params.Type == PasswordTypeCode {
+		// generate a simple OTP for the this request
+		req.Passcode = ptr.String(generatePasscode(6))
+
+	} else if params.Type == PasswordTypeReset {
+		// the user will need the password reset scope for thier magic link token
+		req.Scope = append(req.Scope, ScopePassword)
+
+		// create a password reset token that the user will use to change their password
+		passToken, err := ctrl.RequestTokenCreate(ctx, RequestToken{
+			Type:      RequestTokenTypeVerify,
+			Subject:   req.Subject,
+			ClientID:  req.ClientID,
+			Audience:  req.Audience,
+			ExpiresAt: req.ExpiresAt,
+		})
+		if err != nil {
+			return api.Redirect(u, ErrAccessDenied.WithError(err))
+		}
+
+		req.Passcode = &passToken
+	}
+
+	reqToken, err := ctrl.RequestTokenCreate(ctx, req)
+	if err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+
+	note := &passwordNotification{
+		login:        params.Login,
+		passwordType: params.Type,
+		notify:       params.Notify,
+		code:         *req.Passcode,
+	}
+
+	if params.Type.IsLink() {
+		// link and resets need a magic session link with an access token
 		r, _ := api.Request(ctx)
 
 		issuer := URI(
@@ -134,8 +205,7 @@ func passwordCreate(ctx context.Context, params *PasswordGetInput) api.Responder
 			Use:       TokenUseAccess,
 			ExpiresAt: Time(time.Now().Add(time.Hour * 1)).Ptr(),
 			Revokable: true,
-			AuthTime:  &req.CreatedAt,
-			Scope:     append(req.Scope, ScopeLogin),
+			Scope:     Scope{ScopeSession},
 		})
 		if err != nil {
 			log.Error(err.Error())
@@ -146,40 +216,112 @@ func passwordCreate(ctx context.Context, params *PasswordGetInput) api.Responder
 		link, err := URI(
 			fmt.Sprintf("https://%s%s",
 				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "login")))).Parse()
+				path.Clean(path.Join(path.Dir(r.URL.Path), "session")))).Parse()
 		if err != nil {
 			log.Error(err.Error())
 
 			return api.Redirect(u, ErrAccessDenied.WithError(err))
 		}
+
 		q := link.Query()
 		q.Set("access_token", token.ID.String())
+		q.Set("request_token", reqToken)
+
 		link.RawQuery = q.Encode()
 
-		if err := ctrl.UserNotify(ctx, &passwordNotification{
-			login:        params.Login,
-			passwordType: params.Type,
-			uri:          URI(link.String()).Ptr(),
-		}); err != nil {
-			log.Error(err.Error())
-
-			return api.Redirect(u, ErrAccessDenied.WithError(err))
-		}
-
-		u, err = req.RedirectURI.Parse()
-		if err != nil {
-			return api.Redirect(u, ErrAccessDenied.WithError(err))
-		}
-		if req.State != nil {
-			q := u.Query()
-			q.Set("state", *req.State)
-			u.RawQuery = q.Encode()
-		}
-
-		return api.Redirect(u)
+		note.uri = URI(link.String()).Ptr()
 	}
 
+	if err := ctrl.UserNotify(ctx, note); err != nil {
+		log.Error(err.Error())
+
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+
+	if params.RedirectURI != nil {
+		aud, err := ctrl.AudienceGet(ctx, req.Audience)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		client, err := ctrl.ClientGet(ctx, req.ClientID)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		req.RedirectURI = params.RedirectURI
+	}
+
+	u, err = req.RedirectURI.Parse()
+	if err != nil {
+		return api.Redirect(u, ErrAccessDenied.WithError(err))
+	}
+	q := u.Query()
+	if !params.Type.IsLink() {
+		q.Set("request_token", reqToken)
+	}
+	if req.State != nil {
+		q.Set("state", *req.State)
+	}
+	u.RawQuery = q.Encode()
+
 	return api.Redirect(u)
+}
+
+func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Responder {
+	var token Token
+
+	ctrl := api.Context(ctx).(Controller)
+
+	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
+
+	log := api.Log(ctx).
+		WithField("operation", "passwordUpdate").
+		WithField("sub", token.Subject)
+
+	req, err := ctrl.RequestTokenGet(ctx, params.ResetToken, RequestTokenTypeVerify)
+	if err != nil {
+		return ErrAccessDenied.WithError(err)
+	}
+
+	if req.Subject != *token.Subject {
+		return ErrAccessDenied.WithDetail("subject does not match")
+	}
+
+	log.Debug("updating user password")
+
+	if err := ctrl.UserSetPassword(ctx, *token.Subject, params.Password); err != nil {
+		return api.Error(err)
+	}
+
+	if params.RedirectURI != nil {
+		aud, err := ctrl.AudienceGet(ctx, req.Audience)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		client, err := ctrl.ClientGet(ctx, req.ClientID)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		u, err := req.RedirectURI.Parse()
+		if err != nil {
+			return api.ErrBadRequest.WithError(err)
+		}
+
+		api.Redirect(u)
+	}
+
+	return api.NewResponse().WithStatus(http.StatusNoContent)
 }
 
 func (n passwordNotification) Type() NotificationType {
@@ -198,6 +340,31 @@ func (n passwordNotification) PasswordType() PasswordType {
 	return n.passwordType
 }
 
-func (n passwordNotification) Code() *string {
+func (n passwordNotification) Code() string {
 	return n.code
+}
+
+func (n passwordNotification) Channels() []NotificationChannel {
+	return n.notify
+}
+
+// IsLink returns true if its a link type
+func (p PasswordType) IsLink() bool {
+	return p == PasswordTypeLink || p == PasswordTypeReset
+}
+
+func (p PasswordType) String() string {
+	return string(p)
+}
+
+func generatePasscode(max int) string {
+	b := make([]byte, max)
+	n, err := io.ReadAtLeast(rand.Reader, b, max)
+	if n != max {
+		panic(err)
+	}
+	for i := 0; i < len(b); i++ {
+		b[i] = passcodeAlpha[int(b[i])%len(passcodeAlpha)]
+	}
+	return string(b)
 }

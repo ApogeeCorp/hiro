@@ -111,7 +111,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 	}
 
 	*sess = session.Session{
-		ID:        out.ID.String(),
+		ID:        out.ID,
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -159,7 +159,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 	}
 
 	*sess = session.Session{
-		ID:        out.ID.String(),
+		ID:        out.ID,
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -220,7 +220,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 	}
 
 	return session.Session{
-		ID:        out.ID.String(),
+		ID:        out.ID,
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -259,7 +259,10 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 
 	opts := session.Options{
 		Options: sessions.Options{
-			MaxAge: int(aud.SessionLifetime.Seconds()),
+			MaxAge:   int(aud.SessionLifetime.Seconds()),
+			HttpOnly: true,
+			Secure:   true,
+			Path:     "/",
 		},
 	}
 

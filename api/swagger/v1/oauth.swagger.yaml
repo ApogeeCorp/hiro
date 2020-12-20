@@ -77,7 +77,7 @@ securityDefinitions:
       phone:verify: "Required to verify a user's phone number"
       token:read: "Read token information"
       token:revoke: "Revoke tokens"
-      login: "This scope will create a browser session when used"
+      session: "This scope will create a browser session when used"
       password: "This scope allows a user to change their password"
 
 definitions:
@@ -288,44 +288,6 @@ definitions:
 
 paths:
   /login:
-    get:
-      description: |
-        Uses the token to create a session for the user and redirects accordingly
-      operationId: "SessionCreate"
-      tags: ["Auth"]
-      parameters:
-        - name: "redirect_uri"
-          description: "The redirect uri"
-          in: "query"
-          type: "string"
-          required: true
-        - name: "state"
-          description: "State to pass to the redirect uri"
-          in: "query"
-          type: "string"
-      responses:
-        302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
-        400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-      security:
-        - OAuth: ["login"]
-
     post:
       description: |
         Authenticates a user the `oauth.Controller` interface.
@@ -417,6 +379,50 @@ paths:
           description: "internal server error"
           schema:
             $ref: "#/definitions/ErrorResponse"
+
+  /session:
+    get:
+      description: |
+        Uses the token to create a session for the user and redirects accordingly
+      operationId: "SessionCreate"
+      tags: ["Auth"]
+      parameters:
+        - name: "request_token"
+          type: "string"
+          description: |
+            "The authorization request token"
+          in: "formData"
+          required: true
+        - name: "redirect_uri"
+          description: "The redirect uri"
+          in: "query"
+          type: "string"
+        - name: "state"
+          description: "State to pass to the redirect uri"
+          in: "query"
+          type: "string"
+      responses:
+        302:
+          description: "found"
+          headers:
+            Location:
+              description: "The redirect URI for the auth request"
+              type: "string"
+              format: "uri"
+        400:
+          description: "bad parameter"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        401:
+          description: "unauthorized"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+        500:
+          description: "internal server error"
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+      security:
+        - OAuth: ["session"]
 
   /signup:
     post:
@@ -546,9 +552,11 @@ paths:
         - OAuth: ["openid", "profile"]
 
   /password:
-    get:
-      description: "Get a password for the user"
-      operationId: "PasswordGet"
+    post:
+      description: |
+        This method will create a "password" token that can be delivered to the user
+        via a notification.
+      operationId: "PasswordCreate"
       tags: ["User"]
       parameters:
         - name: "login"
@@ -556,12 +564,33 @@ paths:
           in: "query"
           type: "string"
           required: true
-        - name: "type"
-          description: "The password type to generate"
+        - name: "notify"
+          description: "The notification to use, email or phone (sms)"
           in: "query"
+          type: "array"
+          items:
+            type: "string"
+            enum: ["email", "phone"]
+          collectionFormat: "csv"
+          required: true
+        - name: "type"
+          description: |
+            The request type to send the user.
+
+              - link: send a magic link that will create user session and login
+              - code: send a one-time password code to the user
+              - reset: send a link with `password` scope and code resetting the user's password
           type: "string"
           enum: ["link", "code", "reset"]
+          in: "query"
           required: true
+        - name: "redirect_uri"
+          in: "query"
+          description: |
+            The URL to which the authentication server redirects the browser after authorization 
+            has been granted by the user, the default is to use the uri in the original request
+          type: "string"
+          required: false
         - name: "request_token"
           type: "string"
           description: |
@@ -593,9 +622,9 @@ paths:
           description: "internal server error"
           schema:
             $ref: "#/definitions/ErrorResponse"        
-    post:
+    put:
       description: "Set a user's password"
-      operationId: "PasswordSet"
+      operationId: "PasswordUpdate"
       tags: ["User"]
       consumes: ["application/x-www-form-urlencoded"]
       parameters:
@@ -604,8 +633,8 @@ paths:
           description: "The new password"
           in: "formData"
           required: true
-        - name: "reset_code"
-          description: "The password reset code"
+        - name: "reset_token"
+          description: "The password reset token"
           in: "formData"
           type: "string"
           required: true
@@ -615,6 +644,8 @@ paths:
           in: "formData"
           format: "uri"
       responses:
+        204:
+          description: "no content"
         302:
           description: "found"
           headers:

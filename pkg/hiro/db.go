@@ -21,6 +21,7 @@ package hiro
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -45,11 +46,24 @@ type (
 		count int64
 		id    string
 	}
+
+	txCommitErr struct {
+		err error
+	}
 )
 
 var (
 	contextKeyTx contextKey = "hiro:context:tx"
 )
+
+// ErrTxCommit is used to return an error from within a tx handler but still commit
+func ErrTxCommit(err error) error {
+	return txCommitErr{err}
+}
+
+func (e txCommitErr) Error() string {
+	return e.err.Error()
+}
 
 // Transact starts a db transaction, adds it to the context and calls the handler
 func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
@@ -72,11 +86,18 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
 			return
 		}
 
+		var t txCommitErr
+
+		if errors.As(err, &t) {
+			err = nil
+		}
+
 		if err != nil {
 			ref.Rollback()
 			log.Debugf("database tx %s rollback", ref.id)
 		} else if err = ref.Commit(); err == nil {
 			log.Debugf("database tx %s commit succeeded", ref.id)
+			err = t.err
 		} else {
 			log.Errorf("database tx %s commit failed: %s", ref.id, err)
 		}

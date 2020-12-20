@@ -42,32 +42,19 @@ type (
 
 	// VerifySendParams are the params for the verification send method
 	VerifySendParams struct {
-		Method VerificationMethod `json:"method"`
-	}
-
-	// VerificationMethod is a method used to verify a users identity
-	VerificationMethod string
-
-	// VerificationNotification  is a verification notification interface
-	VerificationNotification interface {
-		Notification
-		URI() URI
-		Method() VerificationMethod
+		Method NotificationChannel `json:"method"`
 	}
 
 	verifyNotification struct {
-		sub    string
-		uri    URI
-		method VerificationMethod
+		sub     string
+		uri     URI
+		channel NotificationChannel
 	}
-)
 
-const (
-	// VerificationMethodEmail is for email verification
-	VerificationMethodEmail VerificationMethod = "email"
-
-	// VerificationMethodPhone is for phone verification
-	VerificationMethodPhone VerificationMethod = "phone"
+	// VerificationNotification is a user verification notification
+	VerificationNotification interface {
+		Notification
+	}
 )
 
 // Validate validates the params
@@ -107,7 +94,7 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 			return api.ErrForbidden.WithError(err)
 		}
 
-		if err := client.Authorize(ctx, aud, GrantTypeAuthNone, []URI{*params.RedirectURI}); err != nil {
+		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
 			return api.ErrForbidden.WithError(err)
 		}
 	}
@@ -158,10 +145,12 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	r, _ := api.Request(ctx)
 
 	switch params.Method {
-	case VerificationMethodEmail:
+	case NotificationChannelEmail:
 		scope = append(scope, ScopeEmailVerify)
-	case VerificationMethodPhone:
+	case NotificationChannelPhone:
 		scope = append(scope, ScopePhoneVerify)
+	default:
+		return api.ErrBadRequest.WithDetail("unsupported notification channel")
 	}
 
 	issuer := URI(
@@ -199,9 +188,9 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	link.RawQuery = q.Encode()
 
 	if err := ctrl.UserNotify(ctx, &verifyNotification{
-		sub:    *token.Subject,
-		method: params.Method,
-		uri:    URI(link.String()),
+		sub:     *token.Subject,
+		channel: params.Method,
+		uri:     URI(link.String()),
 	}); err != nil {
 		return api.ErrServerError.WithError(err)
 	}
@@ -217,10 +206,10 @@ func (n verifyNotification) Subject() string {
 	return n.sub
 }
 
-func (n verifyNotification) URI() URI {
-	return n.uri
+func (n verifyNotification) URI() *URI {
+	return &n.uri
 }
 
-func (n verifyNotification) Method() VerificationMethod {
-	return n.method
+func (n verifyNotification) Channels() []NotificationChannel {
+	return []NotificationChannel{NotificationChannel(n.channel)}
 }

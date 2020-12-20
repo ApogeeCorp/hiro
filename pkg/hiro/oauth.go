@@ -33,6 +33,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/apex/log"
 )
@@ -62,8 +63,10 @@ type (
 		ApplicationID       types.ID                  `db:"application_id"`
 		UserID              types.ID                  `db:"user_id,omitempty"`
 		Scope               oauth.Scope               `db:"scope,omitempty"`
+		Passcode            *string                   `db:"passcode,omitempty"`
 		ExpiresAt           oauth.Time                `db:"expires_at"`
 		CodeChallenge       oauth.PKCEChallenge       `db:"code_challenge"`
+		LoginAttempts       *int                      `db:"login_attempts"`
 		CodeChallengeMethod oauth.PKCEChallengeMethod `db:"code_challenge_method"`
 		AppURI              oauth.URI                 `db:"app_uri"`
 		RedirectURI         *oauth.URI                `db:"redirect_uri"`
@@ -161,6 +164,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				"application_id",
 				"user_id",
 				"scope",
+				"passcode",
 				"expires_at",
 				"code_challenge",
 				"code_challenge_method",
@@ -173,6 +177,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				types.ID(req.ClientID),
 				types.ID(req.Subject),
 				req.Scope,
+				req.Passcode,
 				req.ExpiresAt.Time(),
 				req.CodeChallenge,
 				req.CodeChallengeMethod,
@@ -238,25 +243,40 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 			return parseSQLError(err)
 		}
 
-		_, err = sq.Delete("hiro.request_tokens").
+		// all tokens except login are one-time-use
+		if out.Type != oauth.RequestTokenTypeLogin {
+			return o.RequestTokenDelete(ctx, out.ID.String())
+		}
+
+		if safe.Int(out.LoginAttempts) > o.passwords.MaxLoginAttempts() {
+			err = o.RequestTokenDelete(ctx, out.ID.String())
+
+			return ErrTxCommit(oauth.ErrAccessDenied.
+				WithDetail("too many login attempts").
+				WithError(err))
+		}
+
+		_, err = sq.Update("hiro.request_tokens").
+			Set("login_attempts", safe.Int(out.LoginAttempts)+1).
 			Where(sq.Eq{"id": types.ID(id)}).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(tx).
 			ExecContext(ctx)
 
-		return err
+		return nil
 	}); err != nil {
 		return oauth.RequestToken{}, err
 	}
 
 	return oauth.RequestToken{
-		ID:                  out.ID.String(),
+		ID:                  out.ID,
 		Type:                out.Type,
 		CreatedAt:           out.CreatedAt,
 		Audience:            out.Audience.String(),
 		ClientID:            out.ApplicationID.String(),
 		Subject:             out.UserID.String(),
 		Scope:               out.Scope,
+		Passcode:            out.Passcode,
 		ExpiresAt:           out.ExpiresAt,
 		CodeChallenge:       out.CodeChallenge,
 		CodeChallengeMethod: out.CodeChallengeMethod,
@@ -264,6 +284,20 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 		RedirectURI:         out.RedirectURI,
 		State:               out.State,
 	}, nil
+}
+
+// RequestTokenDelete deletes a request token by id
+func (o *oauthController) RequestTokenDelete(ctx context.Context, id string) error {
+
+	db := o.DB(ctx)
+
+	_, err := sq.Delete("hiro.request_tokens").
+		Where(sq.Eq{"id": types.ID(id)}).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx)
+
+	return err
 }
 
 // TokenCreate creates a new token
@@ -404,6 +438,14 @@ func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.
 			return parseSQLError(err)
 		}
 
+		if out.ExpiresAt.Time().Before(time.Now()) {
+			return oauth.ErrExpiredToken
+		}
+
+		if out.RevokedAt != nil {
+			return oauth.ErrRevokedToken
+		}
+
 		return nil
 	}); err != nil {
 		return oauth.Token{}, err
@@ -433,10 +475,11 @@ func (o *oauthController) TokenRevoke(ctx context.Context, id types.ID) error {
 
 	db := o.DB(ctx)
 
-	if _, err := sq.Delete("hiro.access_tokens").
+	if _, err := sq.Update("hiro.access_tokens").
 		Where(
 			sq.Eq{"id": id},
 		).
+		Set("revoked_at", time.Now()).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
@@ -444,7 +487,7 @@ func (o *oauthController) TokenRevoke(ctx context.Context, id types.ID) error {
 		return parseSQLError(err)
 	}
 
-	log.Debugf("access token deleted")
+	log.Debugf("access token revoked")
 
 	return nil
 }
@@ -454,10 +497,8 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 	log := o.Log(ctx).
 		WithField("operation", "TokenRevokeAll")
 
-	query := sq.Delete("hiro.access_tokens").
-		Where(
-			sq.Eq{"user_id": types.ID(sub)},
-		)
+	query := sq.Update("hiro.access_tokens").
+		Where(sq.Eq{"user_id": types.ID(sub)})
 
 	if len(uses) > 0 {
 		query = query.Where(sq.Eq{"token_use": uses})
@@ -466,6 +507,7 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 	db := o.DB(ctx)
 
 	if _, err := query.
+		Set("revoked_at", time.Now()).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
@@ -473,7 +515,7 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 		return parseSQLError(err)
 	}
 
-	log.Debugf("access token deleted")
+	log.Debugf("access tokens revoked")
 
 	return nil
 }
@@ -555,6 +597,17 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 	return &oauthUser{user}, nil
 }
 
+// UserSetPassword sets the users password
+func (o *oauthController) UserSetPassword(ctx context.Context, sub, password string) error {
+	_, err := o.Backend.UserUpdate(ctx, UserUpdateInput{
+		UserID:            types.ID(sub),
+		Password:          &password,
+		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
+	})
+
+	return err
+}
+
 // UserCreate creates a user
 func (o *oauthController) UserCreate(ctx context.Context, login string, password *string, req oauth.RequestToken) (oauth.User, error) {
 	var roles []string
@@ -594,14 +647,15 @@ func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *o
 func (o *oauthController) UserNotify(ctx context.Context, note oauth.Notification) error {
 	o.Log(ctx).WithField("operation", "UserNotify").
 		WithField("type", note.Type()).
-		WithField("sub", note.Subject())
+		WithField("sub", note.Subject()).
+		WithField("channels", note.Channels())
 
 	switch note.Type() {
 	case oauth.NotificationTypeVerify:
-		log.Debugf("link: %s", note.(oauth.VerificationNotification).URI())
+		log.Debugf("link: %s", note.URI())
 
 	case oauth.NotificationTypePassword:
-		log.Debugf("link: %s", note.(oauth.PasswordNotification).URI())
+		log.Debugf("link: %s, code %s", note.URI(), note.(oauth.PasswordNotification).Code())
 
 	case oauth.NotificationTypeInvite:
 	}
@@ -634,7 +688,7 @@ func (c oauthClient) Type() oauth.ClientType {
 // Authorize authorizes the client for the specified grants, uris, and scopes
 // Used for authorization_code flows
 func (c oauthClient) Authorize(ctx context.Context, aud oauth.Audience, grant oauth.GrantType, uris []oauth.URI, scopes ...oauth.Scope) error {
-	if grant != oauth.GrantTypeAuthNone {
+	if grant != oauth.GrantTypeNone {
 		if g, ok := c.Grants[aud.Name()]; ok {
 			if !g.Contains(grant) {
 				return oauth.ErrAccessDenied.WithMessage("grant type % not authorized for audience %s", grant, aud)

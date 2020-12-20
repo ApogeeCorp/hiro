@@ -20,6 +20,7 @@
 package oauth
 
 import (
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -28,12 +29,14 @@ type (
 	// RequestToken represents an oauth request used for several different flows
 	// These tokens are generally single use and should not be exposed, other than their id
 	RequestToken struct {
-		ID                  string
+		ID                  types.ID
 		Type                RequestTokenType
 		CreatedAt           Time
 		Audience            string
 		ClientID            string
 		Subject             string
+		Passcode            *string
+		Uses                int
 		Scope               Scope
 		ExpiresAt           Time
 		CodeChallenge       PKCEChallenge
@@ -51,7 +54,13 @@ const (
 	// RequestTokenTypeLogin is used for login or signup routes
 	RequestTokenTypeLogin RequestTokenType = "login"
 
-	// RequestTokenTypeInvite is used for login or signup routes
+	// RequestTokenTypeSession is used for sessions
+	RequestTokenTypeSession RequestTokenType = "session"
+
+	// RequestTokenTypeVerify is verification, i.e. password resets
+	RequestTokenTypeVerify RequestTokenType = "verify"
+
+	// RequestTokenTypeInvite is verification, i.e. password resets
 	RequestTokenTypeInvite RequestTokenType = "invite"
 
 	// RequestTokenTypeAuthCode is used to request token
@@ -66,7 +75,9 @@ func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Type, validation.Required, validation.In(
 			RequestTokenTypeLogin,
+			RequestTokenTypeSession,
 			RequestTokenTypeInvite,
+			RequestTokenTypeVerify,
 			RequestTokenTypeAuthCode,
 			RequestTokenTypeRefreshToken)),
 		validation.Field(&r.Audience, validation.Required),

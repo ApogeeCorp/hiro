@@ -143,6 +143,10 @@ func (e statusError) WithStatus(status int) ErrorResponse {
 func (e statusError) WithError(err error) ErrorResponse {
 	var r ErrorResponse
 
+	if err == nil {
+		return &e
+	}
+
 	if errors.As(err, &r) {
 		if r.Status() <= e.status {
 			if e.Error() != r.Error() {

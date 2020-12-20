@@ -27,32 +27,37 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type (
-	// LoginParams contains all the bound params for the login operation
-	LoginParams struct {
-		Login        string `json:"login"`
-		Password     string `json:"password"`
-		RequestToken string `json:"request_token"`
-		CodeVerifier string `json:"code_verifier"`
+	// SessionParams is the session request parameters
+	SessionParams struct {
+		RequestToken string  `json:"request_token"`
+		RedirectURI  *URI    `json:"redirect_ur"`
+		State        *string `json:"state,omitempty"`
 	}
 )
 
-// Validate validates LoginParams
-func (p LoginParams) Validate() error {
+// Validate validates the SessionParams struct
+func (p SessionParams) Validate() error {
 	return validation.ValidateStruct(&p,
-		validation.Field(&p.Login, validation.Required),
-		validation.Field(&p.Password, validation.Required),
 		validation.Field(&p.RequestToken, validation.Required),
-		validation.Field(&p.CodeVerifier, validation.Required),
-	)
+		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI))
 }
 
-func login(ctx context.Context, params *LoginParams) api.Responder {
+func session(ctx context.Context, params *SessionParams) api.Responder {
+	var token Token
+
+	log := api.Log(ctx).WithField("operation", "session").WithField("token", params.RequestToken)
+
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "login").WithField("login", params.Login)
+	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
+
+	if err := ctrl.TokenRevoke(ctx, token.ID); err != nil {
+		return api.Error(err)
+	}
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
 	if err != nil {
@@ -65,31 +70,16 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u, ErrExpiredToken)
-	}
-
-	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
-	}
-
 	// ensure the request audience is valid
 	aud, err := ctrl.AudienceGet(ctx, req.Audience)
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
 
-	var user User
-
-	if req.Passcode != nil && params.Password == *req.Passcode {
-		user, err = ctrl.UserGet(ctx, params.Login)
-	} else {
-		user, err = ctrl.UserAuthenticate(ctx, params.Login, params.Password)
-	}
+	user, err := ctrl.UserGet(ctx, req.Subject)
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
-
 	log.Debugf("user %s authenticated", user.Subject())
 
 	perms := user.Permissions(aud)
@@ -101,7 +91,10 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		req.Scope = perms
 	}
 
-	if !perms.Every(req.Scope...) {
+	// we ignore some special scopes that are granted to the user on the fly
+	checkScope := req.Scope.Without(ScopePassword, ScopeSession, ScopeEmailVerify, ScopePhoneVerify)
+
+	if !perms.Every(checkScope...) {
 		return ErrAccessDenied.WithMessage("user has insufficient access for request")
 	}
 
@@ -123,6 +116,19 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 
 	if err := session.Save(r, w); err != nil {
 		return api.ErrServerError.WithError(err)
+	}
+
+	if params.RedirectURI != nil {
+		client, err := ctrl.ClientGet(ctx, req.ClientID)
+		if err != nil {
+			return api.ErrServerError.WithError(err)
+		}
+
+		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		req.RedirectURI = params.RedirectURI
 	}
 
 	// create a new auth code

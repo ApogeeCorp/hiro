@@ -35,6 +35,7 @@ type (
 		EnforcePasswordPolicy(enabled bool)
 		ValidatePassword(password string) error
 		PasswordExpiry() time.Duration
+		MaxLoginAttempts() int
 	}
 
 	passwordManager struct {
@@ -62,6 +63,10 @@ func (passwordManager) HashPassword(password string) (string, error) {
 func (passwordManager) CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+func (passwordManager) MaxLoginAttempts() int {
+	return 7
 }
 
 // EnforcePasswordPolicy enables password validation
