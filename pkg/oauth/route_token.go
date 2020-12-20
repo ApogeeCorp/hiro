@@ -30,6 +30,14 @@ import (
 )
 
 type (
+	// TokenIntrospectParams is the parameters for token introspect
+	TokenIntrospectParams struct {
+	}
+
+	// TokenRevokeParams is the parameters for token revoke
+	TokenRevokeParams struct {
+	}
+
 	// TokenParams is the parameters for the token request
 	TokenParams struct {
 		ClientID     string    `json:"client_id"`
@@ -179,4 +187,12 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 	return api.NewResponse(bearer).
 		WithHeader("Cache-Control", "no-store").
 		WithHeader("Pragma", "no-cache")
+}
+
+func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Responder {
+	return nil
+}
+
+func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
+	return nil
 }

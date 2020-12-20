@@ -85,9 +85,9 @@ func openidConfig(ctx context.Context, params *OIDConfigInput) api.Responder {
 		SubjectTypesSupported:  []string{"public"},
 		SigningAlgSupported:    []string{"RS256", "HS256"},
 		TokenEndpoint:          issuer.Append("..", "token"),
-		IntrospectionEndpoint:  issuer.Append("..", "userInfo"),
+		IntrospectionEndpoint:  issuer.Append("..", "token-introspect"),
 		UserInfoEndpoint:       issuer.Append("..", "userInfo"),
-		RevocationEndpoint:     issuer.Append("..", "revoke"),
+		RevocationEndpoint:     issuer.Append("..", "token-revoke"),
 		GrantTypesSupported:    []GrantType{GrantTypeAuthCode, GrantTypeClientCredentials, GrantTypeRefreshToken},
 		ScopesSupported:        aud.Permissions(),
 	}
