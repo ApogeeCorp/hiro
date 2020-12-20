@@ -22,20 +22,25 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path"
+	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// TokenIntrospectParams is the parameters for token introspect
 	TokenIntrospectParams struct {
+		Token string `json:"token"`
 	}
 
 	// TokenRevokeParams is the parameters for token revoke
 	TokenRevokeParams struct {
+		Token string `json:"token"`
 	}
 
 	// TokenParams is the parameters for the token request
@@ -48,6 +53,20 @@ type (
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
 )
+
+// Validate handles the validation for the TokenParams struct
+func (p TokenIntrospectParams) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Token, validation.Required),
+	)
+}
+
+// Validate handles the validation for the TokenParams struct
+func (p TokenRevokeParams) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Token, validation.Required),
+	)
+}
 
 // Validate handles the validation for the TokenParams struct
 func (p TokenParams) Validate() error {
@@ -190,9 +209,53 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 }
 
 func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Responder {
-	return nil
+	ctrl := api.Context(ctx).(Controller)
+
+	if len(params.Token) == 22 {
+		token, err := ctrl.TokenGet(ctx, params.Token)
+		if err != nil {
+			return api.Error(err)
+		}
+
+		if token.ExpiresAt.Time().After(time.Now()) {
+			token.Claims["active"] = true
+		}
+
+		return api.NewResponse(token)
+	}
+
+	var token Token
+
+	api.RequirePrincipal(ctx, &token)
+
+	t, err := ParseBearer(params.Token, func(c Claims) (TokenSecret, error) {
+		aud, err := ctrl.AudienceGet(ctx, c.Audience())
+		if err != nil {
+			return TokenSecret{}, err
+		}
+		return aud.Secret(), nil
+	})
+	if err != nil {
+		return api.Error(err)
+	}
+
+	if t.ExpiresAt.Time().After(time.Now()) {
+		t.Claims["active"] = true
+	}
+
+	return api.NewResponse(t)
 }
 
 func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
-	return nil
+	ctrl := api.Context(ctx).(Controller)
+
+	if len(params.Token) == 22 {
+		if err := ctrl.TokenRevoke(ctx, types.ID(params.Token)); err != nil {
+			return api.Error(err)
+		}
+
+		return api.NewResponse().WithStatus(http.StatusNoContent)
+	}
+
+	return ErrInvalidToken.WithDetail("token not revokable")
 }
