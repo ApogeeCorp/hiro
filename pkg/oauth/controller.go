@@ -21,6 +21,7 @@ package oauth
 
 import (
 	"context"
+	"time"
 
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/types"
@@ -61,6 +62,9 @@ type (
 
 		// UserNotify should create an email or sms with the verification link or code for the user
 		UserNotify(ctx context.Context, note Notification) error
+
+		// UserLockout should lock a user for the specified time or default
+		UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error)
 
 		// TokenCreate creates a new token and allows the controller to add custom claims
 		TokenCreate(ctx context.Context, token Token) (Token, error)

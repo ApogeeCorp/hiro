@@ -21,6 +21,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -56,6 +57,16 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 
 	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
 	if err != nil {
+		var e ErrTooManyLoginAttempts
+
+		if errors.As(err, &e) {
+			if _, err := ctrl.UserLockout(ctx, params.Login); err != nil {
+				return api.Error(err)
+			}
+
+			return e
+		}
+
 		return ErrAccessDenied.WithError(err)
 	}
 

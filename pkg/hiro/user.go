@@ -46,6 +46,7 @@ type (
 		Password          *string         `json:"-" db:"-"`
 		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		LockedUntil       *time.Time      `json:"locked_until,omitempty" db:"locked_until,omitempty"`
 		Roles             []string        `json:"roles,omitempty"`
 		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" db:"-"`
 		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
@@ -64,11 +65,13 @@ type (
 
 	// UserUpdateInput is the update user request input
 	UserUpdateInput struct {
-		UserID            types.ID        `json:"user_id" structs:"-"`
+		UserID            *types.ID       `json:"user_id" structs:"-"`
+		Login             *string         `json:"login,omitempty"`
 		Password          *string         `json:"password,omitempty" structs:"-"`
 		Roles             []string        `json:"roles,omitempty" structs:"-"`
 		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" structs:"password_expires_at,omitempty"`
+		LockedUntil       *time.Time      `json:"locked_until,omitempty" structs:"-"`
 		Metadata          types.Metadata  `json:"metadata,omitempty" structs:"-"`
 	}
 
@@ -106,7 +109,8 @@ func (u UserCreateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the UserCreateInput struct
 func (u UserUpdateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&u,
-		validation.Field(&u.UserID, validation.Required),
+		validation.Field(&u.UserID, validation.When(u.Login == nil, validation.Required).Else(validation.Nil)),
+		validation.Field(&u.Login, validation.When(u.UserID == nil, validation.Required).Else(validation.Nil)),
 	)
 }
 
@@ -232,9 +236,22 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 			updates["password_hash"] = hash
 		}
 
+		if params.LockedUntil != nil {
+			if params.LockedUntil.IsZero() {
+				updates["locked_until"] = sql.NullTime{}
+			} else {
+				updates["locked_until"] = *params.LockedUntil
+			}
+		}
+
+		if params.UserID != nil {
+			q = q.Where(sq.Eq{"id": params.UserID})
+		} else if params.Login != nil {
+			q = q.Where(sq.Eq{"login": params.Login})
+		}
+
 		if len(updates) > 0 {
-			stmt, args, err := q.Where(sq.Eq{"id": params.UserID}).
-				SetMap(updates).
+			stmt, args, err := q.SetMap(updates).
 				Suffix("RETURNING *").
 				ToSql()
 			if err != nil {

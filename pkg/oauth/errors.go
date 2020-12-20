@@ -23,6 +23,14 @@ import (
 	"github.com/ModelRocket/hiro/pkg/api"
 )
 
+type (
+	// ErrTooManyLoginAttempts is returned when too many login attempts have been exceeded
+	ErrTooManyLoginAttempts struct {
+		api.ErrorResponse
+		Attempts int
+	}
+)
+
 var (
 	// ErrAccessDenied is returned when authentication has failed
 	ErrAccessDenied = api.ErrUnauthorized
@@ -66,3 +74,19 @@ var (
 	// ErrInvalidInviteCode is returned when an invitation code is bad
 	ErrInvalidInviteCode = api.ErrBadRequest.WithDetail("invite code is invalid")
 )
+
+// NewErrTooManyLoginAttempts creates a new too many login attempts error
+func NewErrTooManyLoginAttempts(attempts int) *ErrTooManyLoginAttempts {
+	return &ErrTooManyLoginAttempts{
+		ErrorResponse: ErrAccessDenied.WithDetail("too many login attempts"),
+		Attempts:      attempts,
+	}
+}
+
+// WithError implements some of api.ErrorResponse interface
+func (e ErrTooManyLoginAttempts) WithError(err error) api.ErrorResponse {
+	return ErrTooManyLoginAttempts{
+		ErrorResponse: e.ErrorResponse.WithError(err),
+		Attempts:      e.Attempts,
+	}
+}

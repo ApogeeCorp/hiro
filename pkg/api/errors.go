@@ -72,7 +72,8 @@ type (
 		WithDetail(detail ...interface{}) ErrorResponse
 	}
 
-	statusError struct {
+	// StatusError is a basic status error others can sub
+	StatusError struct {
 		err    error
 		status int
 		detail []string
@@ -81,7 +82,7 @@ type (
 
 // Error returns a new api error from the error
 func Error(err error) ErrorResponse {
-	e := &statusError{
+	e := &StatusError{
 		status: http.StatusInternalServerError,
 		err:    err,
 	}
@@ -97,7 +98,7 @@ func Error(err error) ErrorResponse {
 
 // Errorf returns a new api error from the string
 func Errorf(format string, args ...interface{}) ErrorResponse {
-	e := &statusError{
+	e := &StatusError{
 		err:    fmt.Errorf(format, args...),
 		status: http.StatusInternalServerError,
 	}
@@ -105,11 +106,11 @@ func Errorf(format string, args ...interface{}) ErrorResponse {
 	return e
 }
 
-func (e statusError) Error() string {
+func (e StatusError) Error() string {
 	return e.err.Error()
 }
 
-func (e statusError) WithDetail(detail ...interface{}) ErrorResponse {
+func (e StatusError) WithDetail(detail ...interface{}) ErrorResponse {
 	if e.detail == nil {
 		e.detail = make([]string, 0)
 	}
@@ -127,24 +128,24 @@ func (e statusError) WithDetail(detail ...interface{}) ErrorResponse {
 		}
 	}
 
-	return &e
+	return e
 }
 
-func (e statusError) WithMessage(format string, args ...interface{}) ErrorResponse {
+func (e StatusError) WithMessage(format string, args ...interface{}) ErrorResponse {
 	e.err = fmt.Errorf(format, args...)
-	return &e
+	return e
 }
 
-func (e statusError) WithStatus(status int) ErrorResponse {
+func (e StatusError) WithStatus(status int) ErrorResponse {
 	e.status = status
-	return &e
+	return e
 }
 
-func (e statusError) WithError(err error) ErrorResponse {
+func (e StatusError) WithError(err error) ErrorResponse {
 	var r ErrorResponse
 
 	if err == nil {
-		return &e
+		return e
 	}
 
 	if errors.As(err, &r) {
@@ -162,10 +163,10 @@ func (e statusError) WithError(err error) ErrorResponse {
 		e.detail = append(e.detail, err.Error())
 	}
 
-	return &e
+	return e
 }
 
-func (e statusError) Payload() interface{} {
+func (e StatusError) Payload() interface{} {
 	return struct {
 		Message string   `json:"message"`
 		Detail  []string `json:"detail,omitempty"`
@@ -175,14 +176,14 @@ func (e statusError) Payload() interface{} {
 	}
 }
 
-func (e statusError) Write(w http.ResponseWriter) error {
+func (e StatusError) Write(w http.ResponseWriter) error {
 	return WriteJSON(w, e.status, e.Payload())
 }
 
-func (e statusError) Status() int {
+func (e StatusError) Status() int {
 	return e.status
 }
 
-func (e statusError) Detail() []string {
+func (e StatusError) Detail() []string {
 	return e.detail
 }

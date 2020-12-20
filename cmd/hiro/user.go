@@ -206,7 +206,7 @@ func userUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.UserUpdateInput{
-		UserID: types.ID(c.String("id")),
+		UserID: ptr.ID(c.String("id")),
 		Roles:  c.StringSlice("roles"),
 	}
 

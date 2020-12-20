@@ -248,12 +248,11 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 			return o.RequestTokenDelete(ctx, out.ID.String())
 		}
 
-		if safe.Int(out.LoginAttempts) > o.passwords.MaxLoginAttempts() {
+		if safe.Int(out.LoginAttempts) >= o.passwords.MaxLoginAttempts() {
 			err = o.RequestTokenDelete(ctx, out.ID.String())
 
-			return ErrTxCommit(oauth.ErrAccessDenied.
-				WithDetail("too many login attempts").
-				WithError(err))
+			return ErrTxCommit(
+				oauth.NewErrTooManyLoginAttempts(*out.LoginAttempts).WithError(err))
 		}
 
 		_, err = sq.Update("hiro.request_tokens").
@@ -567,10 +566,32 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 	} else {
 		in.Login = &sub
 	}
+
 	user, err := o.Backend.UserGet(ctx, in)
 	if err != nil {
 		return nil, err
 	}
+
+	if user.LockedUntil != nil {
+		if user.LockedUntil.After(time.Now()) {
+			return nil, oauth.ErrAccessDenied.
+				WithDetail("user account locked").
+				WithDetail(user.LockedUntil.String())
+		}
+
+		p := UserUpdateInput{
+			LockedUntil: ptr.Time(time.Unix(0, 0)),
+		}
+
+		if types.ID(sub).Valid() {
+			p.UserID = ptr.ID(sub)
+		} else {
+			p.Login = &sub
+		}
+
+		o.Backend.UserUpdate(ctx, p)
+	}
+
 	return &oauthUser{user}, nil
 }
 
@@ -590,6 +611,19 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 		return nil, oauth.ErrAccessDenied.WithDetail("password not set")
 	}
 
+	if user.LockedUntil != nil {
+		if user.LockedUntil.After(time.Now()) {
+			return nil, oauth.ErrAccessDenied.
+				WithDetail("user account locked").
+				WithDetail(user.LockedUntil.String())
+		}
+
+		o.Backend.UserUpdate(ctx, UserUpdateInput{
+			Login:       &login,
+			LockedUntil: ptr.Time(time.Unix(0, 0)),
+		})
+	}
+
 	if !o.passwords.CheckPasswordHash(password, *user.PasswordHash) {
 		return nil, oauth.ErrAccessDenied
 	}
@@ -597,13 +631,43 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 	return &oauthUser{user}, nil
 }
 
+// UserLockout should lock a user for the specified time or default
+func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error) {
+	u := time.Now().Add(o.passwords.AccountLockoutPeriod())
+
+	if len(until) > 0 {
+		u = until[0]
+	}
+
+	p := UserUpdateInput{
+		LockedUntil: &u,
+	}
+
+	if types.ID(sub).Valid() {
+		p.UserID = ptr.ID(sub)
+	} else {
+		p.Login = &sub
+	}
+
+	_, err := o.Backend.UserUpdate(ctx, p)
+
+	return u, err
+}
+
 // UserSetPassword sets the users password
 func (o *oauthController) UserSetPassword(ctx context.Context, sub, password string) error {
-	_, err := o.Backend.UserUpdate(ctx, UserUpdateInput{
-		UserID:            types.ID(sub),
+	p := UserUpdateInput{
 		Password:          &password,
 		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
-	})
+	}
+
+	if types.ID(sub).Valid() {
+		p.UserID = ptr.ID(sub)
+	} else {
+		p.Login = &sub
+	}
+
+	_, err := o.Backend.UserUpdate(ctx, p)
 
 	return err
 }
@@ -635,10 +699,17 @@ func (o *oauthController) UserCreate(ctx context.Context, login string, password
 
 // UserUpdate updates a user's profile
 func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error {
-	_, err := o.Backend.UserUpdate(ctx, UserUpdateInput{
-		UserID:  types.ID(sub),
+	p := UserUpdateInput{
 		Profile: profile,
-	})
+	}
+
+	if types.ID(sub).Valid() {
+		p.UserID = ptr.ID(sub)
+	} else {
+		p.Login = &sub
+	}
+
+	_, err := o.Backend.UserUpdate(ctx, p)
 
 	return err
 }

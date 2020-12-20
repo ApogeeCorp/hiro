@@ -36,6 +36,7 @@ type (
 		ValidatePassword(password string) error
 		PasswordExpiry() time.Duration
 		MaxLoginAttempts() int
+		AccountLockoutPeriod() time.Duration
 	}
 
 	passwordManager struct {
@@ -66,7 +67,11 @@ func (passwordManager) CheckPasswordHash(password, hash string) bool {
 }
 
 func (passwordManager) MaxLoginAttempts() int {
-	return 7
+	return 10
+}
+
+func (passwordManager) AccountLockoutPeriod() time.Duration {
+	return time.Minute * 10
 }
 
 // EnforcePasswordPolicy enables password validation

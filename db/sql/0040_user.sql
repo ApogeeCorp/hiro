@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS hiro.users(
     login VARCHAR(128) NOT NULL UNIQUE,
     password_hash CHAR(64),    
     password_expires_at TIMESTAMPTZ,
+    locked_until TIMESTAMPTZ,
     profile JSONB,
     metadata JSONB
 );
