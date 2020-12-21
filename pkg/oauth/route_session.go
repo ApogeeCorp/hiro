@@ -37,6 +37,9 @@ type (
 		RedirectURI  *URI    `json:"redirect_ur"`
 		State        *string `json:"state,omitempty"`
 	}
+
+	// SessionRoute is the session handler
+	SessionRoute func(ctx context.Context, params *SessionParams) api.Responder
 )
 
 // Validate validates the SessionParams struct
@@ -166,4 +169,40 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 	u.RawQuery = q.Encode()
 
 	return api.Redirect(u)
+}
+
+
+// Name implements api.Route
+func (SessionRoute) Name() string {
+	return "authorize"
+}
+
+// Methods implements api.Route
+func (SessionRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (SessionRoute) Path() string {
+	return "/session"
+}
+
+// Handler implements api.Route
+func (r SessionRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (SessionRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (SessionRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (SessionRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeSession)}
 }

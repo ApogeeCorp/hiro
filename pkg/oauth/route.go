@@ -19,29 +19,12 @@
 
 package oauth
 
-import (
-	"github.com/ModelRocket/hiro/pkg/api"
-)
+import "github.com/ModelRocket/hiro/pkg/api"
 
-// Routes returns the oauth api routes
-func Routes(ctrl Controller) []api.Route {
-	return []api.Route{
-		AuthorizeRoute(authorize),
-		LoginRoute(login),
-		LogoutRoute(logout),
-		OpenIDConfigRoute(openidConfig),
-		JWKSRoute(jwks),
-		PasswordCreateRoute(passwordCreate),
-		PasswordUpdateRoute(passwordUpdate),
-		SessionRoute(session),
-		SignupRoute(signup),
-		SpecRoute(spec),
-		TokenIntrospectRoute(tokenIntrospect),
-		TokenRevokeRoute(tokenRevoke),
-		TokenRoute(token),
-		UserInfoRoute(userinfo),
-		UserInfoUpdateRoute(userinfoUpdate),
-		VerifyRoute(verify),
-		VerifySendRoute(verifySend),
+type (
+	// Route defines an oauth route that has a scope
+	Route interface {
+		api.Route
+		Scopes() []Scope
 	}
-}
+)

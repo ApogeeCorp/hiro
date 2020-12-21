@@ -2,7 +2,7 @@
  * This file is part of the Model Rocket Hiro Stack
  * Copyright (c) 2020 Model Rocket LLC.
  *
- * https://github.com/ModelRocket/hiro
+ * https://githuh.com/ModelRocket/hiro
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,25 +17,4 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package api
-
-import (
-	"time"
-)
-
-type (
-	// Route is the common route interface
-	Route interface {
-		Name() string
-		Methods() []string
-		Path() string
-		Handler() interface{}
-		ValidateParameters() bool
-		RequireAuth() bool
-	}
-
-	// CachedRoute is a cached route interface
-	CachedRoute interface {
-		Timeout() time.Duration
-	}
-)
+package hiro

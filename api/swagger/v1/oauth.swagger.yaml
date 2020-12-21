@@ -69,6 +69,7 @@ securityDefinitions:
     scopes:
       openid: "Access a user's identity"
       profile: "Access a user's profile"
+      profile:write: "Write to a user's profile"
       offline_access: "Used by clients to request permission to use refresh tokens"
       address: "Required to read the user's physical address"
       email: "Required to read the user's email address"

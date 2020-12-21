@@ -39,7 +39,8 @@ type (
 		*Backend
 	}
 
-	dbSession struct {
+	// Session is the backend store representation of session.Session
+	Session struct {
 		ID         types.ID   `db:"id"`
 		AudienceID types.ID   `db:"audience_id"`
 		UserID     types.ID   `db:"user_id"`
@@ -59,7 +60,7 @@ func (b *Backend) SessionController() session.Controller {
 
 // SessionCreate creates a session
 func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Session) error {
-	var out dbSession
+	var out Session
 
 	log := s.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
@@ -125,7 +126,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 
 // SessionUpdate saves a session
 func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Session) error {
-	var out dbSession
+	var out Session
 
 	log := s.Log(ctx).WithField("operation", "SessionUpdate").
 		WithField("session_id", sess.ID).
@@ -173,7 +174,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 
 // SessionLoad gets a session by id
 func (s *sessionController) SessionLoad(ctx context.Context, id string) (session.Session, error) {
-	var out dbSession
+	var out Session
 
 	log := s.Log(ctx).WithField("operation", "SessionLoad").
 		WithField("id", id)

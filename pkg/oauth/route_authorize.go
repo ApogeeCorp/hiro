@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -43,6 +44,9 @@ type (
 		Scope               Scope                `json:"scope"`
 		State               *string              `json:"state"`
 	}
+
+	// AuthorizeRoute is the authorize route handler
+	AuthorizeRoute func(ctx context.Context, params *AuthorizeParams) api.Responder
 )
 
 var (
@@ -195,4 +199,34 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	u.RawQuery = q.Encode()
 
 	return api.Redirect(u)
+}
+
+// Name implements api.Route
+func (AuthorizeRoute) Name() string {
+	return "authorize"
+}
+
+// Methods implements api.Route
+func (AuthorizeRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (AuthorizeRoute) Path() string {
+	return "/authorize"
+}
+
+// Handler implements api.Route
+func (r AuthorizeRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (AuthorizeRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (AuthorizeRoute) RequireAuth() bool {
+	return false
 }

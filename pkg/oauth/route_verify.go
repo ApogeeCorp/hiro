@@ -40,10 +40,16 @@ type (
 		State       *string `json:"state,omitempty"`
 	}
 
+	// VerifyRoute is the verify route
+	VerifyRoute func(ctx context.Context, params *VerifyParams) api.Responder
+
 	// VerifySendParams are the params for the verification send method
 	VerifySendParams struct {
 		Method NotificationChannel `json:"method"`
 	}
+
+	// VerifySendRoute is the verify send route
+	VerifySendRoute func(ctx context.Context, params *VerifySendParams) api.Responder
 
 	verifyNotification struct {
 		sub     string
@@ -134,6 +140,41 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 	return api.Redirect(u, err)
 }
 
+// Name implements api.Route
+func (VerifyRoute) Name() string {
+	return "verify"
+}
+
+// Methods implements api.Route
+func (VerifyRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (VerifyRoute) Path() string {
+	return "/verify"
+}
+
+// Handler implements api.Route
+func (r VerifyRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (VerifyRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (VerifyRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (VerifyRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
+}
+
 func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	var token Token
 	scope := Scope{ScopeOpenID, ScopeProfile}
@@ -196,6 +237,41 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	}
 
 	return api.NewResponse().WithStatus(http.StatusNoContent)
+}
+
+// Name implements api.Route
+func (VerifySendRoute) Name() string {
+	return "verify-send"
+}
+
+// Methods implements api.Route
+func (VerifySendRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (VerifySendRoute) Path() string {
+	return "/verify"
+}
+
+// Handler implements api.Route
+func (r VerifySendRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (VerifySendRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (VerifySendRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (VerifySendRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
 }
 
 func (n verifyNotification) Type() NotificationType {

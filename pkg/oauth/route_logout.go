@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -37,6 +38,9 @@ type (
 		RedirectURI *URI    `json:"redirect_uri"`
 		State       *string `json:"state"`
 	}
+
+	// LogoutRoute is the logout route handler
+	LogoutRoute func(ctx context.Context, params *LogoutParams) api.Responder
 )
 
 // Validate validates the params
@@ -115,4 +119,34 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 	u.RawQuery = q.Encode()
 
 	return api.Redirect(u)
+}
+
+// Name implements api.Route
+func (LogoutRoute) Name() string {
+	return "logout"
+}
+
+// Methods implements api.Route
+func (LogoutRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (LogoutRoute) Path() string {
+	return "/logout"
+}
+
+// Handler implements api.Route
+func (r LogoutRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (LogoutRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (LogoutRoute) RequireAuth() bool {
+	return false
 }

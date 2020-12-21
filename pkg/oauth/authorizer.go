@@ -29,59 +29,39 @@ import (
 )
 
 type (
-	// Authorizer is an oauth authorizer interface
-	Authorizer interface {
-		Authorize(opts ...AuthOption) api.Authorizer
-		AuthorizeScope(scope ...string) api.Authorizer
-	}
-
 	authorizer struct {
-		ctrl              Controller
 		permitQueryToken  bool
 		permitQueryBearer bool
 	}
 
-	// AuthOption is an authorizer option
-	AuthOption func(a *authOptions)
-
 	// AuthorizerOption is an authorizer option
 	AuthorizerOption func(a *authorizer)
-
-	authOptions struct {
-		scope    []Scope
-		optional bool
-	}
 )
 
-// NewAuthorizer returns a new oauth authorizer
-func NewAuthorizer(ctrl Controller, opts ...AuthorizerOption) Authorizer {
-	auth := &authorizer{
-		ctrl: ctrl,
-	}
-
-	for _, o := range opts {
-		o(auth)
-	}
-	return auth
-}
-
-func (a *authorizer) AuthorizeScope(scope ...string) api.Authorizer {
-	return a.Authorize(WithScope(MakeScope(scope...)))
-}
-
-func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
-	o := &authOptions{}
+// Authorizer returns a oauth api.Authorizer
+func Authorizer(opts ...AuthorizerOption) api.Authorizer {
+	a := authorizer{}
 
 	for _, opt := range opts {
-		opt(o)
+		opt(&a)
 	}
 
-	return func(r *http.Request) (api.Principal, error) {
+	return func(r *http.Request, rt api.Route) (api.Principal, error) {
 		var token Token
 		var err error
 		var isQuery bool
 
+		o, ok := rt.(Route)
+		if !ok {
+			return nil, api.ErrAuthUnacceptable
+		}
+
 		ctx := r.Context()
+
+		ctrl, ok := api.Context(ctx).(Controller)
+		if !ok {
+			return nil, api.ErrAuthUnacceptable
+		}
 
 		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if bearer == "" {
@@ -90,16 +70,12 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 		}
 
 		if bearer == "" {
-			if o.optional {
-				return nil, api.ErrAuthUnacceptable
-			}
-
 			return nil, fmt.Errorf("%w: token not present", ErrAccessDenied)
 		}
 
 		// check for a token id
 		if isQuery && len(bearer) == 22 && a.permitQueryToken {
-			token, err = a.ctrl.TokenGet(ctx, bearer)
+			token, err = ctrl.TokenGet(ctx, bearer)
 			if err != nil {
 				return nil, ErrAccessDenied.WithError(err)
 			}
@@ -114,7 +90,7 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 				return nil, ErrAccessDenied.WithDetail("access token not permited in query")
 			}
 			token, err = ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
-				aud, err := a.ctrl.AudienceGet(ctx, c.Audience())
+				aud, err := ctrl.AudienceGet(ctx, c.Audience())
 				if err != nil {
 					return TokenSecret{}, err
 				}
@@ -130,27 +106,13 @@ func (a *authorizer) Authorize(opts ...AuthOption) api.Authorizer {
 			return nil, api.ErrAuthUnacceptable
 		}
 
-		for _, s := range o.scope {
+		for _, s := range o.Scopes() {
 			if token.Scope.Every(s...) {
 				return token, nil
 			}
 		}
 
 		return nil, api.ErrForbidden
-	}
-}
-
-// WithScope will create an api.Authorizer with the scope
-func WithScope(scope ...Scope) AuthOption {
-	return func(o *authOptions) {
-		o.scope = scope
-	}
-}
-
-// WithOptional ignores missing auth tokens, but enforces present tokens
-func WithOptional() AuthOption {
-	return func(o *authOptions) {
-		o.optional = true
 	}
 }
 

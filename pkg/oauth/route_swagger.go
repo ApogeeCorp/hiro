@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ghodss/yaml"
@@ -33,9 +34,12 @@ type (
 		Format string `json:"format"`
 		Pretty bool   `json:"pretty"`
 	}
+
+	// SpecRoute is the swagger spec route handler
+	SpecRoute func(ctx context.Context, params *SpecGetInput) api.Responder
 )
 
-func specGet(ctx context.Context, params *SpecGetInput) api.Responder {
+func spec(ctx context.Context, params *SpecGetInput) api.Responder {
 	data, err := ApiSwaggerV1OauthSwaggerYamlBytes()
 	if err != nil {
 		return api.Error(err)
@@ -72,4 +76,34 @@ func specGet(ctx context.Context, params *SpecGetInput) api.Responder {
 	default:
 		return api.ErrNotFound
 	}
+}
+
+// Name implements api.Route
+func (SpecRoute) Name() string {
+	return "spec"
+}
+
+// Methods implements api.Route
+func (SpecRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (SpecRoute) Path() string {
+	return "/swagger.{format}"
+}
+
+// Handler implements api.Route
+func (r SpecRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (SpecRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (SpecRoute) RequireAuth() bool {
+	return false
 }

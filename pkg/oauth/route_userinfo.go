@@ -32,10 +32,16 @@ type (
 	// UserInfoParams are the params for user info
 	UserInfoParams struct{}
 
+	// UserInfoRoute is the user info route
+	UserInfoRoute func(ctx context.Context, params *UserInfoParams) api.Responder
+
 	// UserInfoUpdateParams are the params to update the user profile
 	UserInfoUpdateParams struct {
 		*openid.Profile
 	}
+
+	// UserInfoUpdateRoute is the user info update route
+	UserInfoUpdateRoute func(ctx context.Context, params *UserInfoUpdateParams) api.Responder
 )
 
 // Validate validates the params
@@ -81,6 +87,41 @@ func userinfo(ctx context.Context, params *UserInfoParams) api.Responder {
 	return api.NewResponse(profile)
 }
 
+// Name implements api.Route
+func (UserInfoRoute) Name() string {
+	return "userinfo"
+}
+
+// Methods implements api.Route
+func (UserInfoRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (UserInfoRoute) Path() string {
+	return "/userinfo"
+}
+
+// Handler implements api.Route
+func (r UserInfoRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (UserInfoRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (UserInfoRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (UserInfoRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
+}
+
 func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Responder {
 	var token Token
 
@@ -111,4 +152,39 @@ func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Respo
 	}
 
 	return api.NewResponse().WithStatus(http.StatusNoContent)
+}
+
+// Name implements api.Route
+func (UserInfoUpdateRoute) Name() string {
+	return "userinfo-update"
+}
+
+// Methods implements api.Route
+func (UserInfoUpdateRoute) Methods() []string {
+	return []string{http.MethodPatch}
+}
+
+// Path implements api.Route
+func (UserInfoUpdateRoute) Path() string {
+	return "/userinfo"
+}
+
+// Handler implements api.Route
+func (r UserInfoUpdateRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (UserInfoUpdateRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (UserInfoUpdateRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (UserInfoUpdateRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeOpenID, ScopeProfileWrite)}
 }

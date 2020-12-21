@@ -45,12 +45,18 @@ type (
 		CodeVerifier string                `json:"code_verifier"`
 	}
 
+	// PasswordCreateRoute is the password create handler
+	PasswordCreateRoute func(ctx context.Context, params *PasswordCreateParams) api.Responder
+
 	// PasswordUpdateParams are used by the password update route
 	PasswordUpdateParams struct {
 		Password    string `json:"password"`
 		ResetToken  string `json:"reset_token"`
 		RedirectURI *URI   `json:"redirect_uri"`
 	}
+
+	// PasswordUpdateRoute is the password update handler
+	PasswordUpdateRoute func(ctx context.Context, params *PasswordUpdateParams) api.Responder
 
 	// PasswordType defines a password type
 	PasswordType string
@@ -272,6 +278,36 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 	return api.Redirect(u)
 }
 
+// Name implements api.Route
+func (PasswordCreateRoute) Name() string {
+	return "passwordCreate"
+}
+
+// Methods implements api.Route
+func (PasswordCreateRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (PasswordCreateRoute) Path() string {
+	return "/password"
+}
+
+// Handler implements api.Route
+func (r PasswordCreateRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (PasswordCreateRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (PasswordCreateRoute) RequireAuth() bool {
+	return false
+}
+
 func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Responder {
 	var token Token
 
@@ -322,6 +358,41 @@ func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Respo
 	}
 
 	return api.NewResponse().WithStatus(http.StatusNoContent)
+}
+
+// Name implements api.Route
+func (PasswordUpdateRoute) Name() string {
+	return "password-update"
+}
+
+// Methods implements api.Route
+func (PasswordUpdateRoute) Methods() []string {
+	return []string{http.MethodPut}
+}
+
+// Path implements api.Route
+func (PasswordUpdateRoute) Path() string {
+	return "/password"
+}
+
+// Handler implements api.Route
+func (r PasswordUpdateRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (PasswordUpdateRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (PasswordUpdateRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (PasswordUpdateRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopePassword)}
 }
 
 func (n passwordNotification) Type() NotificationType {

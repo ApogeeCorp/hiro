@@ -42,6 +42,9 @@ const (
 	// ScopeProfile is the scope required to query for a users profile
 	ScopeProfile = "profile"
 
+	// ScopeProfileWrite is the scope required to write to a users profile
+	ScopeProfileWrite = "profile:write"
+
 	// ScopeOfflineAccess is the scope necessary to request a refresh_token
 	ScopeOfflineAccess = "offline_access"
 
@@ -79,6 +82,7 @@ var (
 	Scopes = Scope{
 		ScopeOpenID,
 		ScopeProfile,
+		ScopeProfileWrite,
 		ScopeOfflineAccess,
 		ScopeAddress,
 		ScopeEmail,

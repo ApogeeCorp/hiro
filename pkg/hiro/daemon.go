@@ -83,7 +83,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	d := &Daemon{
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
-		backOptions: make([]BackendOption, 0),
+		backOptions: []BackendOption{Automigrate(), Initialize()},
 		oauthPath:   defaultOAuthPath,
 		webRPCPath:  defaultWebRPCPath,
 		shutdown:    make(chan int),
@@ -138,9 +138,12 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	d.sessionMgr = session.NewManager(d.sessionCtrl)
 
 	// setup the oauth router
-	d.apiServer.Router(d.oauthPath).
-		WithSessionManager(d.sessionMgr).
-		WithRoutes(oauth.Routes(d.oauthCtrl)...)
+	d.apiServer.Router(
+		d.oauthPath,
+		api.WithContext(d.oauthCtrl),
+		api.WithSessionManager(d.sessionMgr),
+		api.WithAuthorizers(oauth.Authorizer(oauth.WithPermitQueryToken(true)))).
+		AddRoutes(oauth.Routes(d.oauthCtrl)...)
 
 	if d.rpcServer == nil {
 		d.rpcServer = grpc.NewServer()
@@ -152,7 +155,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	// add grpc-web support
 	ws := grpcweb.WrapServer(d.rpcServer)
 
-	d.apiServer.Router(d.webRPCPath).
+	d.apiServer.Router(d.webRPCPath).Mux.
 		Headers("Content-Type", "application/grpc-web").
 		Handler(ws)
 

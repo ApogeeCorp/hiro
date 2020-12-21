@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"net/http"
 	"path"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -36,10 +37,16 @@ type (
 		Audience string `json:"audience_id"`
 	}
 
+	// OpenIDConfigRoute is the openid-configuration route
+	OpenIDConfigRoute func(ctx context.Context, params *OIDConfigInput) api.Responder
+
 	// JWKSInput is the input for the jwks route
 	JWKSInput struct {
 		Audience string `json:"audience_id"`
 	}
+
+	// JWKSRoute is the jwks route
+	JWKSRoute func(ctx context.Context, params *JWKSInput) api.Responder
 )
 
 // Validate validates the JWKSInput struct
@@ -95,6 +102,36 @@ func openidConfig(ctx context.Context, params *OIDConfigInput) api.Responder {
 	return api.NewResponse(config)
 }
 
+// Name implements api.Route
+func (OpenIDConfigRoute) Name() string {
+	return "openid-configuration"
+}
+
+// Methods implements api.Route
+func (OpenIDConfigRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (OpenIDConfigRoute) Path() string {
+	return "/openid/{audience_id}/.well-known/openid-configuration"
+}
+
+// Handler implements api.Route
+func (r OpenIDConfigRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (OpenIDConfigRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (OpenIDConfigRoute) RequireAuth() bool {
+	return false
+}
+
 func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
@@ -121,4 +158,34 @@ func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 	return api.NewResponse(jose.JSONWebKeySet{
 		Keys: keys,
 	})
+}
+
+// Name implements api.Route
+func (JWKSRoute) Name() string {
+	return "openid-jwks"
+}
+
+// Methods implements api.Route
+func (JWKSRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (JWKSRoute) Path() string {
+	return "/openid/{audience_id}/.well-known/jwks.json"
+}
+
+// Handler implements api.Route
+func (r JWKSRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (JWKSRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (JWKSRoute) RequireAuth() bool {
+	return false
 }

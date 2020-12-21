@@ -65,4 +65,23 @@ securityDefinitions:
       user:write: "Write or moditfy users"
 
 definitions:
-  {}
+  Audience:
+    type: "object"
+  Application:
+    type: "object"
+  User:
+    type: "object"
+  RequestToken:
+    type: "object"
+  AccessToken:
+    type: "object"
+  Session:
+    type: "object"
+
+paths:
+  /audiences: {}
+  /applications: {}
+  /users: {}
+  /requests: {}
+  /tokens: {}
+  /sessions: {}

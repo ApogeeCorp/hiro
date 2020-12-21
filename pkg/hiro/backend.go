@@ -26,6 +26,7 @@ import (
 
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/env"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
@@ -65,6 +66,8 @@ var (
 		"user:write",
 		"token:read",
 		"token:write",
+		"session:read",
+		"session:write",
 	}
 
 	contextKeyHiro contextKey = "hiro:context"
@@ -73,9 +76,13 @@ var (
 // New returns a new hiro backend
 func New(opts ...BackendOption) (*Backend, error) {
 	const (
-		defaultSource        = "postgres://postgres:password@db/hiro?sslmode=disable"
+		localSource          = "postgres://postgres:password@localhost/hiro?sslmode=disable"
 		defaultTimeout       = time.Second * 90
 		defaultRetryInterval = time.Second * 3
+	)
+
+	var (
+		defaultSource = env.Get("DB_SOURCE", localSource)
 	)
 
 	b := &Backend{
@@ -123,6 +130,17 @@ func New(opts ...BackendOption) (*Backend, error) {
 
 	if b.automigrate {
 		if _, err := db.Migrate(b.db.DB, "postgres", migrate.Up); err != nil {
+			return nil, err
+		}
+	}
+
+	if b.initialize {
+		if err := b.CreatePlatform(context.Background(), CreatePlatformInput{
+			Name:        "hiro",
+			Update:      true,
+			Permissions: append(Scopes, oauth.Scopes...),
+			AdminUser:   "admin",
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -185,5 +203,12 @@ func WithDBSource(source string) BackendOption {
 func Automigrate() BackendOption {
 	return func(b *Backend) {
 		b.automigrate = true
+	}
+}
+
+// Initialize will create the default hiro audience and application to use for management
+func Initialize() BackendOption {
+	return func(b *Backend) {
+		b.initialize = true
 	}
 }

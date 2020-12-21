@@ -21,35 +21,21 @@
 package api
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"mime"
 	"net"
 	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
-	"reflect"
-	"runtime/debug"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api/session"
-	"github.com/allegro/bigcache"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/discard"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
-	"github.com/mr-tron/base58"
+	"github.com/patrickmn/go-cache"
 )
 
 type (
@@ -65,16 +51,13 @@ type (
 		name           string
 		version        string
 		corsOrigin     []string
-		cache          *bigcache.BigCache
+		cache          *cache.Cache
 		cacheTTL       time.Duration
 		tracingEnabled bool
 	}
 
 	// HandlerFunc is a generic handler server operations
 	HandlerFunc func(http.ResponseWriter, *http.Request) Responder
-
-	// ContextFunc adds context to a request
-	ContextFunc func(context.Context) interface{}
 
 	// Option provides the server options, these will override th defaults and any hiro
 	// instance values.
@@ -154,7 +137,7 @@ func NewServer(opts ...Option) *Server {
 	}
 
 	if s.cacheTTL > 0 {
-		s.cache, _ = bigcache.NewBigCache(bigcache.DefaultConfig(s.cacheTTL))
+		s.cache = cache.New(s.cacheTTL, s.cacheTTL*2)
 	}
 
 	return s
@@ -215,25 +198,25 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // Router returns an api router at the specified base path
-func (s *Server) Router(basePath string, version ...string) *Router {
+func (s *Server) Router(basePath string, opts ...RouterOption) *Router {
 	const (
 		defaultVersion = "1.0.0"
 	)
 
 	r := &Router{
-		Router:     s.router.PathPrefix(basePath).Subrouter(),
+		Server:     s,
+		Mux:        s.router.PathPrefix(basePath).Subrouter(),
 		basePath:   basePath,
 		version:    defaultVersion,
 		versioning: false,
 		name:       s.name,
-		s:          s,
 	}
 
-	if len(version) > 0 {
-		r.version = version[0]
+	for _, opt := range opts {
+		opt(r)
 	}
 
-	r.Use(VersionMiddleware(r, "X-API-Version"))
+	r.Mux.Use(VersionMiddleware(r, "X-API-Version"))
 
 	return r
 }
@@ -241,315 +224,6 @@ func (s *Server) Router(basePath string, version ...string) *Router {
 // ServeHTTP implements the http.Handler interface
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
-}
-
-func (s *Server) routeHandler(route Route) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var resp interface{}
-
-		cache := route.caching
-		trace := s.tracingEnabled
-
-		// disable caching if the header says so or its disabled via 0 ttl
-		if r.Header.Get("Cache-Control") == "no-cache" || s.cache == nil {
-			cache = false
-		}
-
-		// add the request object to the context
-		rc := &requestContext{r, w}
-
-		r = r.WithContext(context.WithValue(r.Context(), contextKeyRequest, rc))
-
-		defer func() {
-			if err := recover(); err != nil {
-
-				if _, ok := err.(Responder); !ok {
-					debug.PrintStack()
-
-					if e, ok := err.(error); ok {
-						s.WriteError(w, http.StatusInternalServerError, e)
-					} else {
-						w.WriteHeader(http.StatusInternalServerError)
-					}
-
-					return
-				}
-
-				// ensure the error is returned properly
-				resp = err
-			}
-
-			switch t := resp.(type) {
-			case Responder:
-				if cache || trace {
-					rec := httptest.NewRecorder()
-
-					if err := t.Write(rec); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusInternalServerError, err)
-						return
-					}
-
-					dump, err := httputil.DumpResponse(rec.Result(), cache || rec.Body.Len() < 1024)
-					if err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusInternalServerError, err)
-						return
-					}
-
-					if trace {
-						s.log.Debugf("%s <- %s", r.RequestURI, (dump))
-					}
-
-					if cache {
-						s.cache.Set(r.RequestURI, dump)
-					}
-
-					for k, vals := range rec.Header() {
-						for _, v := range vals {
-							w.Header().Add(k, v)
-						}
-					}
-					w.WriteHeader(rec.Code)
-					w.Write(rec.Body.Bytes())
-
-					return
-				}
-
-				if err := t.Write(w); err != nil {
-					s.log.Error(err.Error())
-					s.WriteError(w, http.StatusInternalServerError, err)
-				}
-
-			case *http.Response:
-				t.Header.Write(w)
-				t.Write(w)
-
-			case error:
-				s.WriteError(w, http.StatusInternalServerError, t)
-			}
-		}()
-
-		if route.router.sessions != nil {
-			r = r.WithContext(context.WithValue(r.Context(), contextKeySessions, route.router.sessions))
-		}
-
-		if len(route.authorizers) > 0 && route.authorizers[0] != nil {
-			prins := make([]Principal, 0)
-			for _, a := range route.authorizers {
-				ctx, err := a(r)
-				if err != nil && !errors.Is(err, ErrAuthUnacceptable) {
-					if r, ok := err.(Responder); ok {
-						resp = r
-					} else {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusUnauthorized, err)
-					}
-					return
-				}
-
-				if ctx != nil {
-					// append this to the principal chain
-					prins = append(prins, ctx)
-				}
-			}
-
-			if len(prins) > 0 {
-				r = r.WithContext(context.WithValue(r.Context(), contextKeyAuth, prins))
-			}
-		}
-
-		if cache {
-			if val, err := s.cache.Get(r.RequestURI); err == nil {
-				resp, err = http.ReadResponse(bufio.NewReader(bytes.NewReader(val)), r)
-				if err != nil {
-					resp = nil
-					s.log.Error(err.Error())
-					s.WriteError(w, http.StatusInternalServerError, err)
-					return
-				}
-			}
-		}
-
-		// add the log to the context
-		id := uuid.Must(uuid.NewUUID())
-		reqID := base58.Encode(id[:])
-
-		r = r.WithContext(
-			context.WithValue(
-				r.Context(),
-				contextKeyLogger,
-				s.log.WithField("req-id", reqID)))
-
-		w.Header().Set("X-Hiro-Request-ID", reqID)
-
-		rc.r = r
-
-		// Add any additional context from the caller
-		if route.contextFunc != nil {
-			if c := route.contextFunc(r.Context()); c != nil {
-				r = r.WithContext(context.WithValue(r.Context(), contextKeyContext, c))
-			}
-		} else if route.context != nil {
-			r = r.WithContext(context.WithValue(r.Context(), contextKeyContext, route.context))
-		}
-
-		r = r.WithContext(context.WithValue(r.Context(), contextKeyRequest, rc))
-		rc.r = r
-
-		// check for standard HandlerFunc or http.HandlerFunc handlers
-		if h, ok := route.handler.(HandlerFunc); ok {
-			resp = h(w, r)
-			return
-		} else if h, ok := route.handler.(http.HandlerFunc); ok {
-			h(w, r)
-			return
-		}
-
-		fn := reflect.ValueOf(route.handler)
-		args := []reflect.Value{}
-
-		if fn.Type().In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
-			panic(fmt.Errorf("first argument of handler must be context.Context"))
-		}
-		args = append(args, reflect.ValueOf(r.Context()))
-
-		if fn.Type().NumIn() > 1 {
-			pt := fn.Type().In(1)
-			if pt.Kind() != reflect.Ptr {
-				panic(ErrServerError.
-					WithDetail(
-						fmt.Sprintf("route %s %s parameter %s but be a pointer", r.Method, route.path, pt.Name())))
-			}
-
-			pt = pt.Elem()
-
-			params := reflect.New(pt).Interface()
-
-			decoder := schema.NewDecoder()
-			decoder.SetAliasTag("json")
-			decoder.IgnoreUnknownKeys(true)
-
-			decoder.RegisterConverter([]string{}, func(input string) reflect.Value {
-				if strings.Contains(input, ",") {
-					return reflect.ValueOf(strings.Split(input, ","))
-				}
-				return reflect.ValueOf(strings.Fields(input))
-			})
-
-			vars := mux.Vars(r)
-			if len(vars) > 0 {
-				vals := make(url.Values)
-				for k, v := range vars {
-					vals.Add(k, v)
-				}
-				if err := decoder.Decode(params, vals); err != nil {
-					s.log.Error(err.Error())
-					s.WriteError(w, http.StatusBadRequest, err)
-					return
-				}
-			}
-
-			if len(r.URL.Query()) > 0 {
-				if err := decoder.Decode(params, r.URL.Query()); err != nil {
-					s.log.Error(err.Error())
-					s.WriteError(w, http.StatusBadRequest, err)
-					return
-				}
-			}
-
-			if r.Body != nil && r.ContentLength > 0 {
-				t, _, err := mime.ParseMediaType(r.Header.Get("Content-type"))
-				if err != nil {
-					s.log.Error(err.Error())
-					s.WriteError(w, http.StatusBadRequest, err)
-					return
-				}
-
-				switch t {
-				case "application/json":
-					data, err := ioutil.ReadAll(r.Body)
-					if err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-
-					if err := json.Unmarshal(data, params); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-
-					r.Body = ioutil.NopCloser(bytes.NewReader(data))
-
-				case "application/x-www-form-urlencoded":
-					if err := r.ParseForm(); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-
-					if err := decoder.Decode(params, r.Form); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-
-				case "multipart/form-data":
-					if err := r.ParseMultipartForm(1024 * 1024 * 128); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-
-					if err := decoder.Decode(params, r.Form); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-				}
-			}
-
-			if route.validation {
-				if v, ok := params.(validation.Validatable); ok {
-					if err := v.Validate(); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-				} else if v, ok := params.(validation.ValidatableWithContext); ok {
-					if err := v.ValidateWithContext(r.Context()); err != nil {
-						s.log.Error(err.Error())
-						s.WriteError(w, http.StatusBadRequest, err)
-						return
-					}
-				}
-			}
-
-			args = append(args, reflect.ValueOf(params))
-		}
-
-		if s.tracingEnabled {
-			if dump, err := httputil.DumpRequest(r, true); err == nil {
-				s.log.Debugf("%s -> %s", r.RequestURI, (dump))
-			}
-		}
-
-		rc.r = r
-
-		rval := fn.Call(args)
-		if len(rval) > 0 {
-			resp = rval[0].Interface()
-		}
-	}
-}
-
-// AddRoutes adds a routes to the router
-func (s *Server) AddRoutes(routes ...Route) {
-	for _, r := range routes {
-		s.router.Methods(r.methods...).Path(r.path).HandlerFunc(s.routeHandler(r))
-	}
 }
 
 // WriteJSON writes out json

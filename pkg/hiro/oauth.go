@@ -55,7 +55,8 @@ type (
 		*User
 	}
 
-	requestToken struct {
+	// RequestToken is the backend representation of an oauth.RequestToken
+	RequestToken struct {
 		ID                  types.ID                  `db:"id"`
 		Type                oauth.RequestTokenType    `db:"type"`
 		CreatedAt           oauth.Time                `db:"created_at"`
@@ -73,7 +74,8 @@ type (
 		State               *string                   `db:"state,omitempty"`
 	}
 
-	accessToken struct {
+	// AccessToken is the backend representation of an oauth.Token (type=TokenTypeAccess)
+	AccessToken struct {
 		ID            types.ID       `db:"id"`
 		Issuer        *oauth.URI     `db:"issuer"`
 		UserID        *types.ID      `db:"user_id,omitempty"`
@@ -137,7 +139,7 @@ func (o *oauthController) ClientGet(ctx context.Context, id string, secret ...st
 
 // RequestTokenCreate creates a new authentication request
 func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.RequestToken) (string, error) {
-	var out requestToken
+	var out RequestToken
 
 	log := o.Log(ctx).WithField("operation", "RequestCreate").WithField("application", req.ClientID)
 
@@ -210,7 +212,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 
 // RequestTokenGet looks up a request by id
 func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...oauth.RequestTokenType) (oauth.RequestToken, error) {
-	var out requestToken
+	var out RequestToken
 
 	log := o.Log(ctx).WithField("operation", "RequestGet").
 		WithField("id", id)
@@ -338,7 +340,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		return token, nil
 	}
 
-	var out accessToken
+	var out AccessToken
 
 	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new access token")
@@ -405,7 +407,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 
 // TokenGet gets a token by id
 func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.TokenUse) (oauth.Token, error) {
-	var out accessToken
+	var out AccessToken
 
 	log := o.Log(ctx).WithField("operation", "TokenGet").
 		WithField("id", id)

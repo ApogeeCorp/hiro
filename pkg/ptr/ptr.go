@@ -35,6 +35,7 @@ type (
 		String() *string
 		NilString() *string
 		Time() *time.Time
+		Duration() *time.Duration
 	}
 
 	ptr struct {
@@ -94,6 +95,12 @@ func (p *ptr) Time() *time.Time {
 	return &b
 }
 
+// Duration returns the address of the time
+func (p *ptr) Duration() *time.Duration {
+	b := cast.ToDuration(p.v)
+	return &b
+}
+
 // Int returns i safely as *int
 func Int(i interface{}) *int {
 	return Pointer(i).Int()
@@ -112,6 +119,11 @@ func Bool(s interface{}) *bool {
 // Time converts t to a *time.Time
 func Time(t interface{}) *time.Time {
 	return Pointer(t).Time()
+}
+
+// Duration converts t to a *time.Duration
+func Duration(t interface{}) *time.Duration {
+	return Pointer(t).Duration()
 }
 
 // String returns s safely as *string

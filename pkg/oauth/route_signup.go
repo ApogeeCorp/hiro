@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -37,6 +38,9 @@ type (
 		RequestToken string  `json:"request_token"`
 		CodeVerifier string  `json:"code_verifier"`
 	}
+
+	// SignupRoute is the signup handler
+	SignupRoute func(ctx context.Context, params *SignupParams) api.Responder
 )
 
 // Validate validates SignupParams
@@ -163,4 +167,34 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 	u.RawQuery = q.Encode()
 
 	return api.Redirect(u)
+}
+
+// Name implements api.Route
+func (SignupRoute) Name() string {
+	return "signup"
+}
+
+// Methods implements api.Route
+func (SignupRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (SignupRoute) Path() string {
+	return "/signup"
+}
+
+// Handler implements api.Route
+func (r SignupRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (SignupRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (SignupRoute) RequireAuth() bool {
+	return false
 }

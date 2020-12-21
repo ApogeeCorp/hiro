@@ -38,10 +38,16 @@ type (
 		Token string `json:"token"`
 	}
 
+	// TokenIntrospectRoute is the openid token introspection route
+	TokenIntrospectRoute func(ctx context.Context, params *TokenIntrospectParams) api.Responder
+
 	// TokenRevokeParams is the parameters for token revoke
 	TokenRevokeParams struct {
 		Token string `json:"token"`
 	}
+
+	// TokenRevokeRoute is the openid token revoke route
+	TokenRevokeRoute func(ctx context.Context, params *TokenRevokeParams) api.Responder
 
 	// TokenParams is the parameters for the token request
 	TokenParams struct {
@@ -52,6 +58,9 @@ type (
 		RedirectURI  *URI      `json:"redirect_uri,omitempty"`
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
+
+	// TokenRoute is the token route
+	TokenRoute func(ctx context.Context, params *TokenParams) api.Responder
 )
 
 // Validate handles the validation for the TokenParams struct
@@ -208,6 +217,36 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 		WithHeader("Pragma", "no-cache")
 }
 
+// Name implements api.Route
+func (TokenRoute) Name() string {
+	return "token"
+}
+
+// Methods implements api.Route
+func (TokenRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (TokenRoute) Path() string {
+	return "/token"
+}
+
+// Handler implements api.Route
+func (r TokenRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (TokenRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (TokenRoute) RequireAuth() bool {
+	return false
+}
+
 func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
@@ -246,6 +285,41 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 	return api.NewResponse(t)
 }
 
+// Name implements api.Route
+func (TokenIntrospectRoute) Name() string {
+	return "token-introspect"
+}
+
+// Methods implements api.Route
+func (TokenIntrospectRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (TokenIntrospectRoute) Path() string {
+	return "/token-introspect"
+}
+
+// Handler implements api.Route
+func (r TokenIntrospectRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (TokenIntrospectRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (TokenIntrospectRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (TokenIntrospectRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeTokenRead)}
+}
+
 func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
@@ -258,4 +332,39 @@ func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
 	}
 
 	return ErrInvalidToken.WithDetail("token not revokable")
+}
+
+// Name implements api.Route
+func (TokenRevokeRoute) Name() string {
+	return "token-revoke"
+}
+
+// Methods implements api.Route
+func (TokenRevokeRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (TokenRevokeRoute) Path() string {
+	return "/token-revoke"
+}
+
+// Handler implements api.Route
+func (r TokenRevokeRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (TokenRevokeRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (TokenRevokeRoute) RequireAuth() bool {
+	return true
+}
+
+// Scopes implements oauth.Route
+func (TokenRevokeRoute) Scopes() []Scope {
+	return []Scope{MakeScope(ScopeTokenRevoke)}
 }

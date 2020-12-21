@@ -26,6 +26,19 @@ import (
 	"github.com/spf13/cast"
 )
 
+// Get gets an env value
+func Get(key string, def ...string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+
+	if len(def) > 0 {
+		return def[0]
+	}
+
+	return ""
+}
+
 // Uint64 returns a uint64 from the environment
 func Uint64(key string, def ...uint64) uint64 {
 	if v, ok := os.LookupEnv(key); ok {

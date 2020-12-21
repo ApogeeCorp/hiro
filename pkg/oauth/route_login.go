@@ -38,6 +38,9 @@ type (
 		RequestToken string `json:"request_token"`
 		CodeVerifier string `json:"code_verifier"`
 	}
+
+	// LoginRoute is the login route handler
+	LoginRoute func(ctx context.Context, params *LoginParams) api.Responder
 )
 
 // Validate validates LoginParams
@@ -171,4 +174,34 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	u.RawQuery = q.Encode()
 
 	return api.Redirect(u)
+}
+
+// Name implements api.Route
+func (LoginRoute) Name() string {
+	return "login"
+}
+
+// Methods implements api.Route
+func (LoginRoute) Methods() []string {
+	return []string{http.MethodPost}
+}
+
+// Path implements api.Route
+func (LoginRoute) Path() string {
+	return "/login"
+}
+
+// Handler implements api.Route
+func (r LoginRoute) Handler() interface{} {
+	return r
+}
+
+// ValidateParameters implements api.Route
+func (LoginRoute) ValidateParameters() bool {
+	return true
+}
+
+// RequireAuth implements api.Route
+func (LoginRoute) RequireAuth() bool {
+	return false
 }

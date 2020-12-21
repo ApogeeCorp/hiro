@@ -110,6 +110,7 @@ func (e StatusError) Error() string {
 	return e.err.Error()
 }
 
+// WithDetail returns the error with detail
 func (e StatusError) WithDetail(detail ...interface{}) ErrorResponse {
 	if e.detail == nil {
 		e.detail = make([]string, 0)
@@ -128,19 +129,31 @@ func (e StatusError) WithDetail(detail ...interface{}) ErrorResponse {
 		}
 	}
 
-	return e
+	return &e
 }
 
+// Is implements the errors.Is interface
+func (e *StatusError) Is(target error) bool {
+	t, ok := target.(*StatusError)
+	if !ok {
+		return false
+	}
+	return e.status == t.status
+}
+
+// WithMessage returns the error with a message
 func (e StatusError) WithMessage(format string, args ...interface{}) ErrorResponse {
 	e.err = fmt.Errorf(format, args...)
-	return e
+	return &e
 }
 
+// WithStatus returns the error with status
 func (e StatusError) WithStatus(status int) ErrorResponse {
 	e.status = status
-	return e
+	return &e
 }
 
+// WithError returns the error with an underlying error
 func (e StatusError) WithError(err error) ErrorResponse {
 	var r ErrorResponse
 
@@ -163,9 +176,10 @@ func (e StatusError) WithError(err error) ErrorResponse {
 		e.detail = append(e.detail, err.Error())
 	}
 
-	return e
+	return &e
 }
 
+// Payload implements the api.Responder interface
 func (e StatusError) Payload() interface{} {
 	return struct {
 		Message string   `json:"message"`
@@ -176,14 +190,17 @@ func (e StatusError) Payload() interface{} {
 	}
 }
 
+// Write implements the api.Responder interface
 func (e StatusError) Write(w http.ResponseWriter) error {
 	return WriteJSON(w, e.status, e.Payload())
 }
 
+// Status implements the api.Responder interface
 func (e StatusError) Status() int {
 	return e.status
 }
 
+// Detail returns the error detail
 func (e StatusError) Detail() []string {
 	return e.detail
 }
