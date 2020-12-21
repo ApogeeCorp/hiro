@@ -312,3 +312,13 @@ func (d *Daemon) AddJob(job Job) error {
 
 	return nil
 }
+
+// RPCServer returns the rpc server services can register with
+func (d *Daemon) RPCServer() *grpc.Server {
+	return d.rpcServer
+}
+
+// APIServer returns the api server that services can register with
+func (d *Daemon) APIServer() *api.Server {
+	return d.apiServer
+}
