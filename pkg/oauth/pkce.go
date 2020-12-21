@@ -35,13 +35,16 @@ type (
 )
 
 const (
+	// PKCEChallengeMethodNone is used to specify no challenge
+	PKCEChallengeMethodNone PKCEChallengeMethod = "none"
+
 	// PKCEChallengeMethodS256 is a sha-256 code challenge method
 	PKCEChallengeMethodS256 PKCEChallengeMethod = "S256"
 )
 
 // Validate validates the CodeChallengeMethod
 func (c PKCEChallengeMethod) Validate() error {
-	return validation.Validate(string(c), validation.In(PKCEChallengeMethodS256.String()))
+	return validation.Validate(string(c), validation.In("none", "S256"))
 }
 
 func (c PKCEChallengeMethod) String() string {

@@ -57,9 +57,12 @@ type (
 	// TokenParams is the parameters for the token request
 	TokenParams struct {
 		ClientID     string    `json:"client_id"`
+		Audience     *string   `json:"audience,omitempty"`
 		ClientSecret *string   `json:"client_secret"`
 		GrantType    GrantType `json:"grant_type"`
 		Code         *string   `json:"code,omitempty"`
+		RefreshToken *string   `json:"refresh_token,omitempty"`
+		Scope        Scope     `json:"scope,omitempty"`
 		RedirectURI  *URI      `json:"redirect_uri,omitempty"`
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
@@ -86,32 +89,111 @@ func (p TokenRevokeParams) Validate() error {
 func (p TokenParams) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.ClientID, validation.Required),
+		validation.Field(&p.ClientSecret, validation.When(p.GrantType == GrantTypeClientCredentials, validation.Required).Else(validation.Nil)),
+		validation.Field(&p.Audience, validation.When(p.GrantType == GrantTypeClientCredentials, validation.Required).Else(validation.Nil)),
 		validation.Field(&p.RedirectURI, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.Nil)),
 		validation.Field(&p.Code, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.Nil)),
-		validation.Field(&p.CodeVerifier, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.Nil)),
-		validation.Field(&p.GrantType, validation.Required, validation.In(GrantTypeAuthCode)),
+		validation.Field(&p.RefreshToken, validation.When(p.GrantType == GrantTypeRefreshToken, validation.Required).Else(validation.Nil)),
+		validation.Field(&p.CodeVerifier, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.NilOrNotEmpty)),
+		validation.Field(&p.GrantType, validation.Required, validation.In(
+			GrantTypeClientCredentials,
+			GrantTypeAuthCode,
+			GrantTypeRefreshToken,
+			GrantTypePassword)),
 	)
+}
+
+func issuer(ctx context.Context, aud string) *URI {
+	r, _ := api.Request(ctx)
+
+	iss := URI(
+		fmt.Sprintf("https://%s%s",
+			r.Host,
+			path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud))),
+	)
+
+	return &iss
 }
 
 func token(ctx context.Context, params *TokenParams) api.Responder {
 	var bearer *BearerToken
+	var aud Audience
+	var refreshToken *string
+	var req RequestToken
+	var err error
+
+	tokens := make([]Token, 0)
 
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "token")
+	log := api.Log(ctx).WithField("operation", "token").WithField("grant_type", params.GrantType)
 
 	client, err := ctrl.ClientGet(ctx, params.ClientID, safe.String(params.ClientSecret))
 	if err != nil {
 		return ErrAccessDenied.WithError(err)
 	}
 
-	r, _ := api.Request(ctx)
-
 	switch params.GrantType {
-	case GrantTypeAuthCode:
-		req, err := ctrl.RequestTokenGet(ctx, *params.Code, RequestTokenTypeAuthCode)
+	case GrantTypeClientCredentials:
+		aud, err = ctrl.AudienceGet(ctx, *params.Audience)
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
+		}
+
+		if err := client.Authorize(ctx, aud, params.GrantType, []URI{}, params.Scope); err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		access, err := ctrl.TokenCreate(ctx, Token{
+			Issuer:   issuer(ctx, aud.ID()),
+			Audience: *params.Audience,
+			ClientID: params.ClientID,
+			Use:      TokenUseAccess,
+			Scope:    params.Scope,
+		})
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+
+		log.Debugf("access token %s issued", access.ID)
+
+		tokens = append(tokens, access)
+
+		if params.Scope.Contains(ScopeOfflineAccess) {
+			rt, err := ctrl.RequestTokenCreate(ctx, RequestToken{
+				Type:                RequestTokenTypeRefreshToken,
+				Audience:            *params.Audience,
+				ClientID:            params.ClientID,
+				ExpiresAt:           Time(time.Now().Add(aud.RefreshTokenLifetime())),
+				Scope:               params.Scope,
+				CodeChallengeMethod: PKCEChallengeMethodNone,
+			})
+			if err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
+
+			refreshToken = &rt
+		}
+
+	case GrantTypeRefreshToken:
+		req, err = ctrl.RequestTokenGet(ctx, *params.RefreshToken, RequestTokenTypeRefreshToken)
+		if err != nil {
+			return ErrAccessDenied.WithError(err)
+		}
+		fallthrough
+
+	case GrantTypeAuthCode:
+		if req.Type != RequestTokenTypeRefreshToken {
+			req, err = ctrl.RequestTokenGet(ctx, *params.Code, RequestTokenTypeAuthCode)
+			if err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
+		}
+
+		if req.CodeChallengeMethod == PKCEChallengeMethodS256 {
+			if err := req.CodeChallenge.Verify(*params.CodeVerifier); err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
 		}
 
 		if req.RedirectURI != nil {
@@ -124,22 +206,14 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			return ErrAccessDenied.WithDetail("client_id mismatch")
 		}
 
-		aud, err := ctrl.AudienceGet(ctx, req.Audience)
+		aud, err = ctrl.AudienceGet(ctx, req.Audience)
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
 		}
 
-		issuer := URI(
-			fmt.Sprintf("https://%s%s",
-				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud.ID()))),
-		)
-
-		tokens := make([]Token, 0)
-
 		access, err := ctrl.TokenCreate(ctx, Token{
-			Issuer:   &issuer,
-			Subject:  &req.Subject,
+			Issuer:   issuer(ctx, aud.ID()),
+			Subject:  req.Subject,
 			Audience: req.Audience,
 			ClientID: req.ClientID,
 			Use:      TokenUseAccess,
@@ -153,10 +227,10 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 		tokens = append(tokens, access)
 
-		if req.Scope.Contains(ScopeOpenID) {
+		if req.Scope.Contains(ScopeOpenID) && req.Subject != nil {
 			id, err := ctrl.TokenCreate(ctx, Token{
-				Issuer:   &issuer,
-				Subject:  &req.Subject,
+				Issuer:   issuer(ctx, aud.ID()),
+				Subject:  req.Subject,
 				Audience: req.Audience,
 				ClientID: req.ClientID,
 				Use:      TokenUseIdentity,
@@ -166,7 +240,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				return ErrAccessDenied.WithError(err)
 			}
 
-			user, err := ctrl.UserGet(ctx, req.Subject)
+			user, err := ctrl.UserGet(ctx, safe.String(req.Subject))
 			if err != nil {
 				return ErrAccessDenied.WithError(err)
 			}
@@ -211,16 +285,35 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			tokens = append(tokens, id)
 		}
 
-		secrets := aud.Secrets()
-		if len(secrets) == 0 {
-			return ErrKeyNotFound
-		}
+		if req.Scope.Contains(ScopeOfflineAccess) {
+			// convert the request to a refresh token
+			if req.Type != RequestTokenTypeRefreshToken {
+				// existing tokens should have the same expiration
+				req.ExpiresAt = Time(time.Now().Add(aud.RefreshTokenLifetime()))
+			}
+			req.Type = RequestTokenTypeRefreshToken
+			req.RedirectURI = nil
+			req.AppURI = nil
 
-		bearer, err = NewBearer(secrets[rand.Intn(len(secrets))], tokens...)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
+			rt, err := ctrl.RequestTokenCreate(ctx, req)
+			if err != nil {
+				return ErrAccessDenied.WithError(err)
+			}
+
+			refreshToken = &rt
 		}
 	}
+
+	secrets := aud.Secrets()
+	if len(secrets) == 0 {
+		return ErrKeyNotFound
+	}
+
+	bearer, err = NewBearer(secrets[rand.Intn(len(secrets))], tokens...)
+	if err != nil {
+		return ErrAccessDenied.WithError(err)
+	}
+	bearer.RefreshToken = refreshToken
 
 	return api.NewResponse(bearer).
 		WithHeader("Cache-Control", "no-store").

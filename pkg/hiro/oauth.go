@@ -62,14 +62,14 @@ type (
 		CreatedAt           oauth.Time                `db:"created_at"`
 		Audience            types.ID                  `db:"audience_id"`
 		ApplicationID       types.ID                  `db:"application_id"`
-		UserID              types.ID                  `db:"user_id,omitempty"`
+		UserID              *types.ID                 `db:"user_id,omitempty"`
 		Scope               oauth.Scope               `db:"scope,omitempty"`
 		Passcode            *string                   `db:"passcode,omitempty"`
 		ExpiresAt           oauth.Time                `db:"expires_at"`
 		CodeChallenge       oauth.PKCEChallenge       `db:"code_challenge"`
 		LoginAttempts       *int                      `db:"login_attempts"`
 		CodeChallengeMethod oauth.PKCEChallengeMethod `db:"code_challenge_method"`
-		AppURI              oauth.URI                 `db:"app_uri"`
+		AppURI              *oauth.URI                `db:"app_uri"`
 		RedirectURI         *oauth.URI                `db:"redirect_uri"`
 		State               *string                   `db:"state,omitempty"`
 	}
@@ -177,7 +177,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				req.Type,
 				audID,
 				types.ID(req.ClientID),
-				types.ID(req.Subject),
+				ptr.ID(req.Subject),
 				req.Scope,
 				req.Passcode,
 				req.ExpiresAt.Time(),
@@ -275,7 +275,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 		CreatedAt:           out.CreatedAt,
 		Audience:            out.Audience.String(),
 		ClientID:            out.ApplicationID.String(),
-		Subject:             out.UserID.String(),
+		Subject:             ptr.String(out.UserID),
 		Scope:               out.Scope,
 		Passcode:            out.Passcode,
 		ExpiresAt:           out.ExpiresAt,
@@ -794,7 +794,7 @@ func (c oauthClient) Authorize(ctx context.Context, aud oauth.Audience, grant oa
 
 	perms, ok := c.Permissions[aud.Name()]
 	if !ok {
-		return oauth.ErrAccessDenied.WithMessage("client is not authorized for audience %s", aud)
+		return oauth.ErrAccessDenied.WithMessage("client is not authorized for audience %s", aud.Name())
 	}
 
 	for _, s := range scopes {
@@ -827,4 +827,8 @@ func (a oauthAudience) Secrets() []oauth.TokenSecret {
 
 func (a oauthAudience) Permissions() oauth.Scope {
 	return a.Audience.Permissions
+}
+
+func (a oauthAudience) RefreshTokenLifetime() time.Duration {
+	return a.SessionLifetime
 }

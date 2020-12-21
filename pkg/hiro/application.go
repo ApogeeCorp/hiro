@@ -65,18 +65,18 @@ type (
 
 	// ApplicationUpdateInput is the application update request
 	ApplicationUpdateInput struct {
-		ApplicationID types.ID          `json:"id" structs:"-"`
-		Name          *string           `json:"name" structs:"name,omitempty"`
-		Description   *string           `json:"description,omitempty" structs:"description,omitempty"`
-		Type          *oauth.ClientType `json:"type" structs:"type,omitempty"`
-		Permissions   *PermissionUpdate `json:"permissions,omitempty" structs:"-"`
-		Grants        oauth.Grants      `json:"grants,omitempty" structs:"-"`
-		URIs          oauth.URIList     `json:"uris,omitempty" structs:"-"`
-		Metadata      types.Metadata    `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		ApplicationID types.ID           `json:"id" structs:"-"`
+		Name          *string            `json:"name" structs:"name,omitempty"`
+		Description   *string            `json:"description,omitempty" structs:"description,omitempty"`
+		Type          *oauth.ClientType  `json:"type" structs:"type,omitempty"`
+		Permissions   *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
+		Grants        oauth.Grants       `json:"grants,omitempty" structs:"-"`
+		URIs          oauth.URIList      `json:"uris,omitempty" structs:"-"`
+		Metadata      types.Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
-	// PermissionUpdate is used to modify permissions
-	PermissionUpdate struct {
+	// PermissionsUpdate is used to modify permissions
+	PermissionsUpdate struct {
 		Add       oauth.ScopeSet `json:"add,omitempty"`
 		Remove    oauth.ScopeSet `json:"remove,omitempty"`
 		Overwrite bool           `json:"overwrite"`
@@ -104,7 +104,7 @@ type (
 
 	applicationPatchInput struct {
 		Application *Application
-		Permissions *PermissionUpdate
+		Permissions *PermissionsUpdate
 		Grants      oauth.Grants
 	}
 )
@@ -194,33 +194,30 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 			Suffix(`RETURNING *`).
 			ToSql()
 		if err != nil {
-			log.Error(err.Error())
-
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
 
 		if err := tx.GetContext(ctx, &app, stmt, args...); err != nil {
-			log.Error(err.Error())
+			return parseSQLError(err)
 
-			err = parseSQLError(err)
-
-			if errors.Is(err, ErrDuplicateObject) {
-				a, err := b.ApplicationGet(ctx, ApplicationGetInput{
-					Name: &params.Name,
-				})
-				if err != nil {
-					return err
-				}
-
-				app = *a
-			}
-
-			return err
 		}
 
-		return b.applicationPatch(ctx, applicationPatchInput{&app, &PermissionUpdate{Add: params.Permissions}, params.Grants})
+		return b.applicationPatch(ctx, applicationPatchInput{&app, &PermissionsUpdate{Add: params.Permissions}, params.Grants})
 	}); err != nil {
-		return nil, err
+		if errors.Is(err, ErrDuplicateObject) {
+			a, err := b.ApplicationGet(ctx, ApplicationGetInput{
+				Name: &params.Name,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			app = *a
+		} else {
+			log.Error(err.Error())
+		}
+
+		return &app, err
 	}
 
 	log.Debugf("application %s created", app.ID)
@@ -389,6 +386,30 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 	return apps, nil
 }
 
+// ApplicationDelete deletes an application by id
+func (b *Backend) ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error {
+	log := b.Log(ctx).WithField("operation", "ApplicationDelete").WithField("application", params.ApplicationID)
+
+	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+		return fmt.Errorf("%w: %s", ErrInputValidation, err)
+	}
+
+	db := b.DB(ctx)
+	if _, err := sq.Delete("hiro.applications").
+		Where(
+			sq.Eq{"id": params.ApplicationID},
+		).
+		PlaceholderFormat(sq.Dollar).
+		RunWith(db).
+		ExecContext(ctx); err != nil {
+		log.Errorf("failed to delete application %s: %s", params.ApplicationID, err)
+		return parseSQLError(err)
+	}
+
+	return nil
+}
+
 func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchInput) error {
 	log := b.Log(ctx).WithField("operation", "applicationPatch").WithField("application", params.Application.ID)
 
@@ -426,7 +447,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			}
 		}
 
-		for _, p := range perms {
+		for _, p := range perms.Unique() {
 			_, err := sq.Insert("hiro.application_permissions").
 				Columns("application_id", "audience_id", "permission").
 				Values(
@@ -439,14 +460,14 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				PlaceholderFormat(sq.Dollar).
 				ExecContext(ctx)
 			if err != nil {
-				log.Errorf("failed to update audience permissions %s: %s", audID, err)
+				log.Errorf("failed to update permissions for audience %s: %s", audID, err)
 
 				return parseSQLError(err)
 			}
 		}
 	}
 
-	for audID, perms := range params.Permissions.Add {
+	for audID, perms := range params.Permissions.Remove {
 		if !types.ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
@@ -588,28 +609,4 @@ func (b *Backend) applicationPreload(ctx context.Context, app *Application) (*Ap
 	}
 
 	return app, nil
-}
-
-// ApplicationDelete deletes an application by id
-func (b *Backend) ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error {
-	log := b.Log(ctx).WithField("operation", "ApplicationDelete").WithField("application", params.ApplicationID)
-
-	if err := params.ValidateWithContext(ctx); err != nil {
-		log.Error(err.Error())
-		return fmt.Errorf("%w: %s", ErrInputValidation, err)
-	}
-
-	db := b.DB(ctx)
-	if _, err := sq.Delete("hiro.applications").
-		Where(
-			sq.Eq{"id": params.ApplicationID},
-		).
-		PlaceholderFormat(sq.Dollar).
-		RunWith(db).
-		ExecContext(ctx); err != nil {
-		log.Errorf("failed to delete application %s: %s", params.ApplicationID, err)
-		return parseSQLError(err)
-	}
-
-	return nil
 }

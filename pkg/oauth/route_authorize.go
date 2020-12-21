@@ -139,12 +139,12 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 				Type:                RequestTokenTypeAuthCode,
 				Audience:            string(params.Audience),
 				ClientID:            string(params.ClientID),
-				Subject:             string(sub),
+				Subject:             &sub,
 				ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 				Scope:               params.Scope,
 				CodeChallenge:       params.CodeChallenge,
 				CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
-				AppURI:              params.AppURI,
+				AppURI:              &params.AppURI,
 				RedirectURI:         params.RedirectURI,
 			})
 			if err != nil {
@@ -182,7 +182,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,
 		CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
-		AppURI:              params.AppURI,
+		AppURI:              &params.AppURI,
 		RedirectURI:         params.RedirectURI,
 		State:               params.State,
 	})

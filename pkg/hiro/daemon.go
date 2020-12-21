@@ -216,7 +216,7 @@ func WithAPIServer(s *api.Server) DaemonOption {
 // WithAPIOptions sets api server options; mutally exclusive with WithAPIServer
 func WithAPIOptions(o ...api.Option) DaemonOption {
 	return func(d *Daemon) {
-		d.apiOptions = o
+		d.apiOptions = append(d.apiOptions, o...)
 	}
 }
 

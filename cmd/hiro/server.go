@@ -37,7 +37,9 @@ func serverMain(c *cli.Context) error {
 	d, err := hiro.NewDaemon(
 		hiro.WithServerAddr(c.String("server-addr")),
 		hiro.WithController(h),
-		hiro.WithAPIOptions(api.WithCORS(c.StringSlice("cors-allowed-origin")...)),
+		hiro.WithAPIOptions(
+			api.WithTracing(c.Bool("http-tracing")),
+			api.WithCORS(c.StringSlice("cors-allowed-origin")...)),
 	)
 	if err != nil {
 		return err

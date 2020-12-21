@@ -87,11 +87,8 @@ func (id *ID) UnmarshalJSON(b []byte) error {
 	return id.Validate()
 }
 
-func (id *ID) String() string {
-	if id == nil {
-		return ""
-	}
-	return string(*id)
+func (id ID) String() string {
+	return string(id)
 }
 
 // Scan implements the Scanner interface.

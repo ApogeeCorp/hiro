@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/Masterminds/squirrel v1.5.0
-	github.com/allegro/bigcache v1.2.1
 	github.com/apex/log v1.9.0
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/blang/semver/v4 v4.0.0
@@ -31,9 +30,10 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/lib/pq v1.3.0
+	github.com/libatomic/oauth v1.0.0-alpha.80
 	github.com/manifoldco/promptui v0.8.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.1.2
+	github.com/mitchellh/mapstructure v1.3.3
 	github.com/mr-tron/base58 v1.2.0
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/ory/dockertest/v3 v3.6.2

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     passcode VARCHAR(64),
     code_challenge TEXT NOT NULL,
     code_challenge_method CHAR(4) NOT NULL DEFAULT 'S256',
-    app_uri TEXT NOT NULL,
+    app_uri TEXT,
     redirect_uri TEXT,
     login_attempts INT,
     state TEXT,

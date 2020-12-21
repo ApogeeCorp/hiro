@@ -21,6 +21,7 @@
 package ptr
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/spf13/cast"
@@ -76,6 +77,11 @@ func (p *ptr) Bool() *bool {
 
 // String returns the address of the string
 func (p *ptr) String() *string {
+	val := reflect.ValueOf(p.v)
+	if val.Kind() == reflect.Ptr && val.IsNil() {
+		s := ""
+		return &s
+	}
 	b := cast.ToString(p.v)
 	return &b
 }

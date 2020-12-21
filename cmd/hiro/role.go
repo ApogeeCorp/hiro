@@ -208,7 +208,7 @@ func roleUpdate(c *cli.Context) error {
 
 	params := hiro.RoleUpdateInput{
 		RoleID:      types.ID(c.String("id")),
-		Permissions: oauth.ScopeSet(c.Generic("permissions").(permArg)),
+		Permissions: &hiro.PermissionsUpdate{Add: oauth.ScopeSet(c.Generic("permissions").(permArg))},
 	}
 
 	role, err := h.RoleUpdate(context.Background(), params)

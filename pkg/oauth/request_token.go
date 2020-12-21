@@ -34,14 +34,14 @@ type (
 		CreatedAt           Time
 		Audience            string
 		ClientID            string
-		Subject             string
+		Subject             *string
 		Passcode            *string
 		Uses                int
 		Scope               Scope
 		ExpiresAt           Time
 		CodeChallenge       PKCEChallenge
 		CodeChallengeMethod PKCEChallengeMethod
-		AppURI              URI
+		AppURI              *URI
 		RedirectURI         *URI
 		State               *string
 	}

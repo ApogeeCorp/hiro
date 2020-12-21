@@ -138,6 +138,6 @@ func (b *Backend) DB(ctx context.Context) DB {
 
 // IsTransaction returns true of the DB interface is a transaction
 func IsTransaction(db DB) bool {
-	_, ok := db.(txRef)
+	_, ok := db.(*txRef)
 	return ok
 }

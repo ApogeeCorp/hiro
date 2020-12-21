@@ -96,11 +96,11 @@ func Authorizer(opts ...AuthorizerOption) api.Authorizer {
 				}
 
 				for _, s := range aud.Secrets() {
-					if string(s.ID()) == kid {
+					if s.ID().String() == kid {
 						return s, nil
 					}
 				}
-				
+
 				return nil, ErrKeyNotFound
 			})
 			if err != nil {

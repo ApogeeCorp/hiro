@@ -19,6 +19,8 @@
 
 package oauth
 
+import "time"
+
 type (
 	// Audience is the common oauth audience interface
 	Audience interface {
@@ -33,5 +35,8 @@ type (
 
 		// Permissions returns the fullset of audience permissions
 		Permissions() Scope
+
+		// RefreshTokenLifetime returns the duration a refreshtoken should last
+		RefreshTokenLifetime() time.Duration
 	}
 )

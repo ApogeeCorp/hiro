@@ -93,6 +93,7 @@ func main() {
 		h, err = hiro.New(
 			hiro.WithDBSource(c.String("db")),
 			hiro.Automigrate(),
+			hiro.Initialize(),
 		)
 		if err != nil {
 			return err

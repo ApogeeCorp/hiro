@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -137,7 +138,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
-		Subject:             user.Subject(),
+		Subject:             ptr.String(user.Subject()),
 		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,

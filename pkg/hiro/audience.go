@@ -64,14 +64,21 @@ type (
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID      types.ID              `json:"audience_id" structs:"-"`
-		Name            *string               `json:"name" structs:"name,omitempty"`
-		Description     *string               `json:"description,omitempty" structs:"description,omitempty"`
-		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
-		TokenLifetime   *time.Duration        `json:"token_lifetime" structs:"token_lifetime,omitempty"`
-		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
-		Permissions     oauth.Scope           `json:"permissions,omitempty" structs:"-"`
-		Metadata        types.Metadata        `json:"metadata,omitempty" structs:"-"`
+		AudienceID      types.ID                   `json:"audience_id" structs:"-"`
+		Name            *string                    `json:"name" structs:"name,omitempty"`
+		Description     *string                    `json:"description,omitempty" structs:"description,omitempty"`
+		TokenAlgorithm  *oauth.TokenAlgorithm      `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
+		TokenLifetime   *time.Duration             `json:"token_lifetime" structs:"token_lifetime,omitempty"`
+		SessionLifetime *time.Duration             `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
+		Permissions     *AudiencePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
+		Metadata        types.Metadata             `json:"metadata,omitempty" structs:"-"`
+	}
+
+	// AudiencePermissionsUpdate is used to update audience permissions
+	AudiencePermissionsUpdate struct {
+		Add       oauth.Scope `json:"add,omitempty"`
+		Remove    oauth.Scope `json:"remove,omitempty"`
+		Overwrite bool        `json:"overrite"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -168,33 +175,30 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Suffix(`RETURNING *`).
 			ToSql()
 		if err != nil {
-			log.Error(err.Error())
-
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
 
 		if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
-			log.Error(err.Error())
+			return parseSQLError(err)
 
-			err = parseSQLError(err)
-
-			if errors.Is(err, ErrDuplicateObject) {
-				a, err := b.AudienceGet(ctx, AudienceGetInput{
-					Name: &params.Name,
-				})
-				if err != nil {
-					return err
-				}
-
-				aud = *a
-			}
-
-			return err
 		}
 
-		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)
+		return b.audienceUpdatePermissions(ctx, &aud, &AudiencePermissionsUpdate{Add: params.Permissions})
 	}); err != nil {
-		return nil, err
+		if errors.Is(err, ErrDuplicateObject) {
+			a, err := b.AudienceGet(ctx, AudienceGetInput{
+				Name: &params.Name,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			aud = *a
+		} else {
+			log.Error(err.Error())
+		}
+
+		return &aud, err
 	}
 
 	log.Debugf("audience %s created", aud.ID)
@@ -383,27 +387,34 @@ func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput
 	return nil
 }
 
-func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, permissions oauth.Scope) error {
+func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, perms *AudiencePermissionsUpdate) error {
 	log := b.Log(ctx).WithField("operation", "audienceUpdatePermissions").WithField("audience", aud.ID)
 
-	if len(permissions) == 0 {
+	if perms == nil {
+		return nil
+	}
+
+	if len(perms.Add) == 0 && len(perms.Remove) == 0 {
 		return nil
 	}
 
 	db := b.DB(ctx)
-	if _, err := sq.Delete("hiro.audience_permissions").
-		Where(
-			sq.Eq{"audience_id": aud.ID},
-		).
-		PlaceholderFormat(sq.Dollar).
-		RunWith(db).
-		ExecContext(ctx); err != nil {
-		log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
 
-		return parseSQLError(err)
+	if perms.Overwrite {
+		if _, err := sq.Delete("hiro.audience_permissions").
+			Where(
+				sq.Eq{"audience_id": aud.ID},
+			).
+			PlaceholderFormat(sq.Dollar).
+			RunWith(db).
+			ExecContext(ctx); err != nil {
+			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
+
+			return parseSQLError(err)
+		}
 	}
 
-	for _, p := range permissions {
+	for _, p := range perms.Add.Unique() {
 		_, err := sq.Insert("hiro.audience_permissions").
 			Columns("audience_id", "permission").
 			Values(
@@ -421,7 +432,20 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 		}
 	}
 
-	aud.Permissions = permissions
+	for _, p := range perms.Remove.Unique() {
+		if _, err := sq.Delete("hiro.audience_permissions").
+			Where(
+				sq.Eq{"audience_id": aud.ID},
+				sq.Eq{"permission": p},
+			).
+			PlaceholderFormat(sq.Dollar).
+			RunWith(db).
+			ExecContext(ctx); err != nil {
+			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
+
+			return parseSQLError(err)
+		}
+	}
 
 	return nil
 }

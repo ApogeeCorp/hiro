@@ -55,11 +55,11 @@ type (
 
 	// RoleUpdateInput is the role update request
 	RoleUpdateInput struct {
-		RoleID      types.ID       `json:"id" structs:"-"`
-		Name        *string        `json:"name" structs:"name,omitempty"`
-		Description *string        `json:"description,omitempty" structs:"description,omitempty"`
-		Permissions oauth.ScopeSet `json:"permissions,omitempty" structs:"-"`
-		Metadata    types.Metadata `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		RoleID      types.ID           `json:"id" structs:"-"`
+		Name        *string            `json:"name" structs:"name,omitempty"`
+		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
+		Permissions *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
+		Metadata    types.Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// RoleGetInput is used to get an role for the id
@@ -85,7 +85,7 @@ type (
 
 	rolePatchInput struct {
 		Role        *Role
-		Permissions oauth.ScopeSet
+		Permissions *PermissionsUpdate
 	}
 )
 
@@ -168,7 +168,7 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 			return parseSQLError(err)
 		}
 
-		return b.rolePatch(ctx, rolePatchInput{&role, params.Permissions})
+		return b.rolePatch(ctx, rolePatchInput{&role, &PermissionsUpdate{Add: params.Permissions}})
 	}); err != nil {
 		return nil, err
 	}
@@ -344,7 +344,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 
 	db := b.DB(ctx)
 
-	for audID, perms := range params.Permissions {
+	for audID, perms := range params.Permissions.Add {
 		if !types.ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
@@ -360,21 +360,23 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 			audID = aud.ID.String()
 		}
 
-		if _, err := sq.Delete("hiro.role_permissions").
-			Where(
-				sq.Eq{
-					"audience_id": types.ID(audID),
-					"role_id":     params.Role.ID,
-				}).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for audience: %s", audID, err)
+		if params.Permissions.Overwrite {
+			if _, err := sq.Delete("hiro.role_permissions").
+				Where(
+					sq.Eq{
+						"audience_id": types.ID(audID),
+						"role_id":     params.Role.ID,
+					}).
+				PlaceholderFormat(sq.Dollar).
+				RunWith(db).
+				ExecContext(ctx); err != nil {
+				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-			return parseSQLError(err)
+				return parseSQLError(err)
+			}
 		}
 
-		for _, p := range perms {
+		for _, p := range perms.Unique() {
 			_, err := sq.Insert("hiro.role_permissions").
 				Columns("role_id", "audience_id", "permission").
 				Values(
@@ -392,8 +394,40 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 				return parseSQLError(err)
 			}
 		}
+	}
 
-		params.Role.Permissions = params.Permissions
+	for audID, perms := range params.Permissions.Remove {
+		if !types.ID(audID).Valid() {
+			aud, err := b.AudienceGet(ctx, AudienceGetInput{
+				Name: &audID,
+			})
+			if err != nil {
+				err = fmt.Errorf("%w: lookup for audience named %s failed", err, audID)
+
+				log.Error(err.Error())
+
+				return err
+			}
+
+			audID = aud.ID.String()
+		}
+
+		for _, p := range perms {
+			if _, err := sq.Delete("hiro.role_permissions").
+				Where(
+					sq.Eq{
+						"audience_id": types.ID(audID),
+						"role_id":     params.Role.ID,
+						"permission":  p,
+					}).
+				PlaceholderFormat(sq.Dollar).
+				RunWith(db).
+				ExecContext(ctx); err != nil {
+				log.Errorf("failed to delete permissions for audience: %s", audID, err)
+
+				return parseSQLError(err)
+			}
+		}
 	}
 
 	return nil

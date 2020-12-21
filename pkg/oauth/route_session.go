@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -79,7 +81,7 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
 
-	user, err := ctrl.UserGet(ctx, req.Subject)
+	user, err := ctrl.UserGet(ctx, safe.String(req.Subject))
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
@@ -139,7 +141,7 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
-		Subject:             user.Subject(),
+		Subject:             ptr.String(user.Subject()),
 		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,
@@ -170,7 +172,6 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 
 	return api.Redirect(u)
 }
-
 
 // Name implements api.Route
 func (SessionRoute) Name() string {

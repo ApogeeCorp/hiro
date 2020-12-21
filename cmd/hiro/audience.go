@@ -307,7 +307,7 @@ func audienceUpdate(c *cli.Context) error {
 	}
 
 	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = oauth.Scope(perms)
+		params.Permissions = &hiro.AudiencePermissionsUpdate{Add: oauth.Scope(perms)}
 	}
 
 	aud, err := h.AudienceUpdate(context.Background(), params)

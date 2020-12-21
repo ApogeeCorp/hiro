@@ -146,7 +146,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 	if err != nil {
 		return api.Redirect(u, ErrAccessDenied.WithError(err))
 	}
-	req.Subject = user.Subject()
+	req.Subject = ptr.String(user.Subject())
 
 	// The new token is for sessions which should be one time use
 	req.Type = RequestTokenTypeSession
@@ -197,14 +197,8 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 		// link and resets need a magic session link with an access token
 		r, _ := api.Request(ctx)
 
-		issuer := URI(
-			fmt.Sprintf("https://%s%s",
-				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "openid", req.Audience))),
-		)
-
 		token, err := ctrl.TokenCreate(ctx, Token{
-			Issuer:    &issuer,
+			Issuer:    issuer(ctx, req.Audience),
 			Subject:   ptr.String(user.Subject()),
 			Audience:  req.Audience,
 			ClientID:  req.ClientID,
@@ -324,7 +318,7 @@ func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Respo
 		return ErrAccessDenied.WithError(err)
 	}
 
-	if req.Subject != *token.Subject {
+	if *req.Subject != *token.Subject {
 		return ErrAccessDenied.WithDetail("subject does not match")
 	}
 

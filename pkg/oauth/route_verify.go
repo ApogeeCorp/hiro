@@ -194,17 +194,11 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 		return api.ErrBadRequest.WithDetail("unsupported notification channel")
 	}
 
-	issuer := URI(
-		fmt.Sprintf("https://%s%s",
-			r.Host,
-			path.Clean(path.Join(path.Dir(r.URL.Path), "openid", token.Audience))),
-	)
-
 	// revoke any existing verify tokens
 	ctrl.TokenRevokeAll(ctx, *token.Subject, TokenUseVerify)
 
 	v, err := ctrl.TokenCreate(ctx, Token{
-		Issuer:    &issuer,
+		Issuer:    issuer(ctx, token.Audience),
 		Subject:   token.Subject,
 		Audience:  token.Audience,
 		ClientID:  token.ClientID,

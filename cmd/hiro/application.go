@@ -253,7 +253,7 @@ func applicationUpdate(c *cli.Context) error {
 
 	params := hiro.ApplicationUpdateInput{
 		ApplicationID: types.ID(c.String("id")),
-		Permissions: &hiro.PermissionUpdate{
+		Permissions: &hiro.PermissionsUpdate{
 			Add:       oauth.ScopeSet(c.Generic("permissions").(permArg)),
 			Overwrite: true,
 		},

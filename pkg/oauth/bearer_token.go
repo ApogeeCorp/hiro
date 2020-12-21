@@ -45,7 +45,7 @@ type (
 		// and user credentials do not have to traverse the wire again.
 		// The is provided if the `offline_access` scope is request.
 		// This scopes are outside of the context of this library, it is up to the
-		RefreshToken string `json:"refresh_token,omitempty"`
+		RefreshToken *string `json:"refresh_token,omitempty"`
 
 		// The token type, always Bearer
 		TokenType string `json:"token_type"`

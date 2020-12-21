@@ -149,6 +149,15 @@ func New(opts ...BackendOption) (*Backend, error) {
 			return nil, err
 		}
 
+		if _, err := b.AudienceUpdate(context.Background(), AudienceUpdateInput{
+			AudienceID: aud.ID,
+			Permissions: &AudiencePermissionsUpdate{
+				Add: append(Scopes, oauth.Scopes...),
+			},
+		}); err != nil {
+			return nil, err
+		}
+
 		b.log.Infof("audience hiro [%s] initialized", aud.ID)
 
 		if len(aud.TokenSecrets) == 0 {
@@ -172,6 +181,7 @@ func New(opts ...BackendOption) (*Backend, error) {
 
 		app, err := b.ApplicationCreate(context.Background(), ApplicationCreateInput{
 			Name: "hiro:app",
+			Type: oauth.ClientTypeMachine,
 			Permissions: oauth.ScopeSet{
 				"hiro": append(Scopes, oauth.Scopes...),
 			},

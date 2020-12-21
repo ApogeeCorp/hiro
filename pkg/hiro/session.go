@@ -312,5 +312,5 @@ func (s SessionKey) Hash() []byte {
 func (s SessionKey) Block() []byte {
 	v := []byte(s.Key)
 
-	return v[32:]
+	return v[32:64]
 }

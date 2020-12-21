@@ -52,7 +52,7 @@ const (
 	GrantTypePassword GrantType = "password"
 
 	// GrantTypeRefreshToken is the refresh_token grant type
-	GrantTypeRefreshToken = "refresh_token"
+	GrantTypeRefreshToken GrantType = "refresh_token"
 )
 
 // Validate handles validation for GrantType
