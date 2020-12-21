@@ -41,13 +41,13 @@ type (
 
 	// Session is the backend store representation of session.Session
 	Session struct {
-		ID         types.ID   `db:"id"`
-		AudienceID types.ID   `db:"audience_id"`
-		UserID     types.ID   `db:"user_id"`
-		Data       string     `db:"data"`
-		CreatedAt  time.Time  `db:"created_at"`
-		ExpiresAt  time.Time  `db:"expires_at"`
-		RevokedAt  *time.Time `db:"revoked_at,omitempty"`
+		ID         types.ID   `json:"id" db:"id"`
+		AudienceID types.ID   `json:"audience_id" db:"audience_id"`
+		UserID     types.ID   `json:"user_id" db:"user_id"`
+		Data       string     `json:"data" db:"data"`
+		CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+		ExpiresAt  time.Time  `json:"expires_at" db:"expires_at"`
+		RevokedAt  *time.Time `json:"revoked_at,omitempty" db:"revoked_at"`
 	}
 
 	// SessionKey is a wrapper around a token secret

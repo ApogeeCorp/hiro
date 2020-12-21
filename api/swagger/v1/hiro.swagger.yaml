@@ -29,7 +29,7 @@ info:
 
     # Authentication
 
-    Hiro uses OAuth 2.0 for authentication and authorization.
+    Hiro uses OAuth 2.0 for authentication and authorization and is dependent the oauth package interfaces
 
     # Errors
 
@@ -66,17 +66,346 @@ securityDefinitions:
 
 definitions:
   Audience:
+    description: "An audience is essentially an API that applications and users can access"
     type: "object"
+    properties: 
+      id:
+        description: "The audience id"
+        type: "string"
+      name:
+        description: "The audience name"
+        type: "string"
+      slug:
+        description: "The url friend audience name"
+        type: "string"
+        readOnly: true
+      description:
+        description: "The audience description"
+        type: "string"
+      secrets:
+        description: "The audience secrets"
+        type: "array"
+        items:
+          $ref: "#/definitions/Secret"
+      token_lifetime:
+        description: "The access token lifetime in nanoseconds"
+        type: "integer"
+      session_lifetime:
+        description: "The access token lifetime in nanoseconds"
+        type: "integer"
+      permissions:
+        description: "The audience permissions as scope"
+        type: "array"
+        items:
+          type: "string"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+      updated_at:
+        description: "The update timestamp"
+        type: "string"
+        format: "date-time"
+      metadata:
+        $ref: "#/definitions/Map"
+
   Application:
+    description: "Applications are api clients that have access to various audiences"
     type: "object"
+    properties: 
+      id:
+        description: "The application id"
+        type: "string"
+      name:
+        description: "The application name"
+        type: "string"
+      slug:
+        description: "The url friend application name"
+        type: "string"
+        readOnly: true
+      description:
+        description: "The application description"
+        type: "string"
+      type:
+        description: "The oauth client type"
+        type: "string"
+        enum: ["web", "native", "machine"]
+      secret_key:
+        description: "The api client secret key"
+        type: "string"
+      permissions:
+        $ref: "#/definitions/Permissions"
+      grants:
+        $ref: "#/definitions/Grants"
+      uris:
+        description: "Authorized application and redirect uris"
+        type: "array"
+        items:
+          type: "string"
+          format: "uri"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+      updated_at:
+        description: "The update timestamp"
+        type: "string"
+        format: "date-time"
+      metadata:
+        $ref: "#/definitions/Map"
+
+  Role:
+    description: "Roles define audience based access to users"
+    type: "object"
+    properties: 
+      id:
+        description: "The application id"
+        type: "string"
+      name:
+        description: "The application name"
+        type: "string"
+      slug:
+        description: "The url friend application name"
+        type: "string"
+        readOnly: true
+      description:
+        description: "The application description"
+        type: "string"
+      permissions:
+        $ref: "#/definitions/Permissions"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+      updated_at:
+        description: "The update timestamp"
+        type: "string"
+        format: "date-time"
+      metadata:
+        $ref: "#/definitions/Map"
+
   User:
+    description: "A user of the platform"
     type: "object"
+    properties: 
+      id:
+        description: "The application id"
+        type: "string"
+      login:
+        description: "The user login"
+        type: "string"
+      password_expires_at:
+        description: "The user's password expiration"
+        type: "string"
+        format: "date-time"
+      locked_until:
+        description: "The user account is locked until this time"
+        type: "string"
+        format: "date-time"
+      roles:
+        description: "The users roles"
+        type: "array"
+        items:
+          type: "string"
+      permissions:
+        $ref: "#/definitions/Permissions"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+      updated_at:
+        description: "The update timestamp"
+        type: "string"
+        format: "date-time"
+      metadata:
+        $ref: "#/definitions/Map"
+
   RequestToken:
+    description: |
+      Oauth request tokens are used during various authentication and authorization flows. All tokens, except
+      login tokens are one-time-use. Login tokens are allowed to be used unsuccessfully for n-times before the expire.
+      login tokens that exceed attempts will lock the user account.
     type: "object"
+    properties: 
+      id:
+        description: "The token id"
+        type: "string"
+      type:
+        description: "The request token type"
+        type: "string"
+        enum: ["login", "session", "verify", "invite", "auth_code", "refresh_token"]
+      audience_id:
+        description: "The audience the token belongs to"
+        type: "string"
+      application_id:
+        description: "The application the token belongs to"
+        type: "string"
+      user_id:
+        description: "The optional user for the token"
+        type: "string"
+      scope:
+        description: "The token scope"
+        type: "array"
+        items:
+          type: "string"
+      passcode:
+        description: "The token passcode used for otp and password reset flows"
+        type: "string"
+      expires_at:
+        description: "The token expiration, most tokes expire quickly"
+        type: "string"
+        format: "date-time"
+      code_challenge:
+        description: "The pkce code challenge for the flow"
+        type: "string"
+      code_challenge_method:
+        description: "The pkce code challenge method for the flow"
+        type: "string"
+        enum: ["none", "S256"]
+      login_attempts:
+        description: "The number of attempts to use the login code"
+        type: "integer"
+      app_uri:
+        description: "The application uri for the flow"
+        type: "string"
+        format: "uri"
+      redirect_uri:
+        description: "The redirect uri for the flow"
+        type: "string"
+        format: "uri"
+      state:
+        description: "The state passed to the redirect_uri when the flow is complete"
+        type: "string"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+
   AccessToken:
+    description: "Access tokens represent revokable tokens created by the platform for various purposes like magic auth links"
     type: "object"
+    properties: 
+      id:
+        description: "The token id"
+        type: "string"
+      issuer:
+        description: "The uri of the host that issued the token"
+        type: "string"
+        format: "uri"
+      audience_id:
+        description: "The audience the token belongs to"
+        type: "string"
+      application_id:
+        description: "The application the token belongs to"
+        type: "string"
+      user_id:
+        description: "The user the token was issued to"
+        type: "string"
+      token_use:
+        description: "The intended purpose of the token"
+        type: "string"
+        enum: ["access", "identity", "verify"]
+      scope:
+        description: "The token scope"
+        type: "array"
+        items:
+          type: "string"
+      claims:
+        $ref: "#/definitions/Map"
+      expires_at:
+        description: "The token expiration, expired tokens are cleaned up periodically"
+        type: "string"
+        format: "date-time"
+      revoked_at:
+        description: "The token revocation time, revoked tokens are cleaned up periodically"
+        type: "string"
+        format: "date-time"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+
   Session:
+    description: "Sessions represent browser based sessions for authenticated users"
     type: "object"
+    properties: 
+      id:
+        description: "The session id"
+        type: "string"
+      audience_id:
+        description: "The audience the token belongs to"
+        type: "string"
+      user_id:
+        description: "The user the token was issued to"
+        type: "string"
+      data:
+        description: "The encrypted session data"
+        type: "string"
+      expires_at:
+        description: "The session expiration, expired session are cleaned up periodically"
+        type: "string"
+        format: "date-time"
+      revoked_at:
+        description: "The session revocation time, session tokens are cleaned up periodically"
+        type: "string"
+        format: "date-time"
+      created_at:
+        description: "The creation timestamp"
+        type: "string"
+        format: "date-time"
+
+  Secret:
+    description: "Secrets are used by the oauth service for token signing and sessions"
+    type: "object"
+    properties: 
+      id:
+        description: "The secret it"
+        type: "string"
+      audience_id:
+        description: "The audience id"
+        type: "string"
+      type:
+        description: "The secret type"
+        type: "string"
+        enum: ["token", "session"]
+      algorithm:
+        description: "The token algorithm"
+        type: "string"
+        enum: ["HS256", "RS256"]
+      key:
+        description: "Base64 raw url encoded key data"
+        type: "string"
+      created_at:
+        description: "The secret creation timestamp"
+        type: "string"
+        format: "date-time"
+      expires_at:
+        description: "The secret expiration timestamp"
+        type: "string"
+        format: "date-time"
+
+  Map:
+    description: "Map is a basic hash type"
+    type: "object"
+    additionalProperties:
+      type: "object"
+
+  Permissions:
+    description: "Set is a map of string arrays representing scopes per audience"
+    type: "object"
+    additionalProperties:
+      type: "array"
+      items:
+        type: "string"
+  
+  Grants:
+    description: "Set is a map of string arrays representing grants per audience"
+    type: "object"
+    additionalProperties:
+      type: "array"
+      items:
+        type: "string"
+        enum: ["authorization_code", "client_credentials", "refresh_token", "password"]
 
 paths:
   /audiences: {}

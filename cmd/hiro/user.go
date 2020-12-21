@@ -181,19 +181,19 @@ func userList(c *cli.Context) error {
 	fmt.Printf("Found %d user(s)\n\n", len(users))
 
 	type entry struct {
-		ID          types.ID `header:"id"`
-		Login       string   `header:"login"`
-		CreatedAt   string   `header:"created_at"`
-		Permissions string   `header:"permissions"`
+		ID        types.ID `header:"id"`
+		Login     string   `header:"login"`
+		CreatedAt string   `header:"created_at"`
+		Roles     string   `header:"roles"`
 	}
 
 	list := make([]entry, 0)
 	for _, u := range users {
 		list = append(list, entry{
-			ID:          u.ID,
-			Login:       u.Login,
-			CreatedAt:   humanize.Time(u.CreatedAt),
-			Permissions: fmt.Sprint(u.Permissions),
+			ID:        u.ID,
+			Login:     u.Login,
+			CreatedAt: humanize.Time(u.CreatedAt),
+			Roles:     fmt.Sprint(u.Roles),
 		})
 	}
 	tableprinter.Print(os.Stdout, list)

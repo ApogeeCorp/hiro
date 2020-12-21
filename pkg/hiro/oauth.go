@@ -57,38 +57,38 @@ type (
 
 	// RequestToken is the backend representation of an oauth.RequestToken
 	RequestToken struct {
-		ID                  types.ID                  `db:"id"`
-		Type                oauth.RequestTokenType    `db:"type"`
-		CreatedAt           oauth.Time                `db:"created_at"`
-		Audience            types.ID                  `db:"audience_id"`
-		ApplicationID       types.ID                  `db:"application_id"`
-		UserID              *types.ID                 `db:"user_id,omitempty"`
-		Scope               oauth.Scope               `db:"scope,omitempty"`
-		Passcode            *string                   `db:"passcode,omitempty"`
-		ExpiresAt           oauth.Time                `db:"expires_at"`
-		CodeChallenge       oauth.PKCEChallenge       `db:"code_challenge"`
-		LoginAttempts       *int                      `db:"login_attempts"`
-		CodeChallengeMethod oauth.PKCEChallengeMethod `db:"code_challenge_method"`
-		AppURI              *oauth.URI                `db:"app_uri"`
-		RedirectURI         *oauth.URI                `db:"redirect_uri"`
-		State               *string                   `db:"state,omitempty"`
+		ID                  types.ID                  `json:"id" db:"id"`
+		Type                oauth.RequestTokenType    `json:"type" db:"type"`
+		CreatedAt           oauth.Time                `json:"created_at" db:"created_at"`
+		Audience            types.ID                  `json:"audience_id" db:"audience_id"`
+		ApplicationID       types.ID                  `json:"application_id" db:"application_id"`
+		UserID              *types.ID                 `json:"user_id,omitempty" db:"user_id"`
+		Scope               oauth.Scope               `json:"scope,omitempty" db:"scope"`
+		Passcode            *string                   `json:"passcode,omitempty" db:"passcode"`
+		ExpiresAt           oauth.Time                `json:"expires_at" db:"expires_at"`
+		CodeChallenge       oauth.PKCEChallenge       `json:"code_challenge,omitempty" db:"code_challenge"`
+		CodeChallengeMethod oauth.PKCEChallengeMethod `json:"code_challenge_method,omitempty" db:"code_challenge_method"`
+		LoginAttempts       *int                      `json:"login_attempts,omitempty" db:"login_attempts"`
+		AppURI              *oauth.URI                `json:"app_uri,omitempty" db:"app_uri"`
+		RedirectURI         *oauth.URI                `json:"redirect_uri,omitempty" db:"redirect_uri"`
+		State               *string                   `json:"state,omitempty" db:"state"`
 	}
 
 	// AccessToken is the backend representation of an oauth.Token (type=TokenTypeAccess)
 	AccessToken struct {
-		ID            types.ID       `db:"id"`
-		Issuer        *oauth.URI     `db:"issuer"`
-		UserID        *types.ID      `db:"user_id,omitempty"`
-		Audience      types.ID       `db:"audience_id"`
-		ApplicationID types.ID       `db:"application_id"`
-		Use           oauth.TokenUse `db:"token_use"`
+		ID            types.ID       `json:"id" db:"id"`
+		Issuer        *oauth.URI     `json:"issuer,omitempty" db:"issuer"`
+		Audience      types.ID       `json:"audience_id" db:"audience_id"`
+		ApplicationID types.ID       `json:"application_id" db:"application_id"`
+		UserID        *types.ID      `json:"user_id,omitempty" db:"user_id,omitempty"`
+		Use           oauth.TokenUse `json:"token_use" db:"token_use"`
 		AuthTime      *oauth.Time    `db:"-"`
-		Scope         oauth.Scope    `db:"scope"`
-		CreatedAt     oauth.Time     `db:"created_at"`
-		ExpiresAt     *oauth.Time    `db:"expires_at"`
+		Scope         oauth.Scope    `json:"scope,omitempty" db:"scope"`
+		CreatedAt     oauth.Time     `json:"created_at" db:"created_at"`
+		ExpiresAt     *oauth.Time    `json:"expires_at,omitempty" db:"expires_at"`
 		Revokable     bool           `db:"-"`
-		RevokedAt     *oauth.Time    `db:"revoked_at"`
-		Claims        oauth.Claims   `db:"claims"`
+		RevokedAt     *oauth.Time    `json:"revoked_at,omitempty" db:"revoked_at"`
+		Claims        oauth.Claims   `json:"claims,omitempty" db:"claims"`
 		Bearer        *string        `db:"-"`
 	}
 )

@@ -40,8 +40,9 @@ type (
 		Name            string               `json:"name" db:"name"`
 		Slug            string               `json:"slug" db:"slug"`
 		Description     *string              `json:"description,omitempty" db:"description"`
-		TokenSecrets    []oauth.TokenSecret  `json:"secrets,omitempty" db:"-"`
-		SessionKeys     []SessionKey         `json:"session_keys,omitempty" db:"-"`
+		TokenSecrets    []oauth.TokenSecret  `json:"-" db:"-"`
+		SessionKeys     []SessionKey         `json:"-" db:"-"`
+		Secrets         []*Secret            `json:"secrets,omitempty" db:"-"`
 		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
 		TokenLifetime   time.Duration        `json:"token_lifetime" db:"token_lifetime"`
 		SessionLifetime time.Duration        `json:"session_lifetime,omitempty" db:"session_lifetime"`
@@ -467,11 +468,9 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 		return parseSQLError(err)
 	}
 
-	secrets := make([]*Secret, 0)
-
 	if err := db.SelectContext(
 		ctx,
-		&secrets,
+		&aud.Secrets,
 		`SELECT * 
 		 FROM hiro.secrets 
 		 WHERE audience_id=$1`,
@@ -484,7 +483,7 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 	aud.TokenSecrets = make([]oauth.TokenSecret, 0)
 	aud.SessionKeys = make([]SessionKey, 0)
 
-	for _, s := range secrets {
+	for _, s := range aud.Secrets {
 		if s.Type == SecretTypeToken {
 			if *s.Algorithm == aud.TokenAlgorithm {
 				k, err := TokenSecret(s)
