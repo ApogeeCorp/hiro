@@ -51,8 +51,7 @@ type (
 	// Options provide cookie hashing and encryption
 	Options struct {
 		sessions.Options
-		Hash   [32]byte
-		Block  [32]byte
-		codecs []securecookie.Codec
+		KeyPairs [][]byte
+		codecs   []securecookie.Codec
 	}
 )

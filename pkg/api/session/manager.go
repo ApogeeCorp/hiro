@@ -58,7 +58,7 @@ func (s *Manager) GetStore(ctx context.Context, aud string, sub ...string) (sess
 
 		opts = &o
 
-		opts.codecs = securecookie.CodecsFromPairs(opts.Hash[:], opts.Block[:])
+		opts.codecs = securecookie.CodecsFromPairs(opts.KeyPairs...)
 
 		s.optionCache.Set(aud, opts, cache.DefaultExpiration)
 	}

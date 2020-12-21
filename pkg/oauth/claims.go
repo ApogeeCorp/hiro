@@ -190,7 +190,7 @@ func (c Claims) Merge(claims Claims) Claims {
 func (c Claims) Sign(s TokenSecret) (string, error) {
 	var token *jwt.Token
 
-	switch s.Algorithm {
+	switch s.Algorithm() {
 	case TokenAlgorithmRS256:
 		token = jwt.NewWithClaims(jwt.SigningMethodRS256, c)
 
@@ -202,5 +202,5 @@ func (c Claims) Sign(s TokenSecret) (string, error) {
 
 	}
 
-	return token.SignedString(s.SigningKey())
+	return token.SignedString(s.Key())
 }

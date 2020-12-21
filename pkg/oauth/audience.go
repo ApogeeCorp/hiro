@@ -22,9 +22,16 @@ package oauth
 type (
 	// Audience is the common oauth audience interface
 	Audience interface {
+		// ID returns the audience id
 		ID() string
+
+		// Name returns the audience name
 		Name() string
-		Secret() TokenSecret
+
+		// Secret returns a token secret from the audience, implementations should rotate the secrets
+		Secrets() []TokenSecret
+
+		// Permissions returns the fullset of audience permissions
 		Permissions() Scope
 	}
 )

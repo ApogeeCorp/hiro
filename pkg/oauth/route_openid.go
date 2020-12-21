@@ -142,18 +142,20 @@ func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 		return ErrAudienceNotFound.WithError(err)
 	}
 
-	if aud.Secret().Algorithm != TokenAlgorithmRS256 {
-		return api.ErrBadRequest.WithMessage("audience does not support rsa tokens")
-	}
+	for _, s := range aud.Secrets() {
+		if s.Algorithm() != TokenAlgorithmRS256 {
+			return api.ErrBadRequest.WithMessage("audience does not support rsa tokens")
+		}
 
-	key := jose.JSONWebKey{
-		KeyID:     aud.ID(),
-		Key:       &aud.Secret().key.(*rsa.PrivateKey).PublicKey,
-		Algorithm: aud.Secret().Algorithm.String(),
-		Use:       "sig",
-	}
+		key := jose.JSONWebKey{
+			KeyID:     aud.ID(),
+			Key:       &s.Key().(*rsa.PrivateKey).PublicKey,
+			Algorithm: s.Algorithm().String(),
+			Use:       "sig",
+		}
 
-	keys = append(keys, key)
+		keys = append(keys, key)
+	}
 
 	return api.NewResponse(jose.JSONWebKeySet{
 		Keys: keys,

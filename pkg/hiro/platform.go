@@ -32,12 +32,11 @@ import (
 type (
 	// CreatePlatformInput is the params to the initialize method
 	CreatePlatformInput struct {
-		Name            string             `json:"name"`
-		Permissions     oauth.Scope        `json:"permissions"`
-		Secret          *oauth.TokenSecret `json:"token_secret,omitempty"`
-		SessionLifetime *time.Duration     `json:"session_lifetime,omitempty"`
-		AdminUser       string             `json:"admin"`
-		Update          bool               `json:"update"`
+		Name            string         `json:"name"`
+		Permissions     oauth.Scope    `json:"permissions"`
+		SessionLifetime *time.Duration `json:"session_lifetime,omitempty"`
+		AdminUser       string         `json:"admin"`
+		Update          bool           `json:"update"`
 	}
 )
 
@@ -53,28 +52,35 @@ func (b *Backend) CreatePlatform(ctx context.Context, params CreatePlatformInput
 	}
 
 	if aud == nil {
-		if params.Secret == nil {
-			// generate a new token
-			secret, err := oauth.GenerateTokenSecret(oauth.TokenAlgorithmRS256, time.Hour)
-			if err != nil {
-				return err
-			}
-			params.Secret = secret
-		}
-
 		if params.SessionLifetime == nil {
 			params.SessionLifetime = ptr.Duration(time.Hour * 24 * 30)
 		}
 
 		aud, err = b.AudienceCreate(ctx, AudienceCreateInput{
 			Name:            params.Name,
-			TokenSecret:     params.Secret,
 			SessionLifetime: time.Hour * 24 * 30,
 			Permissions:     append(Scopes, oauth.Scopes...),
+		})
+		// generate a new token secret
+		_, err = b.SecretCreate(context.Background(), SecretCreateInput{
+			AudienceID: aud.ID,
+			Type:       SecretTypeToken,
+			Algorithm:  oauth.TokenAlgorithmRS256,
 		})
 		if err != nil {
 			return err
 		}
+
+		// generate a new session secret
+		_, err = b.SecretCreate(context.Background(), SecretCreateInput{
+			AudienceID: aud.ID,
+			Type:       SecretTypeSession,
+			Algorithm:  oauth.TokenAlgorithmHS256,
+		})
+		if err != nil {
+			return err
+		}
+
 	} else if params.Update {
 		aud, err = b.AudienceUpdate(ctx, AudienceUpdateInput{
 			AudienceID:  aud.ID,

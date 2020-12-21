@@ -89,12 +89,19 @@ func Authorizer(opts ...AuthorizerOption) api.Authorizer {
 			if isQuery && !a.permitQueryBearer {
 				return nil, ErrAccessDenied.WithDetail("access token not permited in query")
 			}
-			token, err = ParseBearer(bearer, func(c Claims) (TokenSecret, error) {
+			token, err = ParseBearer(bearer, func(kid string, c Claims) (TokenSecret, error) {
 				aud, err := ctrl.AudienceGet(ctx, c.Audience())
 				if err != nil {
-					return TokenSecret{}, err
+					return nil, err
 				}
-				return aud.Secret(), nil
+
+				for _, s := range aud.Secrets() {
+					if string(s.ID()) == kid {
+						return s, nil
+					}
+				}
+				
+				return nil, ErrKeyNotFound
 			})
 			if err != nil {
 				return nil, err

@@ -53,6 +53,9 @@ var (
 	// ErrInvalidToken is returned when the token is not valid
 	ErrInvalidToken = ErrAccessDenied.WithDetail("invalid token")
 
+	// ErrKeyNotFound is returned when the authorizer can not find a good key
+	ErrKeyNotFound = ErrAccessDenied.WithDetail("suitable verification key not found")
+
 	// ErrRevokedToken is returned when the token is revoked
 	ErrRevokedToken = ErrAccessDenied.WithDetail("revoked token")
 

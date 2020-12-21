@@ -31,6 +31,9 @@ type (
 		AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error)
 		AudienceDelete(ctx context.Context, params AudienceDeleteInput) error
 
+		SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error)
+		SecretDelete(ctx context.Context, params SecretDeleteInput) error
+
 		// Application interface
 		ApplicationCreate(ctx context.Context, params ApplicationCreateInput) (*Application, error)
 		ApplicationGet(ctx context.Context, params ApplicationGetInput) (*Application, error)

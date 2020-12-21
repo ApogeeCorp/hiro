@@ -35,37 +35,42 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID              types.ID           `json:"id" db:"id"`
-		Name            string             `json:"name" db:"name"`
-		Slug            string             `json:"slug" db:"slug"`
-		Description     *string            `json:"description,omitempty" db:"description"`
-		TokenSecret     *oauth.TokenSecret `json:"token_secret,omitempty" db:"token_secret"`
-		SessionLifetime time.Duration      `json:"session_lifetime,omitempty" db:"session_lifetime"`
-		CreatedAt       time.Time          `json:"created_at" db:"created_at"`
-		UpdatedAt       *time.Time         `json:"updated_at,omitempty" db:"updated_at"`
-		Permissions     oauth.Scope        `json:"permissions,omitempty" db:"-"`
-		Metadata        types.Metadata     `json:"metadata,omitempty" db:"metadata"`
+		ID              types.ID             `json:"id" db:"id"`
+		Name            string               `json:"name" db:"name"`
+		Slug            string               `json:"slug" db:"slug"`
+		Description     *string              `json:"description,omitempty" db:"description"`
+		TokenSecrets    []oauth.TokenSecret  `json:"secrets,omitempty" db:"-"`
+		SessionKeys     []*Secret            `json:"session_keys,omitempty" db:"-"`
+		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
+		TokenLifetime   time.Duration        `json:"token_lifetime" db:"token_lifetime"`
+		SessionLifetime time.Duration        `json:"session_lifetime,omitempty" db:"session_lifetime"`
+		CreatedAt       time.Time            `json:"created_at" db:"created_at"`
+		UpdatedAt       *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
+		Permissions     oauth.Scope          `json:"permissions,omitempty" db:"-"`
+		Metadata        types.Metadata       `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceCreateInput is the audience create request
 	AudienceCreateInput struct {
-		Name            string             `json:"name"`
-		Description     *string            `json:"description,omitempty"`
-		TokenSecret     *oauth.TokenSecret `json:"token,omitempty"`
-		SessionLifetime time.Duration      `json:"session_lifetime,omitempty"`
-		Permissions     oauth.Scope        `json:"permissions,omitempty"`
-		Metadata        types.Metadata     `json:"metadata,omitempty"`
+		Name            string               `json:"name"`
+		Description     *string              `json:"description,omitempty"`
+		TokenLifetime   time.Duration        `json:"token_lifetime"`
+		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm"`
+		SessionLifetime time.Duration        `json:"session_lifetime,omitempty"`
+		Permissions     oauth.Scope          `json:"permissions,omitempty"`
+		Metadata        types.Metadata       `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID      types.ID           `json:"audience_id" structs:"-"`
-		Name            *string            `json:"name" structs:"name,omitempty"`
-		Description     *string            `json:"description,omitempty" structs:"description,omitempty"`
-		TokenSecret     *oauth.TokenSecret `json:"token_secret,omitempty" structs:"-"`
-		SessionLifetime *time.Duration     `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
-		Permissions     oauth.Scope        `json:"permissions,omitempty" structs:"-"`
-		Metadata        types.Metadata     `json:"metadata,omitempty" structs:"-"`
+		AudienceID      types.ID              `json:"audience_id" structs:"-"`
+		Name            *string               `json:"name" structs:"name,omitempty"`
+		Description     *string               `json:"description,omitempty" structs:"description,omitempty"`
+		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
+		TokenLifetime   *time.Duration        `json:"token_lifetime" structs:"token_lifetime,omitempty"`
+		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
+		Permissions     oauth.Scope           `json:"permissions,omitempty" structs:"-"`
+		Metadata        types.Metadata        `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// AudienceGetInput is used to get an audience for the id
@@ -90,8 +95,10 @@ type (
 func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
-		validation.Field(&a.TokenSecret, validation.Required),
 		validation.Field(&a.Permissions, validation.Required),
+		validation.Field(&a.TokenAlgorithm, validation.Required),
+		validation.Field(&a.TokenLifetime, validation.Required),
+		validation.Field(&a.SessionLifetime, validation.Required),
 	)
 }
 
@@ -100,7 +107,7 @@ func (a AudienceUpdateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.AudienceID, validation.Required),
 		validation.Field(&a.Name, validation.NilOrNotEmpty, validation.Length(3, 64)),
-		validation.Field(&a.TokenSecret, validation.NilOrNotEmpty),
+		validation.Field(&a.TokenAlgorithm, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 	)
 }
@@ -144,13 +151,15 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Columns(
 				"name",
 				"description",
-				"token_secret",
+				"token_algorithm",
+				"token_lifetime",
 				"session_lifetime",
 				"metadata").
 			Values(
 				params.Name,
 				null.String(params.Description),
-				params.TokenSecret,
+				params.TokenAlgorithm,
+				params.TokenLifetime,
 				params.SessionLifetime,
 				null.JSON(params.Metadata),
 			).
@@ -198,10 +207,6 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 			PlaceholderFormat(sq.Dollar)
 
 		updates := structs.Map(params)
-
-		if params.TokenSecret != nil {
-			updates["token_secret"] = sq.Expr(fmt.Sprintf("COALESCE(token_secret, '{}') || %s", sq.Placeholders(1)), params.TokenSecret)
-		}
 
 		if len(params.Metadata) > 0 {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
@@ -296,7 +301,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 		return nil, parseSQLError(err)
 	}
 
-	return aud, b.audienceGetPermissions(ctx, aud)
+	return aud, b.audiencePreload(ctx, aud)
 }
 
 // AudienceList returns a listing of audiences
@@ -332,7 +337,7 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 	}
 
 	for _, aud := range auds {
-		if err := b.audienceGetPermissions(ctx, aud); err != nil {
+		if err := b.audiencePreload(ctx, aud); err != nil {
 			return nil, err
 		}
 	}
@@ -357,7 +362,7 @@ func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
-		log.Errorf("failed to delete application %s: %s", params.AudienceID, err)
+		log.Errorf("failed to delete audience %s: %s", params.AudienceID, err)
 		return parseSQLError(err)
 	}
 
@@ -407,8 +412,8 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 	return nil
 }
 
-func (b *Backend) audienceGetPermissions(ctx context.Context, aud *Audience) error {
-	log := b.Log(ctx).WithField("operation", "audienceGetPermissions").WithField("audience", aud.ID)
+func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
+	log := b.Log(ctx).WithField("operation", "audiencePreload").WithField("audience", aud.ID)
 
 	db := b.DB(ctx)
 
@@ -422,6 +427,38 @@ func (b *Backend) audienceGetPermissions(ctx context.Context, aud *Audience) err
 		log.Errorf("failed to load audience permissions %s: %s", aud.ID, err)
 
 		return parseSQLError(err)
+	}
+
+	secrets := make([]*Secret, 0)
+
+	if err := db.SelectContext(
+		ctx,
+		&secrets,
+		`SELECT * 
+		 FROM hiro.secrets 
+		 WHERE audience_id=$1`,
+		aud.ID); err != nil {
+		log.Errorf("failed to load audience secrets %s: %s", aud.ID, err)
+
+		return parseSQLError(err)
+	}
+
+	aud.TokenSecrets = make([]oauth.TokenSecret, 0)
+	aud.SessionKeys = make([]*Secret, 0)
+
+	for _, s := range secrets {
+		if s.Type == SecretTypeToken {
+			if s.Algorithm == aud.TokenAlgorithm {
+				k, err := TokenSecret(s)
+				if err != nil {
+					return err
+				}
+
+				aud.TokenSecrets = append(aud.TokenSecrets, k)
+			}
+		} else {
+			aud.SessionKeys = append(aud.SessionKeys, s)
+		}
 	}
 
 	return nil

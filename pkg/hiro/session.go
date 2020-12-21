@@ -265,10 +265,17 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 			Secure:   true,
 			Path:     "/",
 		},
+		KeyPairs: make([][]byte, 0),
 	}
 
-	copy(opts.Hash[:], ([]byte(aud.ID))[0:32])
-	copy(opts.Block[:], aud.TokenSecret.Bytes()[0:32])
+	for _, k := range aud.SessionKeys {
+		v := []byte(k.Key)
+		if len(v) < 64 {
+			continue
+		}
+
+		opts.KeyPairs = append(opts.KeyPairs, v[0:32], v[32:64])
+	}
 
 	return opts, nil
 }

@@ -322,7 +322,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	token.IssuedAt = oauth.Time(time.Now())
 
 	if token.ExpiresAt == nil {
-		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
+		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenLifetime)).Ptr()
 	}
 
 	if token.Claims == nil {
@@ -332,7 +332,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	if !token.Revokable {
 		// ensure revokable tokens have a valid time
 		if token.ExpiresAt.Time().IsZero() {
-			token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenSecret.Lifetime)).Ptr()
+			token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenLifetime)).Ptr()
 		}
 
 		log.Debugf("token %s [%s] initialized", token.ID, token.Use)
@@ -814,8 +814,15 @@ func (a oauthAudience) Name() string {
 	return a.Audience.Name
 }
 
-func (a oauthAudience) Secret() oauth.TokenSecret {
-	return *a.TokenSecret
+func (a oauthAudience) Secrets() []oauth.TokenSecret {
+	rval := make([]oauth.TokenSecret, 0)
+	for _, s := range a.TokenSecrets {
+		if s.Algorithm() == oauth.TokenAlgorithmRS256 {
+			rval = append(rval, s)
+		}
+	}
+
+	return rval
 }
 
 func (a oauthAudience) Permissions() oauth.Scope {

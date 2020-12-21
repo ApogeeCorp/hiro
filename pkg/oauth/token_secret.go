@@ -20,29 +20,19 @@
 package oauth
 
 import (
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"database/sql/driver"
-	"encoding/base64"
-	"encoding/json"
-	"encoding/pem"
-	"errors"
-	"fmt"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
-	// TokenSecret is a token secret
-	TokenSecret struct {
-		Algorithm TokenAlgorithm `json:"algorithm,omitempty"`
-		RawKey    string         `json:"key,omitempty"`
-		Lifetime  time.Duration  `json:"lifetime"`
-		key       interface{}
+	// TokenSecret is a token secret interface
+	TokenSecret interface {
+		ID() types.ID
+		Algorithm() TokenAlgorithm
+		Key() interface{}
+		ExpiresAt() *time.Time
 	}
 
 	// TokenAlgorithm is a token algorithm type
@@ -70,202 +60,4 @@ func (a TokenAlgorithm) Validate() error {
 
 func (a TokenAlgorithm) String() string {
 	return string(a)
-}
-
-// GenerateTokenSecret generates an RSA256 token and returns the encoded string value
-func GenerateTokenSecret(alg TokenAlgorithm, lifetime time.Duration) (*TokenSecret, error) {
-	token := &TokenSecret{
-		Algorithm: alg,
-		Lifetime:  lifetime,
-	}
-
-	switch alg {
-	case TokenAlgorithmHS256:
-		key := make([]byte, 32)
-		if _, err := rand.Read(key); err != nil {
-			return nil, fmt.Errorf("%w: failed to generate random token", err)
-		}
-		token.key = key
-
-	case TokenAlgorithmRS256:
-		reader := rand.Reader
-		key, err := rsa.GenerateKey(reader, 2048)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to generate rsa key", err)
-		}
-		token.key = key
-
-	default:
-		return nil, fmt.Errorf("unexpected token algorithm %s", alg)
-	}
-
-	return token, token.Validate()
-}
-
-// NewTokenSecret returns a token secret from the algorithm and key
-func NewTokenSecret(alg TokenAlgorithm, key interface{}, lifetime time.Duration) (*TokenSecret, error) {
-	token := &TokenSecret{
-		Algorithm: alg,
-		Lifetime:  lifetime,
-		key:       key,
-	}
-
-	if alg == TokenAlgorithmRS256 {
-		if data, ok := key.([]byte); ok {
-			// parse the bytes
-			key, err := jwt.ParseRSAPrivateKeyFromPEM(data)
-			if err != nil {
-				return nil, err
-			}
-
-			token.key = key
-		}
-	}
-
-	return token, token.Validate()
-}
-
-// Validate handles validation of the TokenSecret struct
-func (t TokenSecret) Validate() error {
-	if err := (validation.Errors{
-		"algorithm": validation.Validate(t.Algorithm),
-		"lifetime":  validation.Validate(t.Lifetime, validation.Required, validation.Min(TokenLifetimeMinimum)),
-	}).Filter(); err != nil {
-		return err
-	}
-
-	switch t.Algorithm {
-	case TokenAlgorithmHS256:
-		if key, ok := t.key.([]byte); !ok || len(key) == 0 {
-			return fmt.Errorf("HS256 requires a []byte key")
-		}
-
-	case TokenAlgorithmRS256:
-		if key, ok := t.key.(*rsa.PrivateKey); !ok {
-			if err := key.Validate(); err != nil {
-				return fmt.Errorf("%w: rsa key validation failed", err)
-			}
-
-			return fmt.Errorf("RS256 requires an *rsa.PrivateKey key")
-		}
-	}
-
-	return nil
-}
-
-// MarshalJSON marshals the token to json
-func (t TokenSecret) MarshalJSON() ([]byte, error) {
-	val := struct {
-		Algorithm TokenAlgorithm `json:"algorithm,omitempty"`
-		Key       string         `json:"key,omitempty"`
-		Lifetime  time.Duration  `json:"lifetime"`
-	}{
-		Algorithm: t.Algorithm,
-		Key:       base64.RawURLEncoding.EncodeToString(t.Bytes()),
-		Lifetime:  t.Lifetime,
-	}
-
-	return json.Marshal(val)
-}
-
-// UnmarshalJSON unmarshals the token from json
-func (t *TokenSecret) UnmarshalJSON(data []byte) error {
-	val := struct {
-		Algorithm  TokenAlgorithm `json:"algorithm"`
-		EncodedKey string         `json:"key"`
-		Lifetime   time.Duration  `json:"lifetime"`
-	}{}
-
-	if err := json.Unmarshal(data, &val); err != nil {
-		return err
-	}
-
-	t.Algorithm = val.Algorithm
-	t.RawKey = val.EncodedKey
-	t.Lifetime = val.Lifetime
-
-	if err := t.Algorithm.Validate(); err != nil {
-		return err
-	}
-
-	key, err := base64.RawURLEncoding.DecodeString(t.RawKey)
-	if err != nil {
-		return fmt.Errorf("%w: failed to decode rsa token secret", err)
-	}
-
-	switch t.Algorithm {
-	case TokenAlgorithmHS256:
-		t.key = key
-
-	case TokenAlgorithmRS256:
-		if t.key, err = jwt.ParseRSAPrivateKeyFromPEM(key); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Scan implements the Scanner interface.
-func (t *TokenSecret) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if err := json.Unmarshal(b, &t); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Value implements the driver Valuer interface.
-func (t TokenSecret) Value() (driver.Value, error) {
-	return json.Marshal(t)
-}
-
-// Bytes returns the token as bytes
-func (t TokenSecret) Bytes() []byte {
-	switch key := t.key.(type) {
-	case *rsa.PrivateKey:
-		privOut := new(bytes.Buffer)
-		privKey := &pem.Block{
-			Type:  "PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
-		}
-
-		if err := pem.Encode(privOut, privKey); err == nil {
-			return privOut.Bytes()
-		}
-
-	case []byte:
-		return key
-	}
-
-	return []byte{}
-}
-
-// SigningKey returns the signing key
-func (t TokenSecret) SigningKey() interface{} {
-	switch t.Algorithm {
-	case TokenAlgorithmHS256:
-		return t.key.([]byte)
-	case TokenAlgorithmRS256:
-		return t.key.(*rsa.PrivateKey)
-	}
-
-	return nil
-}
-
-// VerifyKey returns the verification key
-func (t TokenSecret) VerifyKey() interface{} {
-	switch t.Algorithm {
-	case TokenAlgorithmHS256:
-		return t.key
-	case TokenAlgorithmRS256:
-		return &(t.key.(*rsa.PrivateKey).PublicKey)
-	}
-
-	return nil
 }

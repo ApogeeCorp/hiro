@@ -22,6 +22,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"path"
 	"time"
@@ -31,6 +32,10 @@ import (
 	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 
 type (
 	// TokenIntrospectParams is the parameters for token introspect
@@ -206,7 +211,12 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			tokens = append(tokens, id)
 		}
 
-		bearer, err = NewBearer(aud.Secret(), tokens...)
+		secrets := aud.Secrets()
+		if len(secrets) == 0 {
+			return ErrKeyNotFound
+		}
+
+		bearer, err = NewBearer(secrets[rand.Intn(len(secrets))], tokens...)
 		if err != nil {
 			return ErrAccessDenied.WithError(err)
 		}
@@ -267,12 +277,19 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 
 	api.RequirePrincipal(ctx, &token)
 
-	t, err := ParseBearer(params.Token, func(c Claims) (TokenSecret, error) {
+	t, err := ParseBearer(params.Token, func(kid string, c Claims) (TokenSecret, error) {
 		aud, err := ctrl.AudienceGet(ctx, c.Audience())
 		if err != nil {
-			return TokenSecret{}, err
+			return nil, err
 		}
-		return aud.Secret(), nil
+
+		for _, s := range aud.Secrets() {
+			if string(s.ID()) == kid {
+				return s, nil
+			}
+		}
+
+		return nil, ErrKeyNotFound
 	})
 	if err != nil {
 		return api.Error(err)

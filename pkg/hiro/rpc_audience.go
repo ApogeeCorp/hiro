@@ -21,7 +21,6 @@ package hiro
 
 import (
 	"context"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 	"github.com/ModelRocket/hiro/pkg/ptr"
@@ -29,7 +28,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
 
 // AudienceGet handles the audience get rpc request
 func (s *RPCServer) AudienceGet(ctx context.Context, req *pb.AudienceGetRequest) (*pb.Audience, error) {
@@ -55,13 +53,6 @@ func (s *RPCServer) AudienceGet(ctx context.Context, req *pb.AudienceGetRequest)
 		CreatedAt:   timestamppb.New(aud.CreatedAt),
 		UpdatedAt:   timestamppb.New(safe.Time(*aud.UpdatedAt, aud.CreatedAt)),
 		Permissions: aud.Permissions,
-	}
-
-	if aud.TokenSecret != nil {
-		rval.TokenSecret = &pb.Audience_Token{
-			Algorithm: string(aud.TokenSecret.Algorithm),
-			Lifetime:  int64(aud.TokenSecret.Lifetime / time.Second),
-		}
 	}
 
 	if len(aud.Metadata) > 0 {

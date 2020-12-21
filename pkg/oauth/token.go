@@ -170,18 +170,18 @@ func (t Token) AuthClaims() api.Claims {
 }
 
 // ParseBearer parses the jwt token into claims
-func ParseBearer(bearer string, keyFn func(c Claims) (TokenSecret, error)) (Token, error) {
+func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, error)) (Token, error) {
 	var c Claims
 
 	token, err := jwt.Parse(bearer, func(token *jwt.Token) (interface{}, error) {
 		c = Claims(token.Claims.(jwt.MapClaims))
 
-		secret, err := keyFn(c)
+		secret, err := keyFn(token.Header["kid"].(string), c)
 		if err != nil {
 			return nil, err
 		}
 
-		return secret.VerifyKey(), nil
+		return secret.Key(), nil
 	})
 	if err != nil {
 		return Token{}, ErrInvalidToken.WithDetail(err)

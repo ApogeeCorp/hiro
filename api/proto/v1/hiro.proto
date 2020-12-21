@@ -19,20 +19,14 @@ message AudienceGetRequest {
 }
 
 message Audience {
-    message Token {
-        string algorithm = 1;
-        int64 lifetime = 2;
-        string key = 3;
-    }
 
     string id = 1;
     string name = 2;
     string description = 3;
-    Token token_secret = 4;
-    google.protobuf.Timestamp created_at = 5;
-    google.protobuf.Timestamp updated_at = 6;
-    repeated string permissions = 7;
-    google.protobuf.Struct metadata = 8;
-    int64 session_lifetime = 9;
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp updated_at = 5;
+    repeated string permissions = 6;
+    google.protobuf.Struct metadata = 7;
+    int64 session_lifetime = 8;
 }
 
