@@ -22,12 +22,15 @@ package hiro
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/env"
 	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -135,14 +138,52 @@ func New(opts ...BackendOption) (*Backend, error) {
 	}
 
 	if b.initialize {
-		if err := b.CreatePlatform(context.Background(), CreatePlatformInput{
-			Name:        "hiro",
-			Update:      true,
-			Permissions: append(Scopes, oauth.Scopes...),
-			AdminUser:   "admin",
-		}); err != nil {
+		aud, err := b.AudienceCreate(context.Background(), AudienceCreateInput{
+			Name:            "hiro",
+			TokenAlgorithm:  oauth.TokenAlgorithmRS256,
+			TokenLifetime:   time.Hour,
+			SessionLifetime: time.Hour * 24 * 30,
+			Permissions:     append(Scopes, oauth.Scopes...),
+		})
+		if err != nil && !errors.Is(err, ErrDuplicateObject) {
 			return nil, err
 		}
+
+		b.log.Infof("audience hiro [%s] initialized", aud.ID)
+
+		if len(aud.TokenSecrets) == 0 {
+			if _, err := b.SecretCreate(context.Background(), SecretCreateInput{
+				AudienceID: aud.ID,
+				Type:       SecretTypeToken,
+				Algorithm:  oauth.TokenAlgorithmRS256.Ptr(),
+			}); err != nil {
+				return nil, fmt.Errorf("%w: failed to create audience secret", err)
+			}
+		}
+
+		if len(aud.SessionKeys) == 0 {
+			if _, err := b.SecretCreate(context.Background(), SecretCreateInput{
+				AudienceID: aud.ID,
+				Type:       SecretTypeSession,
+			}); err != nil {
+				return nil, fmt.Errorf("%w: failed to create audience secret", err)
+			}
+		}
+
+		app, err := b.ApplicationCreate(context.Background(), ApplicationCreateInput{
+			Name: "hiro:app",
+			Permissions: oauth.ScopeSet{
+				"hiro": append(Scopes, oauth.Scopes...),
+			},
+			Grants: oauth.Grants{
+				"hiro": {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+			},
+		})
+		if err != nil && !errors.Is(err, ErrDuplicateObject) {
+			return nil, err
+		}
+
+		b.log.Infof("application hiro:app initialized, client_id = %q, client_secret=%q", app.ID, safe.String(app.SecretKey))
 	}
 
 	return b, nil

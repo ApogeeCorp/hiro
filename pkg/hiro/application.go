@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,10 +69,17 @@ type (
 		Name          *string           `json:"name" structs:"name,omitempty"`
 		Description   *string           `json:"description,omitempty" structs:"description,omitempty"`
 		Type          *oauth.ClientType `json:"type" structs:"type,omitempty"`
-		Permissions   oauth.ScopeSet    `json:"permissions,omitempty" structs:"-"`
+		Permissions   *PermissionUpdate `json:"permissions,omitempty" structs:"-"`
 		Grants        oauth.Grants      `json:"grants,omitempty" structs:"-"`
 		URIs          oauth.URIList     `json:"uris,omitempty" structs:"-"`
 		Metadata      types.Metadata    `json:"metadata,omitempty" structs:"metadata,omitempty"`
+	}
+
+	// PermissionUpdate is used to modify permissions
+	PermissionUpdate struct {
+		Add       oauth.ScopeSet `json:"add,omitempty"`
+		Remove    oauth.ScopeSet `json:"remove,omitempty"`
+		Overwrite bool           `json:"overwrite"`
 	}
 
 	// ApplicationGetInput is used to get an application for the id
@@ -96,7 +104,7 @@ type (
 
 	applicationPatchInput struct {
 		Application *Application
-		Permissions oauth.ScopeSet
+		Permissions *PermissionUpdate
 		Grants      oauth.Grants
 	}
 )
@@ -194,10 +202,23 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 		if err := tx.GetContext(ctx, &app, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			err = parseSQLError(err)
+
+			if errors.Is(err, ErrDuplicateObject) {
+				a, err := b.ApplicationGet(ctx, ApplicationGetInput{
+					Name: &params.Name,
+				})
+				if err != nil {
+					return err
+				}
+
+				app = *a
+			}
+
+			return err
 		}
 
-		return b.applicationPatch(ctx, applicationPatchInput{&app, params.Permissions, params.Grants})
+		return b.applicationPatch(ctx, applicationPatchInput{&app, &PermissionUpdate{Add: params.Permissions}, params.Grants})
 	}); err != nil {
 		return nil, err
 	}
@@ -373,7 +394,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 
 	db := b.DB(ctx)
 
-	for audID, perms := range params.Permissions {
+	for audID, perms := range params.Permissions.Add {
 		if !types.ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
@@ -389,18 +410,20 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			audID = aud.ID.String()
 		}
 
-		if _, err := sq.Delete("hiro.application_permissions").
-			Where(
-				sq.Eq{
-					"audience_id":    types.ID(audID),
-					"application_id": params.Application.ID,
-				}).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for audience: %s", audID, err)
+		if params.Permissions.Overwrite {
+			if _, err := sq.Delete("hiro.application_permissions").
+				Where(
+					sq.Eq{
+						"audience_id":    types.ID(audID),
+						"application_id": params.Application.ID,
+					}).
+				PlaceholderFormat(sq.Dollar).
+				RunWith(db).
+				ExecContext(ctx); err != nil {
+				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-			return parseSQLError(err)
+				return parseSQLError(err)
+			}
 		}
 
 		for _, p := range perms {
@@ -421,8 +444,40 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				return parseSQLError(err)
 			}
 		}
+	}
 
-		params.Application.Permissions = params.Permissions
+	for audID, perms := range params.Permissions.Add {
+		if !types.ID(audID).Valid() {
+			aud, err := b.AudienceGet(ctx, AudienceGetInput{
+				Name: &audID,
+			})
+			if err != nil {
+				err = fmt.Errorf("%w: lookup for audience named %s failed", err, audID)
+
+				log.Error(err.Error())
+
+				return err
+			}
+
+			audID = aud.ID.String()
+		}
+
+		for _, p := range perms {
+			if _, err := sq.Delete("hiro.application_permissions").
+				Where(
+					sq.Eq{
+						"audience_id":    types.ID(audID),
+						"application_id": params.Application.ID,
+						"permission":     p,
+					}).
+				PlaceholderFormat(sq.Dollar).
+				RunWith(db).
+				ExecContext(ctx); err != nil {
+				log.Errorf("failed to delete permissions for audience: %s", audID, err)
+
+				return parseSQLError(err)
+			}
+		}
 	}
 
 	for audID, grants := range params.Grants {

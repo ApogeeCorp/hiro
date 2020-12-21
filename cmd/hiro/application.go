@@ -253,8 +253,11 @@ func applicationUpdate(c *cli.Context) error {
 
 	params := hiro.ApplicationUpdateInput{
 		ApplicationID: types.ID(c.String("id")),
-		Permissions:   oauth.ScopeSet(c.Generic("permissions").(permArg)),
-		Grants:        oauth.Grants(c.Generic("grants").(grantArg)),
+		Permissions: &hiro.PermissionUpdate{
+			Add:       oauth.ScopeSet(c.Generic("permissions").(permArg)),
+			Overwrite: true,
+		},
+		Grants: oauth.Grants(c.Generic("grants").(grantArg)),
 	}
 
 	if name := c.String("name"); name != "" {

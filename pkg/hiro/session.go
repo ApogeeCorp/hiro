@@ -49,6 +49,9 @@ type (
 		ExpiresAt  time.Time  `db:"expires_at"`
 		RevokedAt  *time.Time `db:"revoked_at,omitempty"`
 	}
+
+	// SessionKey is a wrapper around a token secret
+	SessionKey Secret
 )
 
 // SessionController returns an oauth controller from a hiro.Backend
@@ -269,12 +272,8 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 	}
 
 	for _, k := range aud.SessionKeys {
-		v := []byte(k.Key)
-		if len(v) < 64 {
-			continue
-		}
 
-		opts.KeyPairs = append(opts.KeyPairs, v[0:32], v[32:64])
+		opts.KeyPairs = append(opts.KeyPairs, k.Hash(), k.Block())
 	}
 
 	return opts, nil
@@ -300,4 +299,18 @@ func (s *sessionController) SessionCleanup(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// Hash returns the session key hash
+func (s SessionKey) Hash() []byte {
+	v := []byte(s.Key)
+
+	return v[0:32]
+}
+
+// Block returns the session key block
+func (s SessionKey) Block() []byte {
+	v := []byte(s.Key)
+
+	return v[32:]
 }

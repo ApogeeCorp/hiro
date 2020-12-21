@@ -42,22 +42,22 @@ import (
 type (
 	// Secret is a secret key implemenation of oauth.TokenSecret
 	Secret struct {
-		ID         types.ID             `json:"id" db:"id"`
-		Type       SecretType           `json:"type"`
-		AudienceID types.ID             `json:"audience_id" db:"audience_id"`
-		Algorithm  oauth.TokenAlgorithm `json:"algorithm" db:"algorithm"`
-		Key        string               `json:"key" db:"key"`
-		CreatedAt  time.Time            `json:"created_at" db:"created_at"`
-		ExpiresAt  *time.Time           `json:"expires_at,omitempty" db:"expires_at"`
+		ID         types.ID              `json:"id" db:"id"`
+		Type       SecretType            `json:"type"`
+		AudienceID types.ID              `json:"audience_id" db:"audience_id"`
+		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty" db:"algorithm"`
+		Key        string                `json:"key" db:"key"`
+		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
+		ExpiresAt  *time.Time            `json:"expires_at,omitempty" db:"expires_at"`
 	}
 
 	// SecretCreateInput is the params used to create a secret
 	SecretCreateInput struct {
-		AudienceID types.ID             `json:"audience_id"`
-		Type       SecretType           `json:"type"`
-		Algorithm  oauth.TokenAlgorithm `json:"algorithm"`
-		Key        *string              `json:"key,omitempty"`
-		ExpiresAt  *time.Time           `json:"expires_at,omitempty"`
+		AudienceID types.ID              `json:"audience_id"`
+		Type       SecretType            `json:"type"`
+		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty"`
+		Key        *string               `json:"key,omitempty"`
+		ExpiresAt  *time.Time            `json:"expires_at,omitempty"`
 	}
 
 	// SecretDeleteInput is the secret delete request input
@@ -87,7 +87,7 @@ func (s SecretCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&s,
 		validation.Field(&s.AudienceID, validation.Required),
 		validation.Field(&s.Type, validation.Required, validation.In(SecretTypeToken, SecretTypeSession)),
-		validation.Field(&s.Algorithm, validation.Required),
+		validation.Field(&s.Algorithm, validation.When(s.Type == SecretTypeToken, validation.Required).Else(validation.Nil)),
 	)
 }
 
@@ -112,7 +112,7 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 
 	if params.Type == SecretTypeToken {
 		if params.Key == nil {
-			switch params.Algorithm {
+			switch *params.Algorithm {
 			case oauth.TokenAlgorithmHS256:
 				key := make([]byte, 32)
 				if _, err := rand.Read(key); err != nil {
@@ -148,7 +148,7 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 				return nil, err
 			}
 
-			switch params.Algorithm {
+			switch *params.Algorithm {
 			case oauth.TokenAlgorithmHS256:
 				if len(data) < 32 {
 					return nil, errors.New("invalid hmac key length, must be greater than 32 bytes")
@@ -251,7 +251,7 @@ func (s oauthSecret) ID() types.ID {
 }
 
 func (s oauthSecret) Algorithm() oauth.TokenAlgorithm {
-	return s.Secret.Algorithm
+	return *s.Secret.Algorithm
 }
 
 func (s oauthSecret) Key() interface{} {
@@ -271,7 +271,7 @@ func TokenSecret(s *Secret) (oauth.TokenSecret, error) {
 		return nil, fmt.Errorf("%w: failed to decode key data", err)
 	}
 
-	switch s.Algorithm {
+	switch *s.Algorithm {
 	case oauth.TokenAlgorithmHS256:
 		key = data
 

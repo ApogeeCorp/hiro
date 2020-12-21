@@ -21,6 +21,7 @@ package hiro
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -40,7 +41,7 @@ type (
 		Slug            string               `json:"slug" db:"slug"`
 		Description     *string              `json:"description,omitempty" db:"description"`
 		TokenSecrets    []oauth.TokenSecret  `json:"secrets,omitempty" db:"-"`
-		SessionKeys     []*Secret            `json:"session_keys,omitempty" db:"-"`
+		SessionKeys     []SessionKey         `json:"session_keys,omitempty" db:"-"`
 		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
 		TokenLifetime   time.Duration        `json:"token_lifetime" db:"token_lifetime"`
 		SessionLifetime time.Duration        `json:"session_lifetime,omitempty" db:"session_lifetime"`
@@ -175,7 +176,20 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 		if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			err = parseSQLError(err)
+
+			if errors.Is(err, ErrDuplicateObject) {
+				a, err := b.AudienceGet(ctx, AudienceGetInput{
+					Name: &params.Name,
+				})
+				if err != nil {
+					return err
+				}
+
+				aud = *a
+			}
+
+			return err
 		}
 
 		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)
@@ -245,7 +259,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 
 	log.Debugf("audience %s updated", aud.Name)
 
-	return &aud, nil
+	return &aud, b.audiencePreload(ctx, &aud)
 }
 
 // AudienceGet gets an audience by id and optionally preloads child objects
@@ -444,11 +458,11 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 	}
 
 	aud.TokenSecrets = make([]oauth.TokenSecret, 0)
-	aud.SessionKeys = make([]*Secret, 0)
+	aud.SessionKeys = make([]SessionKey, 0)
 
 	for _, s := range secrets {
 		if s.Type == SecretTypeToken {
-			if s.Algorithm == aud.TokenAlgorithm {
+			if *s.Algorithm == aud.TokenAlgorithm {
 				k, err := TokenSecret(s)
 				if err != nil {
 					return err
@@ -457,7 +471,7 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 				aud.TokenSecrets = append(aud.TokenSecrets, k)
 			}
 		} else {
-			aud.SessionKeys = append(aud.SessionKeys, s)
+			aud.SessionKeys = append(aud.SessionKeys, SessionKey(*s))
 		}
 	}
 

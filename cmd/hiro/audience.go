@@ -163,7 +163,7 @@ func audienceCreate(c *cli.Context) error {
 		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 			AudienceID: aud.ID,
 			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256,
+			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
 			Key:        ptr.String(m),
 		})
 	} else if r := c.Path("token_rsa"); r != "" {
@@ -175,14 +175,14 @@ func audienceCreate(c *cli.Context) error {
 		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 			AudienceID: aud.ID,
 			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmRS256,
+			Algorithm:  oauth.TokenAlgorithmRS256.Ptr(),
 			Key:        ptr.String(base64.RawURLEncoding.EncodeToString(data)),
 		})
 	} else {
 		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 			AudienceID: aud.ID,
 			Type:       hiro.SecretTypeToken,
-			Algorithm:  aud.TokenAlgorithm,
+			Algorithm:  aud.TokenAlgorithm.Ptr(),
 		})
 	}
 
@@ -190,7 +190,7 @@ func audienceCreate(c *cli.Context) error {
 	_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 		AudienceID: aud.ID,
 		Type:       hiro.SecretTypeSession,
-		Algorithm:  oauth.TokenAlgorithmHS256,
+		Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
 	})
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func audienceUpdate(c *cli.Context) error {
 		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 			AudienceID: aud.ID,
 			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256,
+			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
 			Key:        ptr.String(m),
 		})
 	} else if r := c.Path("token_rsa"); r != "" {
@@ -330,7 +330,7 @@ func audienceUpdate(c *cli.Context) error {
 		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
 			AudienceID: aud.ID,
 			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256,
+			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
 			Key:        ptr.String(base64.RawURLEncoding.EncodeToString(data)),
 		})
 	}

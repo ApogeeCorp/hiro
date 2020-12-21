@@ -61,3 +61,8 @@ func (a TokenAlgorithm) Validate() error {
 func (a TokenAlgorithm) String() string {
 	return string(a)
 }
+
+// Ptr returns a pointer to the algorithm
+func (a TokenAlgorithm) Ptr() *TokenAlgorithm {
+	return &a
+}
