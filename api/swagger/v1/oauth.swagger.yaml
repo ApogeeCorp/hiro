@@ -15,7 +15,6 @@ schemes:
   - "https"
 produces:
   - "application/json"
-  - "application/xml"
 consumes:
   - "application/json"
   - "application/x-www-form-urlencoded"
@@ -45,7 +44,9 @@ info:
     ```
     {
       "message": "object not found",
-      "detail": "user does not exist",
+      "detail": [
+        "user does not exist"
+      ]
     }
     ```
 
@@ -61,7 +62,7 @@ tags:
       API Operations
 
 securityDefinitions:
-  OAuth:
+  oauth:
     type: "oauth2"
     flow: "accessCode"
     authorizationUrl: "https://auth.server.local/oauth/authorize"
@@ -274,7 +275,7 @@ definitions:
       additionalProperties:
         type: "object"
 
-  ErrorResponse:
+  Error:
     description: "A common error response"
     type: "object"
     required: ["message"]
@@ -284,8 +285,10 @@ definitions:
         description: "The error message"
         x-nullable: false
       detail:
-        type: "string"
+        type: "array"
         description: "The error detail"
+        items:
+          type: "string"
 
 paths:
   /login:
@@ -319,26 +322,15 @@ paths:
           required: true
       responses:
         204:
-          description: "no content"
+          $ref: "#/responses/NoContent"
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /logout:
     get:
@@ -366,20 +358,11 @@ paths:
           in: "query"
       responses:
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /session:
     get:
@@ -404,26 +387,17 @@ paths:
           type: "string"
       responses:
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["session"]
+        - oauth: ["session"]
 
   /signup:
     post:
@@ -463,24 +437,13 @@ paths:
           required: true
       responses:
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /verify:
     get:
@@ -501,26 +464,17 @@ paths:
         204:
           description: "no content"
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["openid", "profile"]
+        - oauth: ["openid", "profile"]
     post:
       description: |
         Send's a verification token to the current user for the specified contact method
@@ -538,19 +492,15 @@ paths:
         204:
           description: "no content"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["openid", "profile"]
+        - oauth: ["openid", "profile"]
 
   /password:
     post:
@@ -605,24 +555,13 @@ paths:
           required: true
       responses:
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"        
+          $ref: "#/responses/ServerError"        
     put:
       description: "Set a user's password"
       operationId: "PasswordUpdate"
@@ -648,26 +587,17 @@ paths:
         204:
           description: "no content"
         302:
-          description: "found"
-          headers:
-            Location:
-              description: "The redirect URI for the auth request"
-              type: "string"
-              format: "uri"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["password"]
+        - oauth: ["password"]
 
   /authorize:
     get:
@@ -741,23 +671,13 @@ paths:
           required: true
       responses:
         302:
-          description: "found"
-          headers:
-            Location:
-              type: "string"
-              description: "The location redirect header"
+          $ref: "#/responses/Found"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /token-introspect:
     get:
@@ -777,19 +697,15 @@ paths:
           schema:
             type: "string"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["token:read"]
+        - oauth: ["token:read"]
 
   /token-revoke:
     get:
@@ -809,19 +725,15 @@ paths:
           schema:
             type: "string"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["token:revoke"]
+        - oauth: ["token:revoke"]
 
   /token:
     post:
@@ -877,31 +789,15 @@ paths:
           type: "string"
           description: "The refresh token"
           in: "formData"
-        - name: "refresh_verifier"
-          type: "string"
-          description: |
-            Verifier nonce used to validate a refresh token request. This is the base64
-            raw url encoded value of the original nonce generated by the client.
-          in: "formData"
-        - name: "refresh_nonce"
-          type: "string"
-          description: |
-            The new refresh token nonce is the S256 of a client generated value as defined
-            in the PKCE standard, similar to that used in the authorization flow.
-
-            When requesting `offline_access` the client will generate a nonce value and
-            pass the base64 raw url encoded value of the S256 of this nonce.
-
-            Each subsequent `offline_access` request in the `refresh_token` flow requires
-            a new verifier.
-          in: "formData"
         - name: "code"
           type: "string"
           description: "The authorization code"
           in: "formData"
         - name: "code_verifier"
           type: "string"
-          description: "The PKCE code verifier"
+          description: |
+            The PKCE code verifier required for authorization_code and refresh_token flows 
+            when the refresh_token originated from an authorization_code.
           in: "formData"
       responses:
         200:
@@ -909,17 +805,11 @@ paths:
           schema:
             $ref: "#/definitions/BearerToken"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /openid/{audience_id}/.well-known/openid-configuration:
     parameters:
@@ -939,9 +829,7 @@ paths:
           schema:
             type: "string"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /openid/{audience_id}/.well-known/jwks.json:
     parameters:
@@ -961,9 +849,7 @@ paths:
           schema:
             type: "string"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
 
   /userinfo:
     get:
@@ -977,19 +863,15 @@ paths:
           schema:
             $ref: "#/definitions/Profile"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["openid", "profile"]
+        - oauth: ["openid", "profile"]
     patch:
       description: |
         Update the user's profile
@@ -1005,19 +887,15 @@ paths:
         204:
           description: "no content"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
       security:
-        - OAuth: ["openid", "profile"]
+        - oauth: ["openid", "profile"]
 
   /swagger.{format}:
     parameters:
@@ -1046,14 +924,48 @@ paths:
           schema:
             type: "string"
         400:
-          description: "bad parameter"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "unauthorized"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/BadRequest"
         500:
-          description: "internal server error"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+          $ref: "#/responses/ServerError"
+
+responses:
+  NoContent:
+    description: "no content"
+    headers:
+      X-Query-Count:
+        type: "integer"
+        description: "Used for count method to return the count requested"
+  Found:
+    description: "found"
+    headers:
+      Location:
+        type: "string"
+        description: "The redirect location uri"
+  BadRequest:
+    description: "bad request"
+    schema:
+      $ref: "#/definitions/Error"
+  Unauthorized:
+    description: "access denied"
+    schema:
+      $ref: "#/definitions/Error"
+  Forbidden:
+    description: "forbidden"
+    schema:
+      $ref: "#/definitions/Error"
+  NotFound:
+    description: "not found"
+    schema:
+      $ref: "#/definitions/Error"
+  Conflict:
+    description: "conflict"
+    schema:
+      $ref: "#/definitions/Error"
+  ServerError:
+    description: "server error"
+    schema:
+      $ref: "#/definitions/Error"
+  Unacceptable:
+    description: "unacceptable"
+    schema:
+      $ref: "#/definitions/Error"

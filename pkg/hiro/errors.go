@@ -24,27 +24,28 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/lib/pq"
 )
 
 var (
 	// ErrDuplicateObject is returned where there is unique constraint violation
-	ErrDuplicateObject = errors.New("duplicate object")
+	ErrDuplicateObject = api.ErrConflict
 
 	// ErrInputValidation is returned when a object validation fails
-	ErrInputValidation = errors.New("request validation")
+	ErrInputValidation = api.ErrBadRequest
 
 	// ErrNotFound is returned when an object is not found
-	ErrNotFound = errors.New("not found")
+	ErrNotFound = api.ErrNotFound
 
 	// ErrAuthFailed is returned when user authentication fails to due to password mistmatch
-	ErrAuthFailed = errors.New("authentication failed")
+	ErrAuthFailed = api.ErrUnauthorized
 
 	// ErrDatabaseTimeout is returned when the database cannot be reached
-	ErrDatabaseTimeout = errors.New("database connection timeout")
+	ErrDatabaseTimeout = api.ErrServerError.WithDetail("database connection timeout")
 
 	// ErrContextNotFound is returned when hiro is not in the context
-	ErrContextNotFound = errors.New("hiro not found in context")
+	ErrContextNotFound = api.ErrServerError.WithDetail("hiro not found in context")
 )
 
 // parseSQLError provides cleaner errors for database issues

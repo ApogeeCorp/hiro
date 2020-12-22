@@ -24,13 +24,14 @@ import "context"
 type (
 	// Controller is the hiro API controller interface
 	Controller interface {
-		// Audience interfce
+		// Audience interface
 		AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error)
 		AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error)
 		AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error)
 		AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error)
 		AudienceDelete(ctx context.Context, params AudienceDeleteInput) error
 
+		// Secrets interface
 		SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error)
 		SecretDelete(ctx context.Context, params SecretDeleteInput) error
 

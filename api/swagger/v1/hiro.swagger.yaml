@@ -15,7 +15,6 @@ schemes:
   - "https"
 produces:
   - "application/json"
-  - "application/xml"
 consumes:
   - "application/json"
   - "application/x-www-form-urlencoded"
@@ -39,7 +38,9 @@ info:
     ```
     {
       "message": "object not found",
-      "detail": "user does not exist",
+      "detail": [
+        "user does not exist"
+      ]
     }
     ```
 
@@ -47,9 +48,17 @@ tags:
   - name: "Hiro"
     description: |
       Hiro API Operations.
-
+  - name: "Audience"
+    description: "Audience operations"
+  - name: "Application"
+    description: "Application operations"
+  - name: "User"
+    description: "User operations"
+  - name: "Auth"
+    description: "Authentication operations"
+    
 securityDefinitions:
-  OAuth:
+  oauth:
     type: "oauth2"
     flow: "accessCode"
     authorizationUrl: "https://auth.server.local/oauth/authorize"
@@ -63,15 +72,21 @@ securityDefinitions:
       role:write: "Create or modify user roles"
       user:read: "Read users"
       user:write: "Write or moditfy users"
+      token:read: "Read access and request tokens"
+      token:create: "Create access tokens"
+      token:revoke: "Revoke access and request tokens"
 
 definitions:
   Audience:
-    description: "An audience is essentially an API that applications and users can access"
+    description: |
+      An audience is essentially an API that applications and users can access. Audiences define permissions that
+      are used to restrict applications and users (via roles) to resources provided to that audience.
     type: "object"
     properties: 
       id:
         description: "The audience id"
         type: "string"
+        readOnly: true
       name:
         description: "The audience name"
         type: "string"
@@ -87,6 +102,11 @@ definitions:
         type: "array"
         items:
           $ref: "#/definitions/Secret"
+        readOnly: true
+      token_algorithm:
+        description: "The the signing token algorithm"
+        type: "string"
+        enum: ["RS256", "HS256"]
       token_lifetime:
         description: "The access token lifetime in nanoseconds"
         type: "integer"
@@ -102,12 +122,24 @@ definitions:
         description: "The creation timestamp"
         type: "string"
         format: "date-time"
+        readOnly: true
       updated_at:
         description: "The update timestamp"
         type: "string"
         format: "date-time"
+        readOnly: true
       metadata:
         $ref: "#/definitions/Map"
+    example: {
+      "id": "HZUKGUv3ajmKEbKDCXQW2g",
+      "name": "hiro",
+      "slug": "hiro",
+      "token_algorithm": "RS256",
+      "token_lifetime": 3600000000000,
+      "session_lifetime": 2592000000000000,
+      "created_at": "2020-12-17 16:09:43",
+      "updated_at": "2020-12-17 16:09:43"
+    }
 
   Application:
     description: "Applications are api clients that have access to various audiences"
@@ -155,7 +187,7 @@ definitions:
         $ref: "#/definitions/Map"
 
   Role:
-    description: "Roles define audience based access to users"
+    description: "Roles define resource access to audiences by users"
     type: "object"
     properties: 
       id:
@@ -407,10 +439,1139 @@ definitions:
         type: "string"
         enum: ["authorization_code", "client_credentials", "refresh_token", "password"]
 
+  Error:
+    description: "A common error response"
+    type: "object"
+    required: ["message"]
+    properties:
+      message:
+        type: "string"
+        description: "The base error message"
+      detail:
+        type: "array"
+        description: "List of detailed error messages"
+        items:
+          type: "string"
+          
 paths:
-  /audiences: {}
-  /applications: {}
-  /users: {}
-  /requests: {}
-  /tokens: {}
-  /sessions: {}
+  /audiences:
+    head:
+      description: "Return a count of audiences"
+      operationId: "AudienceCount"
+      tags: ["Hiro", "Audience"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:read"]
+    get:
+      description: "Query for audiences"
+      operationId: "AudienceList"
+      tags: ["Hiro", "Audience"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Audience"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:read"]
+    post:
+      description: "Createn a new audience"
+      operationId: "AudienceCreate"
+      tags: ["Hiro", "Audience"]
+      consumes: ["application/json"]
+      parameters:
+        - name: "audience"
+          in: "body"
+          required: true
+          schema:
+            title: "AudienceCreateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The audience name"
+                type: "string"
+              description:
+                description: "The audience description"
+                type: "string"
+              token_algorithm:
+                description: "The the signing token algorithm"
+                type: "string"
+                enum: ["RS256", "HS256"]
+                default: "RS256"
+              token_lifetime:
+                description: "The access token lifetime in nanoseconds"
+                type: "integer"
+                default: 3600000000000
+              session_lifetime:
+                description: "The access token lifetime in nanoseconds"
+                type: "integer"
+                default: 2592000000000000
+              permissions:
+                description: "The audience permissions as scope"
+                type: "array"
+                items:
+                  type: "string"
+              metadata:
+                $ref: "#/definitions/Map"
+            required: ["name", "permissions", "token_algorithm", "token_lifetime", "session_lifetime"]
+            example: {
+              "name": "hiro",
+              "token_algorithm": "RS256",
+              "token_lifetime": 3600000000000,
+              "session_lifetime": 2592000000000000,
+            }
+      responses:
+        201:
+          description: "created"
+          schema:
+            $ref: "#/definitions/Audience"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+      
+  /audiences/{audience_id}:
+    parameters: 
+      - name: "audience_id"
+        in: "path"
+        description: "The audience id"
+        type: "string"
+        required: true
+    get:
+      description: "Get an audience by id"
+      operationId: "AudienceGet"
+      tags: ["Hiro", "Audience"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Audience"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:read"]
+    patch:
+      description: "Update audience by id"
+      operationId: "AudienceUpdate"
+      tags: ["Hiro", "Audience"]
+      parameters:
+        - name: "audience"
+          in: "body"
+          required: true
+          schema: 
+            title: "AudienceUpdateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The audience name"
+                type: "string"
+              description:
+                description: "The audience description"
+                type: "string"
+              token_algorithm:
+                description: "The the signing token algorithm"
+                type: "string"
+                enum: ["RS256", "HS256"]
+                default: "RS256"
+              token_lifetime:
+                description: "The access token lifetime in nanoseconds"
+                type: "integer"
+                default: 3600000000000
+              session_lifetime:
+                description: "The access token lifetime in nanoseconds"
+                type: "integer"
+                default: 2592000000000000
+              permissions:
+                description: "The audience update permissions"
+                type: "object"
+                properties: 
+                  add:
+                    description: "Permissions to add"
+                    type: "array"
+                    items:
+                      type: "string"
+                  remove:
+                    description: "Permissions to remove"
+                    type: "array"
+                    items:
+                      type: "string"
+                  overwrite:
+                    description: "If set all existing permissions will be removed"
+                    type: "boolean"
+              metadata:
+                $ref: "#/definitions/Map"
+            example: {
+              "permissions": {
+                add: ["metaverse"]
+              }
+            }
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Audience"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+    delete:
+      description: "Delete by id"
+      operationId: "AudienceDelete"
+      tags: ["Hiro", "Audience"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+
+  /audiences/{audience_id}/secrets:
+    parameters: 
+      - name: "audience_id"
+        in: "path"
+        description: "The audience id"
+        type: "string"
+        required: true
+    post:
+      description: "Create a new secret for the audience"
+      operationId: "SecretCreate"
+      tags: ["Hiro", "Audience"]
+      parameters:
+        - name: "application"
+          in: "body"
+          required: true
+          schema: 
+            title: "SecretCreateInput"
+            type: "object"
+            properties:
+              type:
+                description: "The secret type"
+                type: "string"
+                enum: ["token", "session"]
+              algorithm:
+                description: "The token algorithm"
+                type: "string"
+                enum: ["HS256", "RS256"]
+              key:
+                description: |
+                  Base64 raw url encoded key data, if not provided a random key will be generated.
+                type: "string"
+              expires_at:
+                description: "The secret expiration timestamp"
+                type: "string"
+                format: "date-time"
+            required: ["type", "algorithm"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Secret"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+
+  /audiences/{audience_id}/secrets/{secret_id}:
+    parameters: 
+      - name: "audience_id"
+        in: "path"
+        description: "The audience id"
+        type: "string"
+        required: true
+      - name: "secret_id"
+        in: "path"
+        description: "The secret id"
+        type: "string"
+        required: true
+    post:
+      description: "Delete a secret from the audience by id"
+      operationId: "SecretDelete"
+      tags: ["Hiro", "Audience"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+
+  /applications:
+    head:
+      description: "Return a count of applications"
+      operationId: "ApplicationCount"
+      tags: ["Hiro", "Application"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:read"]
+    get:
+      description: "Query for applications"
+      operationId: "ApplicationList"
+      tags: ["Hiro", "Application"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Application"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:read"]
+    post:
+      description: "Createn a new application"
+      operationId: "ApplicationCreate"
+      tags: ["Hiro", "Application"]
+      consumes: ["application/json"]
+      parameters:
+        - name: "application"
+          in: "body"
+          required: true
+          schema:
+            title: "ApplicationCreateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The application name"
+                type: "string"
+              description:
+                description: "The application description"
+                type: "string"
+              type:
+                description: "The oauth client type"
+                type: "string"
+                enum: ["web", "native", "machine"]
+              permissions:
+                $ref: "#/definitions/Permissions"
+              grants:
+                $ref: "#/definitions/Grants"
+              uris:
+                description: "Authorized application and redirect uris"
+                type: "array"
+                items:
+                  type: "string"
+                  format: "uri"
+              metadata:
+                $ref: "#/definitions/Map"
+            required: ["name", "type"]
+            example: {
+              "name": "hiro",
+              "type": "web"
+            }
+      responses:
+        201:
+          description: "created"
+          schema:
+            $ref: "#/definitions/Application"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:write"]
+      
+  /applications/{application_id}:
+    parameters: 
+      - name: "application_id"
+        in: "path"
+        description: "The application id"
+        type: "string"
+        required: true
+    get:
+      description: "Get an application by id"
+      operationId: "ApplicationGet"
+      tags: ["Hiro", "Application"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Application"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:read"]
+    patch:
+      description: "Update application by id"
+      operationId: "ApplicationUpdate"
+      tags: ["Hiro", "Application"]
+      parameters:
+        - name: "application"
+          in: "body"
+          required: true
+          schema: 
+            title: "ApplicationUpdateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The application name"
+                type: "string"
+              description:
+                description: "The application description"
+                type: "string"
+              type:
+                description: "The oauth client type"
+                type: "string"
+                enum: ["web", "native", "machine"]
+              permissions:
+                type: "object"
+                properties: 
+                  add:
+                    $ref: "#/definitions/Permissions"
+                  remove:
+                    $ref: "#/definitions/Permissions"
+                  overwrite:
+                    description: "Remove all existing permissions"
+                    type: "boolean"
+              grants:
+                type: "object"
+                properties: 
+                  add:
+                    $ref: "#/definitions/Grants"
+                  remove:
+                    $ref: "#/definitions/Grants"
+                  overwrite:
+                    description: "Remove all existing grants"
+                    type: "boolean"
+              uris:
+                description: "Authorized application and redirect uris"
+                type: "array"
+                items:
+                  type: "string"
+                  format: "uri"
+              metadata:
+                $ref: "#/definitions/Map"
+            required: ["name", "type"]
+            example: {
+              "name": "hiro",
+              "type": "web"
+            }
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Application"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:write"]
+    delete:
+      description: "Delete by id"
+      operationId: "ApplicationDelete"
+      tags: ["Hiro", "Application"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["application:write"]
+
+  /users:
+    head:
+      description: "Return a count of users"
+      operationId: "UserCount"
+      tags: ["Hiro", "User"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:read"]
+    get:
+      description: "Query for users"
+      operationId: "UserList"
+      tags: ["Hiro", "User"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/User"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:read"]
+    post:
+      description: "Createn a new user"
+      operationId: "UserCreate"
+      tags: ["Hiro", "User"]
+      consumes: ["user/json"]
+      parameters:
+        - name: "user"
+          in: "body"
+          required: true
+          schema:
+            title: "UserCreateInput"
+            type: "object"
+            properties:
+              login:
+                description: "The user login"
+                type: "string"
+              password:
+                description: "The new user's password"
+                type: "string"
+              roles:
+                description: "Roles to grant to the user"
+                type: "array"
+                items:
+                  type: "string"
+              profile:
+                $ref: "https://api.swaggerhub.com/apis/ModelRocket/oauth/1.0.0#/definitions/Profile"
+              metadata:
+                $ref: "#/definitions/Map"
+            required: ["login"]
+            example: {
+              "login": "admin",
+              "password": "password",
+              "roles": ["user:admin", "author"],
+              "profile": {
+                "given_name": "Hiro",
+                "family_name": "Protagonist",
+                "email": "hiro@metaverse.com"
+              }
+            }
+      responses:
+        201:
+          description: "created"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:write"]
+      
+  /users/{user_id}:
+    parameters: 
+      - name: "user_id"
+        in: "path"
+        description: "The user id"
+        type: "string"
+        required: true
+    get:
+      description: "Get an user by id"
+      operationId: "UserGet"
+      tags: ["Hiro", "User"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:read"]
+    patch:
+      description: "Update user by id"
+      operationId: "UserUpdate"
+      tags: ["Hiro", "User"]
+      parameters:
+        - name: "user"
+          in: "body"
+          required: true
+          schema: 
+            title: "UserUpdateInput"
+            type: "object"
+            properties:
+              password:
+                description: "The new user's password"
+                type: "string"
+              roles:
+                description: "Roles to grant or remove from the user"
+                type: "object"
+                properties: 
+                  add:
+                    type: "array"
+                    items:
+                      type: "string"
+                  remove:
+                    type: "array"
+                    items:
+                      type: "string"
+                  overwrite:
+                    description: "Remove all existing roles"
+                    type: "boolean"
+              profile:
+                $ref: "https://api.swaggerhub.com/apis/ModelRocket/oauth/1.0.0#/definitions/Profile"
+              metadata:
+                $ref: "#/definitions/Map"
+              unlock:
+                description: "unlock the user's account"
+                type: "boolean"
+            example: {
+              "profile": {
+                "phone": "+14085551212"
+              }
+            }
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/User"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:write"]
+    delete:
+      description: "Delete by id"
+      operationId: "UserDelete"
+      tags: ["Hiro", "User"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["user:write"]
+
+  /requests:
+    head:
+      description: "Return a count of request tokens"
+      operationId: "RequestCount"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+    get:
+      description: "Query for request tokens"
+      operationId: "RequestList"
+      tags: ["Hiro", "Auth"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+        - name: "type"
+          description: "filter on request token type"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "audience"
+          description: "filter on access token audience"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "application"
+          description: "filter on access token application"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "user"
+          description: "filter on access token user"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/RequestToken"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+
+  /requests/{token_id}:
+    parameters: 
+      - name: "token_id"
+        in: "path"
+        description: "The token id"
+        type: "string"
+        required: true
+    delete:
+      description: "Delete by id"
+      operationId: "RequestTokenDelete"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:revoke"]
+
+  /tokens:
+    head:
+      description: "Return a count of revokable access tokens"
+      operationId: "TokenCount"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+    get:
+      description: "Query for revokable access tokens"
+      operationId: "TokenList"
+      tags: ["Hiro", "Auth"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+        - name: "audience"
+          description: "filter on access token audience"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "application"
+          description: "filter on access token application"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "user"
+          description: "filter on access token user"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/AccessToken"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+    post:
+      description: "Create a revokable access token"
+      operationId: "TokenCreate"
+      tags: ["Hiro", "Auth"]
+      parameters:
+        - name: "token"
+          in: "body"
+          required: true
+          schema:
+            title: "Toike"
+            type: "object"
+            properties:
+              user:
+                description: "The user id or login"
+                type: "string"
+              audience:
+                description: "The audience id or name for the token"
+                type: "string"
+              application:
+                description: "The application id or name for the token"
+                type: "string"
+              expires_at:
+                description: "The expiration for the token"
+                type: "string"
+                format: "date-time"
+              claims:
+                $ref: "#/definitions/Map"
+              revokable:
+                description: "if true a persisten store token will be created, otherwise a stateless beartoken will be returned"
+                type: "boolean"
+            required: ["audience_id", "application_id"]
+            example: {
+              "subject": "yt",
+              "audience_id": "hiro",
+              "application_id": "HZUKGUv3ajmKEbKDCXQW2g"
+            }
+      responses:
+        200:
+          description: "ok"
+          schema:
+            title: "BearerToken"
+            type: "object"
+            properties:
+              access_token:
+                description: "The base64 encoded, signed access token"
+                type: "string"
+              expires_in:
+                description: "The token expiration in seconds from now"
+                type: "integer"
+              token_type:
+                description: "The token type, always Bearer"
+                type: "string"
+                enum: ["Bearer"]
+            example: {
+              "access_token": "<redacted token data>",
+              "expires_in": 2591999,
+              "token_type": "Bearer"
+            }
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:create"]
+
+  /accesss/{token_id}:
+    parameters: 
+      - name: "token_id"
+        in: "path"
+        description: "The token id"
+        type: "string"
+        required: true
+    delete:
+      description: "Delete by id"
+      operationId: "TokenRevoke"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:revoke"]
+
+  /sessions:
+    head:
+      description: "Return a count of session"
+      operationId: "SessionCount"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+    get:
+      description: "Query for sessions"
+      operationId: "SessionList"
+      tags: ["Hiro", "Auth"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+        - name: "audience"
+          description: "filter on session audience"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+        - name: "user"
+          description: "filter on session user"
+          in: "query"
+          type: "array"
+          items:
+            type: "string"
+          collectionFormat: "csv"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Session"
+        400:
+          $ref: "#/responses/BadSession"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:read"]
+
+  /sessions/{session_id}:
+    parameters: 
+      - name: "session_id"
+        in: "path"
+        description: "The session id"
+        type: "string"
+        required: true
+    delete:
+      description: "Delete by id"
+      operationId: "SessionDelete"
+      tags: ["Hiro", "Auth"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadSession"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["token:revoke"]
+
+parameters:
+  OffsetParam:
+    in: "query"
+    name: "offset"
+    description: " The number of items to skip before starting to collect the result set."
+    type: "integer"
+    format: "uint64"
+    required: false
+    minimum: 0
+  LimitParam:
+    in: "query"
+    name: "limit"
+    description: "The numbers of items to return."
+    type: "integer"
+    format: "uint64"
+    minimum: 1
+    maximum: 1000
+    default: 50
+
+responses:
+  NoContent:
+    description: "no content"
+    headers:
+      X-Query-Count:
+        type: "integer"
+        description: "Used for count method to return the count requested"
+  Found:
+    description: "found"
+    headers:
+      Location:
+        type: "string"
+        description: "The redirect location uri"
+  BadRequest:
+    description: "bad request"
+    schema:
+      $ref: "#/definitions/Error"
+  Unauthorized:
+    description: "access denied"
+    schema:
+      $ref: "#/definitions/Error"
+  Forbidden:
+    description: "forbidden"
+    schema:
+      $ref: "#/definitions/Error"
+  NotFound:
+    description: "not found"
+    schema:
+      $ref: "#/definitions/Error"
+  Conflict:
+    description: "conflict"
+    schema:
+      $ref: "#/definitions/Error"
+  ServerError:
+    description: "server error"
+    schema:
+      $ref: "#/definitions/Error"
+  Unacceptable:
+    description: "unacceptable"
+    schema:
+      $ref: "#/definitions/Error"

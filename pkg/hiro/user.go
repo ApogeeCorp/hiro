@@ -68,10 +68,10 @@ type (
 		UserID            *types.ID       `json:"user_id" structs:"-"`
 		Login             *string         `json:"login,omitempty"`
 		Password          *string         `json:"password,omitempty" structs:"-"`
-		Roles             []string        `json:"roles,omitempty" structs:"-"`
 		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
-		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" structs:"password_expires_at,omitempty"`
+		PasswordExpiresAt *time.Time      `json:"-" structs:"password_expires_at,omitempty"`
 		LockedUntil       *time.Time      `json:"locked_until,omitempty" structs:"-"`
+		Roles             []string        `json:"roles,omitempty" structs:"-"`
 		Metadata          types.Metadata  `json:"metadata,omitempty" structs:"-"`
 	}
 
