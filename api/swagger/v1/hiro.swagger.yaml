@@ -978,6 +978,194 @@ paths:
       security:
         - oauth: ["application:write"]
 
+  /roles:
+    head:
+      description: "Return a count of roles"
+      operationId: "RoleCount"
+      tags: ["Hiro", "Role"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:read"]
+    get:
+      description: "Query for roles"
+      operationId: "RoleList"
+      tags: ["Hiro", "Role"]
+      parameters:
+        - $ref: '#/parameters/OffsetParam'
+        - $ref: '#/parameters/LimitParam'
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Role"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:read"]
+    post:
+      description: "Createn a new role"
+      operationId: "RoleCreate"
+      tags: ["Hiro", "Role"]
+      consumes: ["role/json"]
+      parameters:
+        - name: "role"
+          in: "body"
+          required: true
+          schema:
+            title: "RoleCreateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The role name"
+                type: "string"
+              description:
+                description: "The role description"
+                type: "string"
+              permissions:
+                $ref: "#/definitions/Permissions"
+              metadata:
+                $ref: "#/definitions/Map"
+            required: ["name"]
+            example: {
+              "name": "hiro:user",
+              "permissions": {
+                "hiro": ["user:read"]
+              }
+            }
+      responses:
+        201:
+          description: "created"
+          schema:
+            $ref: "#/definitions/Role"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:write"]
+      
+  /roles/{role_id}:
+    parameters: 
+      - name: "role_id"
+        in: "path"
+        description: "The role id"
+        type: "string"
+        required: true
+    get:
+      description: "Get an role by id"
+      operationId: "RoleGet"
+      tags: ["Hiro", "Role"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Role"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:read"]
+    patch:
+      description: "Update role by id"
+      operationId: "RoleUpdate"
+      tags: ["Hiro", "Role"]
+      parameters:
+        - name: "role"
+          in: "body"
+          required: true
+          schema: 
+            title: "RoleUpdateInput"
+            type: "object"
+            properties:
+              name:
+                description: "The role name"
+                type: "string"
+              description:
+                description: "The role description"
+                type: "string"
+              permissions:
+                type: "object"
+                properties: 
+                  add:
+                    $ref: "#/definitions/Permissions"
+                  remove:
+                    $ref: "#/definitions/Permissions"
+                  overwrite:
+                    description: "Remove all existing permissions"
+                    type: "boolean"
+              metadata:
+                $ref: "#/definitions/Map"
+            example: {
+              "permissions": {
+                "add": {
+                  "hiro": "profile"
+                }
+              }
+            }
+      responses:
+        200:
+          description: "ok"
+          schema:
+            $ref: "#/definitions/Role"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:write"]
+    delete:
+      description: "Delete by id"
+      operationId: "RoleDelete"
+      tags: ["Hiro", "Role"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["role:write"]
+
   /users:
     head:
       description: "Return a count of users"
@@ -1478,7 +1666,7 @@ paths:
             items:
               $ref: "#/definitions/Session"
         400:
-          $ref: "#/responses/BadSession"
+          $ref: "#/responses/BadRequest"
         401:
           $ref: "#/responses/Unauthorized"
         403:
@@ -1503,7 +1691,7 @@ paths:
         204:
           $ref: "#/responses/NoContent"
         400:
-          $ref: "#/responses/BadSession"
+          $ref: "#/responses/BadRequest"
         401:
           $ref: "#/responses/Unauthorized"
         403:
