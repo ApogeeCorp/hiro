@@ -92,6 +92,7 @@ type (
 	AudienceListInput struct {
 		Limit  *uint64 `json:"limit,omitempty"`
 		Offset *uint64 `json:"offset,omitempty"`
+		Count  *uint64 `json:"count,omitempty"`
 	}
 
 	// AudienceDeleteInput is the audience delete request input
@@ -334,7 +335,12 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 
 	db := b.DB(ctx)
 
-	query := sq.Select("*").
+	target := "*"
+	if params.Count != nil {
+		target = "COUNT(*)"
+	}
+
+	query := sq.Select(target).
 		From("hiro.audiences")
 
 	if params.Limit != nil {
@@ -348,6 +354,14 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 	stmt, args, err := query.ToSql()
 	if err != nil {
 		return nil, err
+	}
+
+	if params.Count != nil {
+		if err := db.GetContext(ctx, params.Count, stmt, args...); err != nil {
+			return nil, parseSQLError(err)
+		}
+
+		return nil, nil
 	}
 
 	auds := make([]*Audience, 0)

@@ -24,6 +24,23 @@ import "github.com/ModelRocket/hiro/pkg/api"
 // Routes returns the oauth api routes
 func Routes() []api.Route {
 	return []api.Route{
+		AudienceCreateRoute(audienceCreate),
+		AudienceGetRoute(audienceGet),
+		AudienceCountRoute(audienceCount),
+		AudienceListRoute(audienceList),
+		AudienceUpdateRoute(audienceUpdate),
+		AudienceDeleteRoute(audienceDelete),
+		ApplicationCreateRoute(applicationCreate),
+		ApplicationGetRoute(applicationGet),
+		ApplicationCountRoute(applicationCount),
+		ApplicationListRoute(applicationList),
+		ApplicationUpdateRoute(applicationUpdate),
+		ApplicationDeleteRoute(applicationDelete),
+		UserCreateRoute(userCreate),
+		UserGetRoute(userGet),
+		UserCountRoute(userCount),
+		UserListRoute(userList),
+		UserDeleteRoute(userDelete),
 		SpecRoute(spec),
 	}
 }

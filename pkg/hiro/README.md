@@ -22,10 +22,13 @@ The daemon will ensure the core services are ready for platforms to utilize by c
 
 This api is defined as an [Open API 2.0 (aka Swagger) spec](../../api/swagger/v1/hiro.swagger.yaml). And can be fetched from the service at `/hiro/{version}/swagger.{json|yaml}`.
 
+#### Routes
+The API routes are defined in the `route_*.go` modules. These are wrappers around the `hiro.Controller`, providing a REST/CRUD to the controller methods. Most of the routes are secured by the `oauth.Authorizer`.
 ### OAuth Controller
 The `daemon` adds the [oauth controller](../oauth/README.md) to the path `/oauth`. This provides all of the neccessary authentication and authorization support for the api server. 
 
 This api is defined as an [Open API 2.0 (aka Swagger) spec](../../api/swagger/v1/oauth.swagger.yaml). And can be fetched from the service at `/oauth/swagger.{json|yaml}`.
 
 ### RPC Server
+
 ### Scheduler

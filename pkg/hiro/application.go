@@ -92,6 +92,7 @@ type (
 	ApplicationListInput struct {
 		Limit  *uint64 `json:"limit,omitempty"`
 		Offset *uint64 `json:"offset,omitempty"`
+		Count  *uint64 `json:"count,omitempty"`
 	}
 
 	// ApplicationDeleteInput is the application delete request input
@@ -356,7 +357,12 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 
 	db := b.DB(ctx)
 
-	query := sq.Select("*").
+	target := "*"
+	if params.Count != nil {
+		target = "COUNT(*)"
+	}
+
+	query := sq.Select(target).
 		From("hiro.applications")
 
 	if params.Limit != nil {
@@ -370,6 +376,14 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 	stmt, args, err := query.ToSql()
 	if err != nil {
 		return nil, err
+	}
+
+	if params.Count != nil {
+		if err := db.GetContext(ctx, params.Count, stmt, args...); err != nil {
+			return nil, parseSQLError(err)
+		}
+
+		return nil, nil
 	}
 
 	apps := make([]*Application, 0)

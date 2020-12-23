@@ -295,7 +295,8 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 			context.WithValue(
 				req.Context(),
 				contextKeyLogger,
-				r.log.WithField("req-id", reqID)))
+				r.log.WithField("req-id", reqID).
+					WithField("route", rt.Name())))
 
 		w.Header().Set("X-Hiro-Request-ID", reqID)
 
