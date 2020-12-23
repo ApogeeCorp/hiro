@@ -51,6 +51,7 @@ type (
 		backOptions []BackendOption
 		ctrl        Controller
 		oauthPath   string
+		hiroPath    string
 		oauthCtrl   oauth.Controller
 		sessionCtrl session.Controller
 		sessionMgr  *session.Manager
@@ -76,6 +77,7 @@ type (
 func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	const (
 		defaultServerAddr = "127.0.0.0:9000"
+		defaultHiroPath   = "/hiro"
 		defaultOAuthPath  = "/oauth"
 		defaultWebRPCPath = "/rpc"
 	)
@@ -84,6 +86,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
 		backOptions: []BackendOption{Automigrate(), Initialize()},
+		hiroPath:    defaultHiroPath,
 		oauthPath:   defaultOAuthPath,
 		webRPCPath:  defaultWebRPCPath,
 		shutdown:    make(chan int),
@@ -144,6 +147,14 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		api.WithSessionManager(d.sessionMgr),
 		api.WithAuthorizers(oauth.Authorizer(oauth.WithPermitQueryToken(true)))).
 		AddRoutes(oauth.Routes()...)
+
+	// setup the hiro router
+	d.apiServer.Router(
+		d.hiroPath,
+		api.WithVersioning("1.0.0"),
+		api.WithContext(d.ctrl),
+		api.WithAuthorizers(oauth.Authorizer())).
+		AddRoutes(Routes()...)
 
 	if d.rpcServer == nil {
 		d.rpcServer = grpc.NewServer()
