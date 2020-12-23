@@ -54,9 +54,11 @@ tags:
     description: "Application operations"
   - name: "User"
     description: "User operations"
-  - name: "Auth"
-    description: "Authentication operations"
-    
+  - name: "Token"
+    description: "Token operations"
+  - name: "Session"
+    description: "Session operations"
+
 securityDefinitions:
   oauth:
     type: "oauth2"
@@ -75,6 +77,8 @@ securityDefinitions:
       token:read: "Read access and request tokens"
       token:create: "Create access tokens"
       token:revoke: "Revoke access and request tokens"
+      session:read: "Session read access"
+      session:destroy: "Destory session values"
 
 definitions:
   Audience:
@@ -1372,7 +1376,7 @@ paths:
     head:
       description: "Return a count of request tokens"
       operationId: "RequestCount"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1387,7 +1391,7 @@ paths:
     get:
       description: "Query for request tokens"
       operationId: "RequestList"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
@@ -1447,7 +1451,7 @@ paths:
     delete:
       description: "Delete by id"
       operationId: "RequestTokenDelete"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1468,7 +1472,7 @@ paths:
     head:
       description: "Return a count of revokable access tokens"
       operationId: "TokenCount"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1483,7 +1487,7 @@ paths:
     get:
       description: "Query for revokable access tokens"
       operationId: "TokenList"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
@@ -1528,7 +1532,7 @@ paths:
     post:
       description: "Create a revokable access token"
       operationId: "TokenCreate"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       parameters:
         - name: "token"
           in: "body"
@@ -1604,7 +1608,7 @@ paths:
     delete:
       description: "Delete by id"
       operationId: "TokenRevoke"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Token"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1625,7 +1629,7 @@ paths:
     head:
       description: "Return a count of session"
       operationId: "SessionCount"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Session"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1640,7 +1644,7 @@ paths:
     get:
       description: "Query for sessions"
       operationId: "SessionList"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Session"]
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
@@ -1674,7 +1678,7 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["token:read"]
+        - oauth: ["session:read"]
 
   /sessions/{session_id}:
     parameters: 
@@ -1686,7 +1690,7 @@ paths:
     delete:
       description: "Delete by id"
       operationId: "SessionDelete"
-      tags: ["Hiro", "Auth"]
+      tags: ["Hiro", "Session"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -1701,7 +1705,7 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["token:revoke"]
+        - oauth: ["session:destroy"]
 
 parameters:
   OffsetParam:

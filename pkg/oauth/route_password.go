@@ -287,21 +287,6 @@ func (PasswordCreateRoute) Path() string {
 	return "/password"
 }
 
-// Handler implements api.Route
-func (r PasswordCreateRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (PasswordCreateRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (PasswordCreateRoute) RequireAuth() bool {
-	return false
-}
-
 func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Responder {
 	var token Token
 
@@ -369,24 +354,14 @@ func (PasswordUpdateRoute) Path() string {
 	return "/password"
 }
 
-// Handler implements api.Route
-func (r PasswordUpdateRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (PasswordUpdateRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (PasswordUpdateRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (PasswordUpdateRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (PasswordUpdateRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopePassword)}
+func (PasswordUpdateRoute) Scopes() ScopeList {
+	return BuildScope(ScopePassword)
 }
 
 func (n passwordNotification) Type() NotificationType {

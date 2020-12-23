@@ -135,18 +135,3 @@ func (LogoutRoute) Methods() []string {
 func (LogoutRoute) Path() string {
 	return "/logout"
 }
-
-// Handler implements api.Route
-func (r LogoutRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (LogoutRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (LogoutRoute) RequireAuth() bool {
-	return false
-}

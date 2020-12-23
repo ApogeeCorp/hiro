@@ -46,81 +46,85 @@ func Authorizer(opts ...AuthorizerOption) api.Authorizer {
 		opt(&a)
 	}
 
-	return func(r *http.Request, rt api.Route) (api.Principal, error) {
-		var token Token
-		var err error
-		var isQuery bool
+	return &a
+}
 
-		o, ok := rt.(Route)
-		if !ok {
-			return nil, api.ErrAuthUnacceptable
+func (a authorizer) Authorize(r *http.Request, rt api.Route) (api.Principal, error) {
+	var token Token
+	var err error
+	var isQuery bool
+
+	o, ok := rt.(Route)
+	if !ok {
+		return nil, api.ErrAuthUnacceptable
+	}
+
+	ctx := r.Context()
+
+	ctrl, ok := api.Context(ctx).(Controller)
+	if !ok {
+		return nil, api.ErrAuthUnacceptable
+	}
+
+	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if bearer == "" {
+		bearer = r.URL.Query().Get("access_token")
+		isQuery = true
+	}
+
+	if bearer == "" {
+		return nil, fmt.Errorf("%w: token not present", ErrAccessDenied)
+	}
+
+	// check for a token id
+	if isQuery && len(bearer) == 22 && a.permitQueryToken {
+		token, err = ctrl.TokenGet(ctx, bearer)
+		if err != nil {
+			return nil, ErrAccessDenied.WithError(err)
 		}
 
-		ctx := r.Context()
-
-		ctrl, ok := api.Context(ctx).(Controller)
-		if !ok {
-			return nil, api.ErrAuthUnacceptable
+		if token.RevokedAt != nil {
+			return nil, ErrRevokedToken
+		} else if token.ExpiresAt != nil && token.ExpiresAt.Time().Before(time.Now()) {
+			return nil, ErrExpiredToken
 		}
-
-		bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if bearer == "" {
-			bearer = r.URL.Query().Get("access_token")
-			isQuery = true
+	} else {
+		if isQuery && !a.permitQueryBearer {
+			return nil, ErrAccessDenied.WithDetail("access token not permited in query")
 		}
-
-		if bearer == "" {
-			return nil, fmt.Errorf("%w: token not present", ErrAccessDenied)
-		}
-
-		// check for a token id
-		if isQuery && len(bearer) == 22 && a.permitQueryToken {
-			token, err = ctrl.TokenGet(ctx, bearer)
-			if err != nil {
-				return nil, ErrAccessDenied.WithError(err)
-			}
-
-			if token.RevokedAt != nil {
-				return nil, ErrRevokedToken
-			} else if token.ExpiresAt != nil && token.ExpiresAt.Time().Before(time.Now()) {
-				return nil, ErrExpiredToken
-			}
-		} else {
-			if isQuery && !a.permitQueryBearer {
-				return nil, ErrAccessDenied.WithDetail("access token not permited in query")
-			}
-			token, err = ParseBearer(bearer, func(kid string, c Claims) (TokenSecret, error) {
-				aud, err := ctrl.AudienceGet(ctx, c.Audience())
-				if err != nil {
-					return nil, err
-				}
-
-				for _, s := range aud.Secrets() {
-					if s.ID().String() == kid {
-						return s, nil
-					}
-				}
-
-				return nil, ErrKeyNotFound
-			})
+		token, err = ParseBearer(bearer, func(kid string, c Claims) (TokenSecret, error) {
+			aud, err := ctrl.AudienceGet(ctx, c.Audience())
 			if err != nil {
 				return nil, err
 			}
-		}
 
-		// Identity tokens cannot be used for access
-		if token.Use == TokenUseIdentity {
-			return nil, api.ErrAuthUnacceptable
-		}
-
-		for _, s := range o.Scopes() {
-			if token.Scope.Every(s...) {
-				return token, nil
+			for _, s := range aud.Secrets() {
+				if s.ID().String() == kid {
+					return s, nil
+				}
 			}
-		}
 
-		return nil, api.ErrForbidden
+			return nil, ErrKeyNotFound
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	// Identity tokens cannot be used for access
+	if token.Use == TokenUseIdentity {
+		return nil, api.ErrAuthUnacceptable
+	}
+
+	if o.Scopes().Every(token.Scope...) {
+		return token, nil
+	}
+
+	return nil, api.ErrForbidden
+}
+
+func (a authorizer) CredentialType() api.CredentialType {
+	return api.CredentialTypeBearer
 }
 
 // WithPermitQueryToken allows token ids to be passed in the query supporting persistent tokens

@@ -335,21 +335,6 @@ func (TokenRoute) Path() string {
 	return "/token"
 }
 
-// Handler implements api.Route
-func (r TokenRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (TokenRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (TokenRoute) RequireAuth() bool {
-	return false
-}
-
 func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
@@ -410,24 +395,14 @@ func (TokenIntrospectRoute) Path() string {
 	return "/token-introspect"
 }
 
-// Handler implements api.Route
-func (r TokenIntrospectRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (TokenIntrospectRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (TokenIntrospectRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (TokenIntrospectRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (TokenIntrospectRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeTokenRead)}
+func (TokenIntrospectRoute) Scopes() ScopeList {
+	return BuildScope(ScopeTokenRead)
 }
 
 func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
@@ -459,22 +434,12 @@ func (TokenRevokeRoute) Path() string {
 	return "/token-revoke"
 }
 
-// Handler implements api.Route
-func (r TokenRevokeRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (TokenRevokeRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (TokenRevokeRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (TokenRevokeRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (TokenRevokeRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeTokenRevoke)}
+func (TokenRevokeRoute) Scopes() ScopeList {
+	return BuildScope(ScopeTokenRevoke)
 }

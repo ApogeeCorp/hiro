@@ -117,21 +117,6 @@ func (OpenIDConfigRoute) Path() string {
 	return "/openid/{audience_id}/.well-known/openid-configuration"
 }
 
-// Handler implements api.Route
-func (r OpenIDConfigRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (OpenIDConfigRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (OpenIDConfigRoute) RequireAuth() bool {
-	return false
-}
-
 func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
@@ -175,19 +160,4 @@ func (JWKSRoute) Methods() []string {
 // Path implements api.Route
 func (JWKSRoute) Path() string {
 	return "/openid/{audience_id}/.well-known/jwks.json"
-}
-
-// Handler implements api.Route
-func (r JWKSRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (JWKSRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (JWKSRoute) RequireAuth() bool {
-	return false
 }

@@ -184,18 +184,3 @@ func (SignupRoute) Methods() []string {
 func (SignupRoute) Path() string {
 	return "/signup"
 }
-
-// Handler implements api.Route
-func (r SignupRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (SignupRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (SignupRoute) RequireAuth() bool {
-	return false
-}

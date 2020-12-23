@@ -155,24 +155,14 @@ func (VerifyRoute) Path() string {
 	return "/verify"
 }
 
-// Handler implements api.Route
-func (r VerifyRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (VerifyRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (VerifyRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (VerifyRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (VerifyRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
+func (VerifyRoute) Scopes() ScopeList {
+	return BuildScope(ScopeOpenID, ScopeProfile)
 }
 
 func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
@@ -248,24 +238,14 @@ func (VerifySendRoute) Path() string {
 	return "/verify"
 }
 
-// Handler implements api.Route
-func (r VerifySendRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (VerifySendRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (VerifySendRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (VerifySendRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (VerifySendRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
+func (VerifySendRoute) Scopes() ScopeList {
+	return BuildScope(ScopeOpenID, ScopeProfile)
 }
 
 func (n verifyNotification) Type() NotificationType {

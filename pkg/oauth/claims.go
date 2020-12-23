@@ -81,7 +81,7 @@ func (c Claims) Subject() string {
 // Scope returns the scope for the token
 func (c Claims) Scope() Scope {
 	if s, ok := c["scope"].(string); ok {
-		return MakeScope(strings.Fields(s)...)
+		return Scope(strings.Fields(s))
 	}
 
 	return make(Scope, 0)

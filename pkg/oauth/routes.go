@@ -24,7 +24,7 @@ import (
 )
 
 // Routes returns the oauth api routes
-func Routes(ctrl Controller) []api.Route {
+func Routes() []api.Route {
 	return []api.Route{
 		AuthorizeRoute(authorize),
 		LoginRoute(login),

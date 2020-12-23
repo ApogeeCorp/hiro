@@ -18,3 +18,77 @@
  */
 
 package hiro
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ghodss/yaml"
+)
+
+type (
+	// SpecGetInput is the input for spec get method
+	SpecGetInput struct {
+		Format string `json:"format"`
+		Pretty bool   `json:"pretty"`
+	}
+
+	// SpecRoute is the swagger spec route handler
+	SpecRoute func(ctx context.Context, params *SpecGetInput) api.Responder
+)
+
+func spec(ctx context.Context, params *SpecGetInput) api.Responder {
+	data, err := ApiSwaggerV1HiroSwaggerYamlBytes()
+	if err != nil {
+		return api.Error(err)
+	}
+
+	switch params.Format {
+	case "yaml":
+		return api.NewResponse(data).
+			WithWriter(api.Write).
+			WithHeader("Content-Type", "text/yaml")
+
+	case "json":
+		data, err = yaml.YAMLToJSON(data)
+		if err != nil {
+			return api.Error(err)
+		}
+
+		if params.Pretty {
+			var schemaObj map[string]interface{}
+
+			if err := json.Unmarshal(data, &schemaObj); err != nil {
+				return api.Error(err)
+			}
+
+			data, err = json.MarshalIndent(schemaObj, "", "  ")
+			if err != nil {
+				return api.Error(err)
+			}
+		}
+		return api.NewResponse(data).
+			WithWriter(api.Write).
+			WithHeader("Content-Type", "application/json")
+
+	default:
+		return api.ErrNotFound
+	}
+}
+
+// Name implements api.Route
+func (SpecRoute) Name() string {
+	return "spec"
+}
+
+// Methods implements api.Route
+func (SpecRoute) Methods() []string {
+	return []string{http.MethodGet}
+}
+
+// Path implements api.Route
+func (SpecRoute) Path() string {
+	return "/swagger.{format}"
+}

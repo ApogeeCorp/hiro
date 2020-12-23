@@ -188,22 +188,13 @@ func (SessionRoute) Path() string {
 	return "/session"
 }
 
-// Handler implements api.Route
-func (r SessionRoute) Handler() interface{} {
-	return r
+// RequireAuth implements the api.AuthorizedRoute
+func (SessionRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
-// ValidateParameters implements api.Route
-func (SessionRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (SessionRoute) RequireAuth() bool {
-	return true
-}
 
 // Scopes implements oauth.Route
-func (SessionRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeSession)}
+func (SessionRoute) Scopes() ScopeList {
+	return BuildScope(ScopeSession)
 }

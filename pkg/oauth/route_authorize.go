@@ -216,17 +216,7 @@ func (AuthorizeRoute) Path() string {
 	return "/authorize"
 }
 
-// Handler implements api.Route
-func (r AuthorizeRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (AuthorizeRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (AuthorizeRoute) RequireAuth() bool {
-	return false
+// Validate implements validation.Validatable
+func (AuthorizeRoute) Validate(params validation.Validatable) error {
+	return params.Validate()
 }

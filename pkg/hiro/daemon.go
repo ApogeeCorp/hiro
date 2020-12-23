@@ -143,7 +143,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		api.WithContext(d.oauthCtrl),
 		api.WithSessionManager(d.sessionMgr),
 		api.WithAuthorizers(oauth.Authorizer(oauth.WithPermitQueryToken(true)))).
-		AddRoutes(oauth.Routes(d.oauthCtrl)...)
+		AddRoutes(oauth.Routes()...)
 
 	if d.rpcServer == nil {
 		d.rpcServer = grpc.NewServer()

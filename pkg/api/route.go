@@ -24,18 +24,25 @@ import (
 )
 
 type (
-	// Route is the common route interface
+	// Route is the common route interface that should be implemented by handler functions
 	Route interface {
 		Name() string
 		Methods() []string
 		Path() string
-		Handler() interface{}
-		ValidateParameters() bool
-		RequireAuth() bool
+	}
+
+	// AuthorizedRoute is used but authorizers to signify checking authorizers
+	AuthorizedRoute interface {
+		Route
+
+		// RequireAuth returns the credential types this route requires
+		RequireAuth() []CredentialType
 	}
 
 	// CachedRoute is a cached route interface
 	CachedRoute interface {
+		Route
+
 		Timeout() time.Duration
 	}
 )

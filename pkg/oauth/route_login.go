@@ -191,18 +191,3 @@ func (LoginRoute) Methods() []string {
 func (LoginRoute) Path() string {
 	return "/login"
 }
-
-// Handler implements api.Route
-func (r LoginRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (LoginRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (LoginRoute) RequireAuth() bool {
-	return false
-}

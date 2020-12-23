@@ -2,7 +2,7 @@
  * This file is part of the Model Rocket Hiro Stack
  * Copyright (c) 2020 Model Rocket LLC.
  *
- * https://github.com/ModelRocket/hiro
+ * https://githuh.com/ModelRocket/hiro
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,14 +17,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package oauth
+package hiro
 
 import "github.com/ModelRocket/hiro/pkg/api"
 
-type (
-	// Route defines an oauth route that has a scope
-	Route interface {
-		api.AuthorizedRoute
-		Scopes() ScopeList
+// Routes returns the oauth api routes
+func Routes() []api.Route {
+	return []api.Route{
+		SpecRoute(spec),
 	}
-)
+}

@@ -7,8 +7,9 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/blang/semver/v4 v4.0.0
+	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/dgrijalva/jwt-go v3.2.1-0.20200107013213-dc14462fd587+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/structs v1.1.0
 	github.com/ghodss/yaml v1.0.0
@@ -24,13 +25,18 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
+	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/lib/pq v1.3.0
+	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/manifoldco/promptui v0.8.0
+	github.com/mattn/go-colorable v0.1.4 // indirect
+	github.com/mattn/go-isatty v0.0.11 // indirect
+	github.com/mattn/go-sqlite3 v2.0.2+incompatible // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/mr-tron/base58 v1.2.0

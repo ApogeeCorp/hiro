@@ -92,18 +92,3 @@ func (SpecRoute) Methods() []string {
 func (SpecRoute) Path() string {
 	return "/swagger.{format}"
 }
-
-// Handler implements api.Route
-func (r SpecRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (SpecRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (SpecRoute) RequireAuth() bool {
-	return false
-}

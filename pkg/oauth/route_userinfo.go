@@ -102,24 +102,14 @@ func (UserInfoRoute) Path() string {
 	return "/userinfo"
 }
 
-// Handler implements api.Route
-func (r UserInfoRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (UserInfoRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (UserInfoRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (UserInfoRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (UserInfoRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeOpenID, ScopeProfile)}
+func (UserInfoRoute) Scopes() ScopeList {
+	return BuildScope(ScopeOpenID, ScopeProfile)
 }
 
 func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Responder {
@@ -169,22 +159,12 @@ func (UserInfoUpdateRoute) Path() string {
 	return "/userinfo"
 }
 
-// Handler implements api.Route
-func (r UserInfoUpdateRoute) Handler() interface{} {
-	return r
-}
-
-// ValidateParameters implements api.Route
-func (UserInfoUpdateRoute) ValidateParameters() bool {
-	return true
-}
-
-// RequireAuth implements api.Route
-func (UserInfoUpdateRoute) RequireAuth() bool {
-	return true
+// RequireAuth implements the api.AuthorizedRoute
+func (UserInfoUpdateRoute) RequireAuth() []api.CredentialType {
+	return []api.CredentialType{api.CredentialTypeBearer}
 }
 
 // Scopes implements oauth.Route
-func (UserInfoUpdateRoute) Scopes() []Scope {
-	return []Scope{MakeScope(ScopeOpenID, ScopeProfileWrite)}
+func (UserInfoUpdateRoute) Scopes() ScopeList {
+	return BuildScope(ScopeOpenID, ScopeProfileWrite)
 }

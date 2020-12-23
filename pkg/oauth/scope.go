@@ -33,6 +33,11 @@ type (
 
 	// ScopeSet represents a map between an audiece and a scope
 	ScopeSet map[string]Scope
+
+	// ScopeList is used to build scopes
+	ScopeList struct {
+		list []Scope
+	}
 )
 
 const (
@@ -94,9 +99,51 @@ var (
 	}
 )
 
-// MakeScope returns a Scope from the string scopes
-func MakeScope(scopes ...string) Scope {
-	return Scope(scopes)
+// BuildScope returns a []Scope from the string scope values
+func BuildScope(scopes ...string) ScopeList {
+	l := ScopeList{
+		list: make([]Scope, 0),
+	}
+
+	if len(scopes) > 0 {
+		l.list = append(l.list, Scope(scopes))
+	}
+
+	return l
+}
+
+// Or adds an or to the list
+func (s ScopeList) Or(scopes ...string) ScopeList {
+	s.list = append(s.list, scopes)
+	return s
+}
+
+// And appends the scopes to the tale Scope on the list
+func (s ScopeList) And(scopes ...string) ScopeList {
+	s.list[len(s.list)-1] = append(s.list[len(s.list)-1], scopes...)
+	return s
+}
+
+// Every checks if any of the scopes in the list have all of the scopes
+func (s ScopeList) Every(scopes ...string) bool {
+	for _, ss := range s.list {
+		if ss.Every(scopes...) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Some checks if any of the scopes in the list have any of the scopes
+func (s ScopeList) Some(scopes ...string) bool {
+	for _, ss := range s.list {
+		if ss.Some(scopes...) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Contains return true if the scope contains the value

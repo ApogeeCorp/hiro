@@ -26,8 +26,14 @@ import (
 )
 
 type (
-	// Authorizer performs an authorization and returns a context or error on failure
-	Authorizer func(r *http.Request, rt Route) (Principal, error)
+	// Authorizer is the api authorizer interface
+	Authorizer interface {
+		Authorize(r *http.Request, rt Route) (Principal, error)
+		CredentialType() CredentialType
+	}
+
+	// AuthorizerFunc performs an authorization and returns a context or error on failure
+	AuthorizerFunc func(r *http.Request, rt Route) (Principal, error)
 
 	// Claims is a basic claims interface
 	Claims interface {

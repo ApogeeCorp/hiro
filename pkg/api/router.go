@@ -70,6 +70,12 @@ type (
 // AddRoutes adds a routes to the router
 func (r *Router) AddRoutes(routes ...Route) *Router {
 	for _, rt := range routes {
+		fn := reflect.ValueOf(rt)
+
+		if fn.Kind() != reflect.Func {
+			panic(fmt.Errorf("route %s is not a function", rt.Name()))
+		}
+
 		r.Mux.Name(rt.Name()).
 			Methods(rt.Methods()...).
 			Path(rt.Path()).
@@ -234,22 +240,31 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 			req = req.WithContext(context.WithValue(req.Context(), contextKeySessions, r.sessions))
 		}
 
-		if rt.RequireAuth() {
+		if at, ok := rt.(AuthorizedRoute); ok {
 			prins := make([]Principal, 0)
-			for _, a := range r.authorizers {
-				ctx, err := a(req, rt)
-				if err != nil && !errors.Is(err, ErrAuthUnacceptable) {
-					if re, ok := err.(Responder); ok {
-						resp = re
-					} else {
-						panic(err)
-					}
-					return
-				}
 
-				if ctx != nil {
-					// append this to the principal chain
-					prins = append(prins, ctx)
+			for _, a := range r.authorizers {
+
+				for _, ct := range at.RequireAuth() {
+					if ct != a.CredentialType() {
+						continue
+					}
+
+					ctx, err := a.Authorize(req, rt)
+					if err != nil && !errors.Is(err, ErrAuthUnacceptable) {
+						if re, ok := err.(Responder); ok {
+							resp = re
+						} else {
+							panic(err)
+						}
+						return
+					}
+
+					if ctx != nil {
+						// append this to the principal chain
+						prins = append(prins, ctx)
+					}
+					break
 				}
 			}
 
@@ -296,16 +311,17 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 		req = req.WithContext(context.WithValue(req.Context(), contextKeyRequest, rc))
 		rc.r = req
 
+		fn := reflect.ValueOf(rt)
+
 		// check for standard HandlerFunc or http.HandlerFunc handlers
-		if h, ok := rt.Handler().(HandlerFunc); ok {
+		if h, ok := fn.Interface().(HandlerFunc); ok {
 			resp = h(w, req)
 			return
-		} else if h, ok := rt.Handler().(http.HandlerFunc); ok {
+		} else if h, ok := fn.Interface().(http.HandlerFunc); ok {
 			h(w, req)
 			return
 		}
 
-		fn := reflect.ValueOf(rt.Handler())
 		args := []reflect.Value{}
 
 		if fn.Type().In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
@@ -392,15 +408,13 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 				}
 			}
 
-			if rt.ValidateParameters() {
-				if v, ok := params.(validation.Validatable); ok {
-					if err := v.Validate(); err != nil {
-						panic(err)
-					}
-				} else if v, ok := params.(validation.ValidatableWithContext); ok {
-					if err := v.ValidateWithContext(req.Context()); err != nil {
-						panic(err)
-					}
+			if v, ok := params.(validation.Validatable); ok {
+				if err := v.Validate(); err != nil {
+					panic(err)
+				}
+			} else if v, ok := params.(validation.ValidatableWithContext); ok {
+				if err := v.ValidateWithContext(req.Context()); err != nil {
+					panic(err)
 				}
 			}
 
