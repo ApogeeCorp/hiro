@@ -19,7 +19,13 @@
 
 package hiro
 
-import "context"
+import (
+	"context"
+
+	"github.com/ModelRocket/hiro/pkg/api/session"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/apex/log"
+)
 
 type (
 	// Controller is the hiro API controller interface
@@ -55,5 +61,20 @@ type (
 		UserList(ctx context.Context, params UserListInput) ([]*User, error)
 		UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error)
 		UserDelete(ctx context.Context, params UserDeleteInput) error
+
+		// Returns the log from the context
+		Log(ctx context.Context) log.Interface
+
+		// Starts a database transaction
+		Transact(ctx context.Context, handler TxHandler, ignore ...error) error
+
+		// Gets a handle to the database
+		DB(ctx context.Context) DB
+
+		// Return the OAuth Controller
+		OAuthController() oauth.Controller
+
+		// SessionController return the session controller
+		SessionController() session.Controller
 	}
 )

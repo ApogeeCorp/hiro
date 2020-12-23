@@ -680,6 +680,86 @@ paths:
       security:
         - oauth: ["audience:write"]
 
+  /audiences/{audience_id}/options/{option_id}:
+    parameters: 
+      - name: "audience_id"
+        in: "path"
+        description: "The audience id"
+        type: "string"
+        required: true
+      - name: "option_id"
+        in: "path"
+        description: "The option id"
+        type: "string"
+        required: true
+    get:
+      description: "Get an audience option by id"
+      operationId: "OptionGet"
+      tags: ["Hiro", "Audience"]
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "object"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:read"]
+    put:
+      description: "Update audience option by id"
+      operationId: "OptionPut"
+      tags: ["Hiro", "Audience"]
+      parameters:
+        - name: "option"
+          in: "body"
+          required: true
+          schema: 
+            type: "object"
+      responses:
+        200:
+          description: "ok"
+          schema:
+            type: "object"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+    delete:
+      description: "Delete option by id"
+      operationId: "OptionDelete"
+      tags: ["Hiro", "Audience"]
+      responses:
+        204:
+          $ref: "#/responses/NoContent"
+        400:
+          $ref: "#/responses/BadRequest"
+        401:
+          $ref: "#/responses/Unauthorized"
+        403:
+          $ref: "#/responses/Forbidden"
+        404:
+          $ref: "#/responses/NotFound"
+        500:
+          $ref: "#/responses/ServerError"
+      security:
+        - oauth: ["audience:write"]
+
   /audiences/{audience_id}/secrets:
     parameters: 
       - name: "audience_id"

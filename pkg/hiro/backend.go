@@ -22,15 +22,13 @@ package hiro
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/ModelRocket/hiro/db"
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/env"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -43,10 +41,12 @@ type (
 		db            *sqlx.DB
 		automigrate   bool
 		initialize    bool
+		audiencces    []AudienceInitializeInput
 		timeout       time.Duration
 		retryInterval time.Duration
 		log           log.Interface
 		passwords     PasswordManager
+		migrations    []Migration
 	}
 
 	// BackendOption defines a backend option
@@ -56,9 +56,6 @@ type (
 )
 
 var (
-	// Roles is the list of hiro roles by name
-	Roles = []string{"admin", "user"}
-
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
 	Scopes = oauth.Scope{
 		"audience:read",
@@ -73,7 +70,23 @@ var (
 		"session:write",
 	}
 
+	// Roles is the list of hiro roles by name
+	Roles = oauth.ScopeSet{
+		"admin": Scopes,
+	}
+
 	contextKeyHiro contextKey = "hiro:context"
+)
+
+const (
+	// DefaultTokenAlgorithm is the default token algorithm
+	DefaultTokenAlgorithm = oauth.TokenAlgorithmRS256
+
+	// DefaultTokenLifetime is the default audience token lifetime
+	DefaultTokenLifetime = time.Hour
+
+	// DefaultSessionLifetime is the default audience session lifetime
+	DefaultSessionLifetime = time.Hour * 24 * 30
 )
 
 // New returns a new hiro backend
@@ -96,6 +109,7 @@ func New(opts ...BackendOption) (*Backend, error) {
 		initialize:    false,
 		log:           log.Log,
 		passwords:     DefaultPasswordManager,
+		migrations:    make([]Migration, 0),
 	}
 
 	for _, opt := range opts {
@@ -132,68 +146,35 @@ func New(opts ...BackendOption) (*Backend, error) {
 	}
 
 	if b.automigrate {
-		if _, err := db.Migrate(b.db.DB, "postgres", migrate.Up); err != nil {
+		// always migrate hiro first
+		if _, err := db.Migrate(b.db.DB, "postgres", "hiro", db.Migrations, migrate.Up); err != nil {
 			return nil, err
+		}
+
+		// migrate any other sources
+		for _, m := range b.migrations {
+			if _, err := db.Migrate(b.db.DB, "postgres", m.Schema, m.AssetMigrationSource, migrate.Up); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if b.initialize {
-		aud, err := b.AudienceCreate(context.Background(), AudienceCreateInput{
+		if _, err := b.AudienceInitialize(context.Background(), AudienceInitializeInput{
 			Name:            "hiro",
-			TokenAlgorithm:  oauth.TokenAlgorithmRS256,
-			TokenLifetime:   time.Hour,
-			SessionLifetime: time.Hour * 24 * 30,
+			TokenAlgorithm:  DefaultTokenAlgorithm.Ptr(),
+			TokenLifetime:   ptr.Duration(DefaultTokenLifetime),
+			SessionLifetime: ptr.Duration(DefaultSessionLifetime),
 			Permissions:     append(Scopes, oauth.Scopes...),
-		})
-		if err != nil && !errors.Is(err, ErrDuplicateObject) {
-			return nil, err
-		}
-
-		if _, err := b.AudienceUpdate(context.Background(), AudienceUpdateInput{
-			AudienceID: aud.ID,
-			Permissions: &AudiencePermissionsUpdate{
-				Add: append(Scopes, oauth.Scopes...),
-			},
 		}); err != nil {
 			return nil, err
 		}
 
-		b.log.Infof("audience hiro [%s] initialized", aud.ID)
-
-		if len(aud.TokenSecrets) == 0 {
-			if _, err := b.SecretCreate(context.Background(), SecretCreateInput{
-				AudienceID: aud.ID,
-				Type:       SecretTypeToken,
-				Algorithm:  oauth.TokenAlgorithmRS256.Ptr(),
-			}); err != nil {
-				return nil, fmt.Errorf("%w: failed to create audience secret", err)
+		for _, a := range b.audiencces {
+			if _, err := b.AudienceInitialize(context.Background(), a); err != nil {
+				return nil, err
 			}
 		}
-
-		if len(aud.SessionKeys) == 0 {
-			if _, err := b.SecretCreate(context.Background(), SecretCreateInput{
-				AudienceID: aud.ID,
-				Type:       SecretTypeSession,
-			}); err != nil {
-				return nil, fmt.Errorf("%w: failed to create audience secret", err)
-			}
-		}
-
-		app, err := b.ApplicationCreate(context.Background(), ApplicationCreateInput{
-			Name: "hiro:app",
-			Type: oauth.ClientTypeMachine,
-			Permissions: oauth.ScopeSet{
-				"hiro": append(Scopes, oauth.Scopes...),
-			},
-			Grants: oauth.Grants{
-				"hiro": {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-			},
-		})
-		if err != nil && !errors.Is(err, ErrDuplicateObject) {
-			return nil, err
-		}
-
-		b.log.Infof("application hiro:app initialized, client_id = %q, client_secret=%q", app.ID, safe.String(app.SecretKey))
 	}
 
 	return b, nil
@@ -251,15 +232,17 @@ func WithDBSource(source string) BackendOption {
 }
 
 // Automigrate will perform the database initialization, creating tables and indexes.
-func Automigrate() BackendOption {
+func Automigrate(m ...Migration) BackendOption {
 	return func(b *Backend) {
 		b.automigrate = true
+		b.migrations = append(b.migrations, m...)
 	}
 }
 
 // Initialize will create the default hiro audience and application to use for management
-func Initialize() BackendOption {
+func Initialize(a ...AudienceInitializeInput) BackendOption {
 	return func(b *Backend) {
 		b.initialize = true
+		b.audiencces = a
 	}
 }

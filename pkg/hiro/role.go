@@ -21,6 +21,7 @@ package hiro
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -165,12 +166,25 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 		if err := tx.GetContext(ctx, &role, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return b.rolePatch(ctx, rolePatchInput{&role, &PermissionsUpdate{Add: params.Permissions}})
 	}); err != nil {
-		return nil, err
+		if errors.Is(err, ErrDuplicateObject) {
+			r, err := b.RoleGet(ctx, RoleGetInput{
+				Name: &params.Name,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			role = *r
+		} else {
+			log.Error(err.Error())
+		}
+
+		return &role, err
 	}
 
 	log.Debugf("role %s created", role.ID)
@@ -216,7 +230,7 @@ func (b *Backend) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role
 			if err := tx.GetContext(ctx, &role, stmt, args...); err != nil {
 				log.Error(err.Error())
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		} else {
 			a, err := b.RoleGet(ctx, RoleGetInput{
@@ -279,7 +293,7 @@ func (b *Backend) RoleGet(ctx context.Context, params RoleGetInput) (*Role, erro
 	if err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	role := Role{}
@@ -288,7 +302,7 @@ func (b *Backend) RoleGet(ctx context.Context, params RoleGetInput) (*Role, erro
 	if err := row.StructScan(&role); err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	if params.Preload != nil && !*params.Preload {
@@ -327,7 +341,7 @@ func (b *Backend) RoleList(ctx context.Context, params RoleListInput) ([]*Role, 
 
 	roles := make([]*Role, 0)
 	if err := db.SelectContext(ctx, &roles, stmt, args...); err != nil {
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	for _, role := range roles {
@@ -372,7 +386,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 				ExecContext(ctx); err != nil {
 				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 
@@ -391,7 +405,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 			if err != nil {
 				log.Errorf("failed to update audience permissions %s: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 	}
@@ -425,7 +439,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 				ExecContext(ctx); err != nil {
 				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 	}
@@ -454,7 +468,7 @@ func (b *Backend) rolePreload(ctx context.Context, role *Role) (*Role, error) {
 		role.ID); err != nil {
 		log.Errorf("failed to load role permissions %s: %s", role.ID, err)
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	role.Permissions = make(oauth.ScopeSet)
@@ -483,7 +497,7 @@ func (b *Backend) RoleDelete(ctx context.Context, params RoleDeleteInput) error 
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete role %s: %s", params.RoleID, err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil

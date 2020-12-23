@@ -48,8 +48,12 @@ var (
 	ErrContextNotFound = api.ErrServerError.WithDetail("hiro not found in context")
 )
 
-// parseSQLError provides cleaner errors for database issues
-func parseSQLError(err error) error {
+// ParseSQLError provides cleaner errors for database issues
+func ParseSQLError(err error) error {
+	if err == nil {
+		return nil
+	}
+	
 	if errors.Is(err, sql.ErrNoRows) {
 		err = fmt.Errorf("%w", err)
 		return fmt.Errorf("%w: %s", err, ErrNotFound)

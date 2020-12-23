@@ -21,10 +21,12 @@ package hiro
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -59,6 +61,7 @@ type (
 		shutdown    chan int
 		wg          sync.WaitGroup
 		sched       *gocron.Scheduler
+		log         log.Interface
 	}
 
 	// Job is a job handler that the daemon will schedule
@@ -76,13 +79,19 @@ type (
 // NewDaemon creates a new daemon object
 func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	const (
-		defaultServerAddr = "127.0.0.0:9000"
+		localServerAddr   = "127.0.0.0:9000"
 		defaultHiroPath   = "/hiro"
 		defaultOAuthPath  = "/oauth"
 		defaultWebRPCPath = "/rpc"
+		defaultName       = "hiro"
+	)
+
+	var (
+		defaultServerAddr = env.Get("HIRO_SERVER_ADDR", localServerAddr)
 	)
 
 	d := &Daemon{
+		name:        defaultName,
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
 		backOptions: []BackendOption{Automigrate(), Initialize()},
@@ -91,11 +100,14 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		webRPCPath:  defaultWebRPCPath,
 		shutdown:    make(chan int),
 		sched:       gocron.NewScheduler(time.UTC),
+		log:         log.Log,
 	}
 
 	for _, opt := range opts {
 		opt(d)
 	}
+
+	d.log = log.WithField("daemon", d.name)
 
 	if d.ctrl == nil {
 		back, err := New(d.backOptions...)
@@ -107,11 +119,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	}
 
 	if d.oauthCtrl == nil {
-		if back, ok := d.ctrl.(*Backend); ok {
-			d.oauthCtrl = back.OAuthController()
-		} else {
-			return nil, errors.New("OAuthController is required")
-		}
+		d.oauthCtrl = d.ctrl.OAuthController()
 	}
 
 	// start the token cleanup job
@@ -121,11 +129,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		Do(d.oauthCtrl.TokenCleanup, context.Background())
 
 	if d.sessionCtrl == nil {
-		if back, ok := d.ctrl.(*Backend); ok {
-			d.sessionCtrl = back.SessionController()
-		} else {
-			return nil, errors.New("SessionController is required")
-		}
+		d.sessionCtrl = d.ctrl.SessionController()
 	}
 
 	// start the session cleanup job
@@ -236,6 +240,29 @@ func WithRPCServer(s *grpc.Server) DaemonOption {
 	return func(d *Daemon) {
 		d.rpcServer = s
 	}
+}
+
+// Run starts the service, blocks and handle interrupts
+func (d *Daemon) Run() error {
+	done := make(chan os.Signal, 1)
+
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := d.Serve(func() {
+			d.log.Infof("daemon started %s", d.serverAddr)
+		}); err != nil {
+			d.log.Fatalf("failed to start the hiro daemon %+v", err)
+		}
+	}()
+
+	<-done
+	log.Info("dameon shutting down...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return d.Shutdown(ctx)
 }
 
 // Serve starts the dameon server

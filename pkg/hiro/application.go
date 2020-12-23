@@ -199,7 +199,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 		}
 
 		if err := tx.GetContext(ctx, &app, stmt, args...); err != nil {
-			return parseSQLError(err)
+			return ParseSQLError(err)
 
 		}
 
@@ -268,7 +268,7 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 			if err := tx.GetContext(ctx, &app, stmt, args...); err != nil {
 				log.Error(err.Error())
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		} else {
 			a, err := b.ApplicationGet(ctx, ApplicationGetInput{
@@ -331,7 +331,7 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 	if err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	app := Application{}
@@ -340,7 +340,7 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 	if err := row.StructScan(&app); err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	return b.applicationPreload(ctx, &app)
@@ -380,7 +380,7 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 
 	if params.Count != nil {
 		if err := db.GetContext(ctx, params.Count, stmt, args...); err != nil {
-			return nil, parseSQLError(err)
+			return nil, ParseSQLError(err)
 		}
 
 		return nil, nil
@@ -388,7 +388,7 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 
 	apps := make([]*Application, 0)
 	if err := db.SelectContext(ctx, &apps, stmt, args...); err != nil {
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	for _, app := range apps {
@@ -418,7 +418,7 @@ func (b *Backend) ApplicationDelete(ctx context.Context, params ApplicationDelet
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete application %s: %s", params.ApplicationID, err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil
@@ -457,7 +457,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				ExecContext(ctx); err != nil {
 				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 
@@ -476,7 +476,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			if err != nil {
 				log.Errorf("failed to update permissions for audience %s: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 	}
@@ -510,7 +510,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				ExecContext(ctx); err != nil {
 				log.Errorf("failed to delete permissions for audience: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 	}
@@ -541,7 +541,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			ExecContext(ctx); err != nil {
 			log.Errorf("failed to delete grants for audience: %s", audID, err)
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		for _, g := range grants {
@@ -559,7 +559,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			if err != nil {
 				log.Errorf("failed to update audience grants %s: %s", audID, err)
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 
@@ -590,7 +590,7 @@ func (b *Backend) applicationPreload(ctx context.Context, app *Application) (*Ap
 		app.ID); err != nil {
 		log.Errorf("failed to load application permissions %s: %s", app.ID, err)
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	app.Permissions = make(oauth.ScopeSet)
@@ -614,7 +614,7 @@ func (b *Backend) applicationPreload(ctx context.Context, app *Application) (*Ap
 		app.ID); err != nil {
 		log.Errorf("failed to load application grants %s: %s", app.ID, err)
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	app.Grants = make(oauth.Grants)

@@ -106,7 +106,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return nil
@@ -154,7 +154,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return nil
@@ -192,7 +192,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 		if err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
@@ -202,7 +202,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 				return oauth.ErrInvalidToken
 			}
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		// delete expired sessions as we come accross them
@@ -295,7 +295,7 @@ func (s *sessionController) SessionCleanup(ctx context.Context) error {
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to cleanup request tokens %s", err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil

@@ -22,11 +22,14 @@ package hiro
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/mr-tron/base58/base58"
+	migrate "github.com/rubenv/sql-migrate"
+	"github.com/spf13/cast"
 )
 
 type (
@@ -43,12 +46,19 @@ type (
 
 	txRef struct {
 		*sqlx.Tx
-		count int64
-		id    string
+		count  int64
+		id     string
+		ignore []error
 	}
 
 	txCommitErr struct {
 		err error
+	}
+
+	// Migration is a db migration
+	Migration struct {
+		*migrate.AssetMigrationSource
+		Schema string
 	}
 )
 
@@ -66,24 +76,22 @@ func (e txCommitErr) Error() string {
 }
 
 // Transact starts a db transaction, adds it to the context and calls the handler
-func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
-	ctx, ref, err := b.txRef(ctx)
+func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...error) (err error) {
+	ctx, ref, err := b.txRef(ctx, ignore...)
 	if err != nil {
 		return
 	}
 
-	log := api.Log(ctx)
+	log := b.Log(ctx)
 
-	log.Debugf("database tx %s begin", ref.id)
+	if ref.count == 1 {
+		log.Debugf("database tx %s begin", ref.id)
+	}
 
 	defer func() {
 		if p := recover(); p != nil {
 			ref.Rollback()
 			panic(p)
-		}
-
-		if atomic.AddInt64(&ref.count, -1) > 0 {
-			return
 		}
 
 		var t txCommitErr
@@ -93,9 +101,32 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
 		}
 
 		if err != nil {
-			ref.Rollback()
-			log.Debugf("database tx %s rollback", ref.id)
-		} else if err = ref.Commit(); err == nil {
+			// capture the internally ignored error
+			var txErr error
+
+			for _, e := range ref.ignore {
+				if errors.Is(err, e) {
+					txErr = err
+					if _, err = ref.ExecContext(ctx, fmt.Sprintf(`ROLLBACK TO SAVEPOINT "%s%s";`, ref.id, cast.ToString(ref.count))); err != nil {
+						txErr = nil
+					}
+					break
+				}
+			}
+
+			if txErr != nil {
+				err = txErr
+			} else if err != nil {
+				ref.Rollback()
+				log.Debugf("database tx %s rollback", ref.id)
+			}
+		}
+
+		if atomic.AddInt64(&ref.count, -1) > 0 {
+			return
+		}
+
+		if err = ref.Commit(); err == nil {
 			log.Debugf("database tx %s commit succeeded", ref.id)
 			err = t.err
 		} else {
@@ -108,10 +139,17 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler) (err error) {
 	return
 }
 
-func (b *Backend) txRef(ctx context.Context) (context.Context, *txRef, error) {
+func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, *txRef, error) {
 	tmp := ctx.Value(contextKeyTx)
 	if ref, ok := tmp.(*txRef); ok {
 		atomic.AddInt64(&ref.count, 1)
+
+		if len(ref.ignore) > 0 {
+			if _, err := ref.ExecContext(ctx, fmt.Sprintf(`SAVEPOINT "%s%s";`, ref.id, cast.ToString(ref.count))); err != nil {
+				return nil, nil, err
+			}
+		}
+
 		return ctx, ref, nil
 	}
 
@@ -120,7 +158,13 @@ func (b *Backend) txRef(ctx context.Context) (context.Context, *txRef, error) {
 		return nil, nil, err
 	}
 
-	ref := &txRef{tx, 1, uuid.Must(uuid.NewRandom()).String()}
+	id := uuid.Must(uuid.NewRandom())
+	ref := &txRef{
+		Tx:     tx,
+		count:  1,
+		id:     base58.Encode(id[:]),
+		ignore: ignore,
+	}
 
 	ctx = context.WithValue(ctx, contextKeyTx, ref)
 

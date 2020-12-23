@@ -199,7 +199,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return nil
@@ -232,7 +232,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 		if err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
@@ -242,7 +242,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 				return oauth.ErrInvalidToken
 			}
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		// all tokens except login are one-time-use
@@ -379,7 +379,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return nil
@@ -426,7 +426,7 @@ func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.
 		if err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		if err := tx.GetContext(ctx, &out, stmt, args...); err != nil {
@@ -436,7 +436,7 @@ func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.
 				return oauth.ErrInvalidToken
 			}
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		if out.ExpiresAt.Time().Before(time.Now()) {
@@ -485,7 +485,7 @@ func (o *oauthController) TokenRevoke(ctx context.Context, id types.ID) error {
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to revoke access token: %s", err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	log.Debugf("access token revoked")
@@ -513,7 +513,7 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to revoke access token: %s", err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	log.Debugf("access tokens revoked")
@@ -537,7 +537,7 @@ func (o *oauthController) TokenCleanup(ctx context.Context) error {
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to cleanup request tokens %s", err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	log.Debugf("cleaning up access tokens")
@@ -553,7 +553,7 @@ func (o *oauthController) TokenCleanup(ctx context.Context) error {
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to cleanup access tokens %s", err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil

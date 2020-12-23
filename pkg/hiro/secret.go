@@ -102,7 +102,7 @@ func (s SecretDeleteInput) ValidateWithContext(ctx context.Context) error {
 func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error) {
 	var secret Secret
 
-	log := b.Log(ctx).WithField("operation", "SecretCreate")
+	log := b.Log(ctx).WithField("operation", "SecretCreate").WithField("secret_type", params.Type)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -133,7 +133,7 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 					Bytes: x509.MarshalPKCS1PrivateKey(key),
 				}
 
-				if err := pem.Encode(privOut, privKey); err == nil {
+				if err := pem.Encode(privOut, privKey); err != nil {
 					return nil, fmt.Errorf("%w: failed to generate encoded pem", err)
 				}
 
@@ -209,7 +209,7 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 		if err := tx.GetContext(ctx, &secret, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return nil
@@ -240,7 +240,7 @@ func (b *Backend) SecretDelete(ctx context.Context, params SecretDeleteInput) er
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete secret %s: %s", params.SecretID, err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil

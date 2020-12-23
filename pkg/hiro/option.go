@@ -142,7 +142,7 @@ func (b *Backend) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (
 		params.Option,
 	); err != nil {
 		log.Debugf("failed to update option %s: %s", params.Name, err)
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	// get the latest version
@@ -186,7 +186,7 @@ func (b *Backend) OptionGet(ctx context.Context, params *OptionGetInput) (Option
 		query := b.db.QueryRowxContext(ctx, `SELECT value FROM options WHERE name=$1`, params.Name)
 
 		if err := query.Scan(&data); err != nil {
-			return nil, parseSQLError(err)
+			return nil, ParseSQLError(err)
 		}
 
 		optionCache.Set(params.Name, data, cache.DefaultExpiration)

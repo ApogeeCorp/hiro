@@ -20,14 +20,6 @@
 package main
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/apex/log"
-
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/urfave/cli/v2"
@@ -45,28 +37,5 @@ func serverMain(c *cli.Context) error {
 		return err
 	}
 
-	done := make(chan os.Signal, 1)
-
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		if err := d.Serve(func() {
-			log.Infof("hiro daemon started %s", c.String("server-addr"))
-		}); err != nil {
-			log.Fatalf("failed to start the hiro daemon %+v", err)
-		}
-	}()
-
-	<-done
-	log.Info("hiro dameon shutting down...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := d.Shutdown(ctx); err != nil {
-		log.Fatalf("shutdown:%+v", err)
-	}
-	log.Info("hiro shutdown")
-
-	return nil
+	return d.Run()
 }

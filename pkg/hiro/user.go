@@ -188,7 +188,7 @@ func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User
 		if err := tx.GetContext(ctx, &user, stmt, args...); err != nil {
 			log.Error(err.Error())
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		return b.userPatch(ctx, userPatchInput{&user, params.Roles})
@@ -264,7 +264,7 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 			if err := tx.GetContext(ctx, &user, stmt, args...); err != nil {
 				log.Error(err.Error())
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		}
 
@@ -316,7 +316,7 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 	if err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	user := User{}
@@ -325,7 +325,7 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 	if err := row.StructScan(&user); err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	return b.userPreload(ctx, &user)
@@ -365,7 +365,7 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 
 	if params.Count != nil {
 		if err := db.GetContext(ctx, params.Count, stmt, args...); err != nil {
-			return nil, parseSQLError(err)
+			return nil, ParseSQLError(err)
 		}
 
 		return nil, nil
@@ -373,7 +373,7 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 
 	users := make([]*User, 0)
 	if err := db.SelectContext(ctx, &users, stmt, args...); err != nil {
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	for _, user := range users {
@@ -403,7 +403,7 @@ func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error 
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete user %s: %s", params.UserID, err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil
@@ -427,7 +427,7 @@ func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete roles for user: %s", err)
 
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	for _, role := range params.Roles {
@@ -461,7 +461,7 @@ func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
 			ExecContext(ctx); err != nil {
 			log.Errorf("failed to update user permissions: %s", err)
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 
 		params.User.Roles = params.Roles
@@ -491,7 +491,7 @@ func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
 		user.ID); err != nil {
 		log.Errorf("failed to load user roles %s: %s", user.ID, err)
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	if err := db.SelectContext(
@@ -507,7 +507,7 @@ func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
 		user.ID); err != nil {
 		log.Errorf("failed to load user permissions %s: %s", user.ID, err)
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	user.Permissions = make(oauth.ScopeSet)

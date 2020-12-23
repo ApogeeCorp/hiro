@@ -28,6 +28,8 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -50,6 +52,18 @@ type (
 		UpdatedAt       *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
 		Permissions     oauth.Scope          `json:"permissions,omitempty" db:"-"`
 		Metadata        types.Metadata       `json:"metadata,omitempty" db:"metadata"`
+	}
+
+	// AudienceInitializeInput is the input to the audience initialization
+	AudienceInitializeInput struct {
+		Name            string                `json:"name"`
+		Description     *string               `json:"description,omitempty"`
+		TokenLifetime   *time.Duration        `json:"token_lifetime"`
+		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm"`
+		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty"`
+		Permissions     oauth.Scope           `json:"permissions,omitempty"`
+		Metadata        types.Metadata        `json:"metadata,omitempty"`
+		Roles           oauth.ScopeSet        `json:"roles,omitempty"`
 	}
 
 	// AudienceCreateInput is the audience create request
@@ -101,6 +115,14 @@ type (
 	}
 )
 
+// ValidateWithContext handles validation of the AudienceInitializeInput struct
+func (a AudienceInitializeInput) ValidateWithContext(ctx context.Context) error {
+	return validation.ValidateStruct(&a,
+		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
+		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
+	)
+}
+
 // ValidateWithContext handles validation of the AudienceCreateInput struct
 func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
@@ -142,6 +164,137 @@ func (a AudienceDeleteInput) ValidateWithContext(ctx context.Context) error {
 	)
 }
 
+// AudienceInitialize will create or update and audience, intialize a default application and secrets
+func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitializeInput) (*Audience, error) {
+	var aud *Audience
+	var err error
+
+	log := b.Log(ctx).WithField("operation", "AudienceInitialize").WithField("name", params.Name)
+
+	if err := params.ValidateWithContext(ctx); err != nil {
+		log.Error(err.Error())
+
+		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
+	}
+
+	if params.TokenAlgorithm == nil {
+		params.TokenAlgorithm = DefaultTokenAlgorithm.Ptr()
+	}
+
+	if params.TokenLifetime == nil {
+		params.TokenLifetime = ptr.Duration(DefaultTokenLifetime)
+	}
+
+	if params.SessionLifetime == nil {
+		params.SessionLifetime = ptr.Duration(DefaultSessionLifetime)
+	}
+
+	if params.Permissions == nil {
+		params.Permissions = make(oauth.Scope, 0)
+	}
+
+	// always include hiro and oauth scopes
+	params.Permissions = append(params.Permissions, Scopes...)
+	params.Permissions = append(params.Permissions, oauth.Scopes...)
+	params.Permissions = params.Permissions.Unique()
+
+	// do the initialization in a single transaction
+	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+		aud, err = b.AudienceCreate(ctx, AudienceCreateInput{
+			Name:            params.Name,
+			Description:     params.Description,
+			TokenLifetime:   *params.TokenLifetime,
+			TokenAlgorithm:  *params.TokenAlgorithm,
+			SessionLifetime: *params.SessionLifetime,
+			Metadata:        params.Metadata,
+			Permissions:     params.Permissions,
+		})
+		if err != nil && !errors.Is(err, ErrDuplicateObject) {
+			return err
+		}
+
+		// ensure the permissions are consistent
+		if _, err := b.AudienceUpdate(ctx, AudienceUpdateInput{
+			AudienceID: aud.ID,
+			Permissions: &AudiencePermissionsUpdate{
+				Add: params.Permissions,
+			},
+		}); err != nil {
+			return err
+		}
+
+		log.Infof("audience %s [%s] initialized", aud.Name, aud.ID)
+
+		// generate secrets is none exist
+		if len(aud.TokenSecrets) == 0 {
+			if _, err := b.SecretCreate(ctx, SecretCreateInput{
+				AudienceID: aud.ID,
+				Type:       SecretTypeToken,
+				Algorithm:  &aud.TokenAlgorithm,
+			}); err != nil {
+				return fmt.Errorf("%w: failed to create audience token secret", err)
+			}
+		}
+
+		// generate a session key if none exists
+		if len(aud.SessionKeys) == 0 {
+			if _, err := b.SecretCreate(ctx, SecretCreateInput{
+				AudienceID: aud.ID,
+				Type:       SecretTypeSession,
+			}); err != nil {
+				return fmt.Errorf("%w: failed to create audience session key", err)
+			}
+		}
+
+		// create a new application for the audience
+		app, err := b.ApplicationCreate(ctx, ApplicationCreateInput{
+			Name: aud.Name,
+			Type: oauth.ClientTypeMachine,
+			Permissions: oauth.ScopeSet{
+				aud.Name: aud.Permissions,
+			},
+			Grants: oauth.Grants{
+				aud.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+			},
+		})
+		if err != nil && !errors.Is(err, ErrDuplicateObject) {
+			return err
+		}
+
+		for r, p := range params.Roles {
+			role, err := b.RoleCreate(ctx, RoleCreateInput{
+				Name: r,
+				Permissions: oauth.ScopeSet{
+					aud.Slug: p,
+				},
+			})
+			if err != nil && !errors.Is(err, ErrDuplicateObject) {
+				return err
+			}
+
+			if _, err := b.RoleUpdate(ctx, RoleUpdateInput{
+				RoleID: role.ID,
+				Permissions: &PermissionsUpdate{
+					Add: oauth.ScopeSet{
+						aud.Slug: p,
+					},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+
+		log.Infof("application %s initialized, client_id = %q, client_secret=%q", app.Slug, app.ID, safe.String(app.SecretKey))
+
+		// return a txcommit error to ensure the transaction is committed
+		return ErrTxCommit(nil)
+	}, ErrDuplicateObject); err != nil {
+		return nil, err
+	}
+
+	return aud, nil
+}
+
 // AudienceCreate create a new permission object
 func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
 	var aud Audience
@@ -181,8 +334,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 		}
 
 		if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
-			return parseSQLError(err)
-
+			return ParseSQLError(err)
 		}
 
 		return b.audienceUpdatePermissions(ctx, &aud, &AudiencePermissionsUpdate{Add: params.Permissions})
@@ -246,7 +398,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 			if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
 				log.Error(err.Error())
 
-				return parseSQLError(err)
+				return ParseSQLError(err)
 			}
 		} else {
 			a, err := b.AudienceGet(ctx, AudienceGetInput{
@@ -309,7 +461,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 	if err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	aud := &Audience{}
@@ -318,7 +470,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 	if err := row.StructScan(aud); err != nil {
 		log.Error(err.Error())
 
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	return aud, b.audiencePreload(ctx, aud)
@@ -358,7 +510,7 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 
 	if params.Count != nil {
 		if err := db.GetContext(ctx, params.Count, stmt, args...); err != nil {
-			return nil, parseSQLError(err)
+			return nil, ParseSQLError(err)
 		}
 
 		return nil, nil
@@ -366,7 +518,7 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 
 	auds := make([]*Audience, 0)
 	if err := db.SelectContext(ctx, &auds, stmt, args...); err != nil {
-		return nil, parseSQLError(err)
+		return nil, ParseSQLError(err)
 	}
 
 	for _, aud := range auds {
@@ -396,7 +548,7 @@ func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput
 		RunWith(db).
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete audience %s: %s", params.AudienceID, err)
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	return nil
@@ -425,7 +577,7 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 			ExecContext(ctx); err != nil {
 			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 	}
 
@@ -443,7 +595,7 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 		if err != nil {
 			log.Errorf("failed to update audience permissions %s: %s", aud.ID, err)
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 	}
 
@@ -458,7 +610,7 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 			ExecContext(ctx); err != nil {
 			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
 
-			return parseSQLError(err)
+			return ParseSQLError(err)
 		}
 	}
 
@@ -479,7 +631,7 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 		aud.ID); err != nil {
 		log.Errorf("failed to load audience permissions %s: %s", aud.ID, err)
 
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	if err := db.SelectContext(
@@ -491,7 +643,7 @@ func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
 		aud.ID); err != nil {
 		log.Errorf("failed to load audience secrets %s: %s", aud.ID, err)
 
-		return parseSQLError(err)
+		return ParseSQLError(err)
 	}
 
 	aud.TokenSecrets = make([]oauth.TokenSecret, 0)
