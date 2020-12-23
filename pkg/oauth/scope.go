@@ -177,6 +177,11 @@ func (s Scope) Some(elements ...string) bool {
 	return false
 }
 
+// Append appends to a scope
+func (s Scope) Append(e ...string) Scope {
+	return append(s, e...)
+}
+
 // Without returns the scope excluding the elements
 func (s Scope) Without(elements ...string) Scope {
 	r := make(Scope, 0)

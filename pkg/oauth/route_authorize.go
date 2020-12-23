@@ -100,6 +100,9 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 		uris = append(uris, *params.RedirectURI)
 	}
 
+	// User's cannot request verification scopes
+	params.Scope = params.Scope.Without(ScopeEmailVerify, ScopePhoneVerify)
+
 	if err := client.Authorize(
 		ctx,
 		aud,
