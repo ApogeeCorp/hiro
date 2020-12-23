@@ -152,6 +152,20 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 		var resp interface{}
 		var cache bool
 
+		// add the log to the context
+		id := uuid.Must(uuid.NewUUID())
+		reqID := base58.Encode(id[:])
+
+		log := r.log.
+			WithField("req-id", reqID).
+			WithField("route", rt.Name())
+
+		*req = *req.WithContext(
+			context.WithValue(
+				req.Context(),
+				contextKeyLogger,
+				log))
+
 		trace := r.tracingEnabled
 
 		// disable caching if the header says so or its disabled via 0 ttl
@@ -188,20 +202,20 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 					rec := httptest.NewRecorder()
 
 					if err := t.Write(rec); err != nil {
-						r.log.Error(err.Error())
+						log.Error(err.Error())
 						r.WriteError(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					dump, err := httputil.DumpResponse(rec.Result(), cache || rec.Body.Len() < 1024)
 					if err != nil {
-						r.log.Error(err.Error())
+						log.Error(err.Error())
 						r.WriteError(w, http.StatusInternalServerError, err)
 						return
 					}
 
 					if trace {
-						r.log.Debugf("%s <- %s", req.RequestURI, (dump))
+						log.Debugf("%s <- %s", req.RequestURI, (dump))
 					}
 
 					if cr, ok := rt.(CachedRoute); ok && cache {
@@ -286,17 +300,6 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 				}
 			}
 		}
-
-		// add the log to the context
-		id := uuid.Must(uuid.NewUUID())
-		reqID := base58.Encode(id[:])
-
-		req = req.WithContext(
-			context.WithValue(
-				req.Context(),
-				contextKeyLogger,
-				r.log.WithField("req-id", reqID).
-					WithField("route", rt.Name())))
 
 		w.Header().Set("X-Hiro-Request-ID", reqID)
 
@@ -424,7 +427,7 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 
 		if r.tracingEnabled {
 			if dump, err := httputil.DumpRequest(req, true); err == nil {
-				r.log.Debugf("%s -> %s", req.RequestURI, (dump))
+				log.Debugf("%s -> %s", req.RequestURI, (dump))
 			}
 		}
 

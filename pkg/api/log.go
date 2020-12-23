@@ -78,7 +78,9 @@ func (s *Server) LogMiddleware() func(http.Handler) http.Handler {
 			wrapped := wrapResponseWriter(w)
 			next.ServeHTTP(wrapped, r)
 
-			s.log.WithFields(
+			rlog := Log(r.Context())
+
+			rlog.WithFields(
 				log.Fields{
 					"status":    wrapped.Status(),
 					"remote":    getRemoteAddr(r),
