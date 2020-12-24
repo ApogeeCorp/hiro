@@ -260,6 +260,16 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		if err != nil && !errors.Is(err, ErrDuplicateObject) {
 			return err
 		}
+		if _, err := b.ApplicationUpdate(ctx, ApplicationUpdateInput{
+			ApplicationID: app.ID,
+			Permissions: &PermissionsUpdate{
+				Add: oauth.ScopeSet{
+					aud.Name: aud.Permissions,
+				},
+			},
+		}); err != nil {
+			return err
+		}
 
 		for r, p := range params.Roles {
 			role, err := b.RoleCreate(ctx, RoleCreateInput{

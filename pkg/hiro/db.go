@@ -29,7 +29,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/mr-tron/base58/base58"
 	migrate "github.com/rubenv/sql-migrate"
-	"github.com/spf13/cast"
 )
 
 type (
@@ -49,6 +48,7 @@ type (
 		count  int64
 		id     string
 		ignore []error
+		stack  []string
 	}
 
 	txCommitErr struct {
@@ -107,7 +107,11 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...err
 			for _, e := range ref.ignore {
 				if errors.Is(err, e) {
 					txErr = err
-					if _, err = ref.ExecContext(ctx, fmt.Sprintf(`ROLLBACK TO SAVEPOINT "%s%s";`, ref.id, cast.ToString(ref.count))); err != nil {
+					n := len(ref.stack) -1
+					id := ref.stack[n]
+					ref.stack = ref.stack[:n]
+
+					if _, err = ref.ExecContext(ctx, fmt.Sprintf(`ROLLBACK TO SAVEPOINT "%s";`, id)); err != nil {
 						txErr = nil
 					}
 					break
@@ -145,7 +149,10 @@ func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, 
 		atomic.AddInt64(&ref.count, 1)
 
 		if len(ref.ignore) > 0 {
-			if _, err := ref.ExecContext(ctx, fmt.Sprintf(`SAVEPOINT "%s%s";`, ref.id, cast.ToString(ref.count))); err != nil {
+			id := uuid.Must(uuid.NewRandom())
+			ref.stack = append(ref.stack, base58.Encode(id[:]))
+			n := len(ref.stack) -1
+			if _, err := ref.ExecContext(ctx, fmt.Sprintf(`SAVEPOINT "%s";`, ref.stack[n])); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -164,6 +171,7 @@ func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, 
 		count:  1,
 		id:     base58.Encode(id[:]),
 		ignore: ignore,
+		stack:  make([]string, 0),
 	}
 
 	ctx = context.WithValue(ctx, contextKeyTx, ref)
