@@ -374,41 +374,7 @@ func (d *Daemon) APIServer() *api.Server {
 	return d.apiServer
 }
 
-func (d *Daemon) validateTokenUnary(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Errorf(codes.InvalidArgument, "missing metadata")
-	}
-
-	auth, ok := md["authorization"]
-	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token")
-	}
-
-	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
-		aud, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
-		if err != nil {
-			return nil, err
-		}
-
-		for _, s := range aud.Secrets() {
-			if string(s.ID()) == kid {
-				return s, nil
-			}
-		}
-
-		return nil, oauth.ErrKeyNotFound
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token")
-	}
-
-	return handler(ctx, req)
-}
-
-func (d *Daemon) validateTokenStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	ctx := ss.Context()
-
+func (d *Daemon) validateToken(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "missing metadata")
@@ -435,6 +401,22 @@ func (d *Daemon) validateTokenStream(srv interface{}, ss grpc.ServerStream, info
 	})
 	if err != nil {
 		return status.Errorf(codes.Unauthenticated, "invalid token")
+	}
+
+	return nil
+}
+
+func (d *Daemon) validateTokenUnary(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if err := d.validateToken(ctx); err != nil {
+		return nil, err
+	}
+
+	return handler(ctx, req)
+}
+
+func (d *Daemon) validateTokenStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if err := d.validateToken(ss.Context()); err != nil {
+		return err
 	}
 
 	return handler(srv, ss)
