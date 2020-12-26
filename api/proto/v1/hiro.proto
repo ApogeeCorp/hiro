@@ -4,11 +4,50 @@ option go_package = "github.com/ModelRocket/hiro/pkg/hiro/pb";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
 
 package hiro;
 
 service Hiro {
+    rpc AudienceCreate(AudienceCreateRequest) returns (Audience);
+    rpc AudienceUpdate(AudienceUpdateRequest) returns (Audience);
+    rpc AudienceGet(AudienceGetRequest) returns (Audience);
     rpc AudienceList(AudienceListRequest) returns (stream Audience);
+    rpc AudienceDelete(AudienceDeleteRequest) returns (google.protobuf.Empty);
+}
+
+message AudienceCreateRequest {
+    string name = 1;
+    optional string description = 2;
+    uint64 token_lifetime = 3;
+    Secret.TokenAlgorithm token_algorithm = 4;
+    uint64 session_lifetime = 5;
+    repeated string permissions = 6;
+    google.protobuf.Struct metadata = 7;
+}
+
+message AudienceUpdateRequest {
+    message PermissionsUpdate {
+        repeated string add = 1;
+        repeated string remove = 2;
+        bool overwrite = 3;
+    }
+
+    string id = 1;
+    optional string name = 2;
+    optional string description = 3;
+    optional uint64 token_lifetime = 4;
+    optional Secret.TokenAlgorithm token_algorithm = 5;
+    optional uint64 session_lifetime = 6;
+    optional PermissionsUpdate permissions = 7;
+    google.protobuf.Struct metadata = 8;
+}
+
+message AudienceGetRequest {
+    oneof get_by {
+        string id = 1;
+        string name = 2;
+    }
 }
 
 message AudienceListRequest{
@@ -16,11 +55,15 @@ message AudienceListRequest{
     uint64 offset = 2;
 }
 
+message AudienceDeleteRequest {
+    string id = 1;
+}
+
 message Audience {
     string id = 1;
     string name = 2;
     string slug = 3;
-    string description = 4;
+    optional string description = 4;
     repeated Secret secrets = 5;
     Secret.TokenAlgorithm token_algorithm = 6;
     uint64 token_lifetime = 7;
@@ -38,8 +81,9 @@ message Secret {
     }
 
     enum TokenAlgorithm {
-        RS256 = 0;
-        HS256 = 1;
+        NONE = 0;
+        RS256 = 1;
+        HS256 = 2;
     }
 
     string id = 1;
@@ -50,3 +94,4 @@ message Secret {
     google.protobuf.Timestamp created_at = 6;
     google.protobuf.Timestamp updated_at = 7;
 }
+

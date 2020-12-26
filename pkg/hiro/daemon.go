@@ -46,7 +46,8 @@ import (
 )
 
 type (
-	// Daemon is the core hiro service object that all hiro base platforms use
+	// Daemon is the core hiro service object
+	// Platoform projects use the hiro.Daemon to provide services
 	Daemon struct {
 		name        string
 		apiServer   *api.Server
@@ -125,7 +126,9 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		d.oauthCtrl = d.ctrl.OAuthController()
 	}
 
-	// start the token cleanup job
+	// The oauth.Controller doesn't define how tokens are managed, hiro
+	// starts a cron job to ensure expired and revoked tokens are periodically
+	// removed from the database.
 	d.sched.Every(uint64(env.Duration("TOKEN_CLEANUP_INTERVAL", time.Minute*15).Minutes())).
 		Minutes().
 		StartImmediately().
@@ -135,7 +138,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		d.sessionCtrl = d.ctrl.SessionController()
 	}
 
-	// start the session cleanup job
+	// start the session cleanup job, as purpose as the token cleanup
 	d.sched.Every(uint64(env.Duration("SESSION_CLEANUP_INTERVAL", time.Minute*15).Minutes())).
 		Minutes().
 		StartImmediately().
@@ -165,6 +168,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 
 	if d.rpcServer == nil {
 		d.rpcServer = grpc.NewServer(
+			// add handlers to ensure rpc calls are secured by oauth tokens
 			grpc.UnaryInterceptor(d.validateTokenUnary),
 			grpc.StreamInterceptor(d.validateTokenStream),
 		)
@@ -381,7 +385,7 @@ func (d *Daemon) validateToken(ctx context.Context) error {
 	}
 
 	auth, ok := md["authorization"]
-	if !ok {
+	if !ok || len(auth) == 0 {
 		return status.Errorf(codes.Unauthenticated, "invalid token")
 	}
 

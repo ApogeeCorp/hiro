@@ -4,6 +4,7 @@ package pb
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -17,7 +18,11 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type HiroClient interface {
+	AudienceCreate(ctx context.Context, in *AudienceCreateRequest, opts ...grpc.CallOption) (*Audience, error)
+	AudienceUpdate(ctx context.Context, in *AudienceUpdateRequest, opts ...grpc.CallOption) (*Audience, error)
+	AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error)
 	AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error)
+	AudienceDelete(ctx context.Context, in *AudienceDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type hiroClient struct {
@@ -26,6 +31,33 @@ type hiroClient struct {
 
 func NewHiroClient(cc grpc.ClientConnInterface) HiroClient {
 	return &hiroClient{cc}
+}
+
+func (c *hiroClient) AudienceCreate(ctx context.Context, in *AudienceCreateRequest, opts ...grpc.CallOption) (*Audience, error) {
+	out := new(Audience)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/AudienceCreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) AudienceUpdate(ctx context.Context, in *AudienceUpdateRequest, opts ...grpc.CallOption) (*Audience, error) {
+	out := new(Audience)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/AudienceUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error) {
+	out := new(Audience)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/AudienceGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *hiroClient) AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error) {
@@ -60,11 +92,24 @@ func (x *hiroAudienceListClient) Recv() (*Audience, error) {
 	return m, nil
 }
 
+func (c *hiroClient) AudienceDelete(ctx context.Context, in *AudienceDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/AudienceDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HiroServer is the server API for Hiro service.
 // All implementations must embed UnimplementedHiroServer
 // for forward compatibility
 type HiroServer interface {
+	AudienceCreate(context.Context, *AudienceCreateRequest) (*Audience, error)
+	AudienceUpdate(context.Context, *AudienceUpdateRequest) (*Audience, error)
+	AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error)
 	AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error
+	AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error)
 	mustEmbedUnimplementedHiroServer()
 }
 
@@ -72,8 +117,20 @@ type HiroServer interface {
 type UnimplementedHiroServer struct {
 }
 
+func (UnimplementedHiroServer) AudienceCreate(context.Context, *AudienceCreateRequest) (*Audience, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AudienceCreate not implemented")
+}
+func (UnimplementedHiroServer) AudienceUpdate(context.Context, *AudienceUpdateRequest) (*Audience, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AudienceUpdate not implemented")
+}
+func (UnimplementedHiroServer) AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AudienceGet not implemented")
+}
 func (UnimplementedHiroServer) AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error {
 	return status.Errorf(codes.Unimplemented, "method AudienceList not implemented")
+}
+func (UnimplementedHiroServer) AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AudienceDelete not implemented")
 }
 func (UnimplementedHiroServer) mustEmbedUnimplementedHiroServer() {}
 
@@ -86,6 +143,60 @@ type UnsafeHiroServer interface {
 
 func RegisterHiroServer(s grpc.ServiceRegistrar, srv HiroServer) {
 	s.RegisterService(&_Hiro_serviceDesc, srv)
+}
+
+func _Hiro_AudienceCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AudienceCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).AudienceCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/AudienceCreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).AudienceCreate(ctx, req.(*AudienceCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_AudienceUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AudienceUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).AudienceUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/AudienceUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).AudienceUpdate(ctx, req.(*AudienceUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_AudienceGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AudienceGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).AudienceGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/AudienceGet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).AudienceGet(ctx, req.(*AudienceGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Hiro_AudienceList_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -109,10 +220,45 @@ func (x *hiroAudienceListServer) Send(m *Audience) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Hiro_AudienceDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AudienceDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).AudienceDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/AudienceDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).AudienceDelete(ctx, req.(*AudienceDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Hiro_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "hiro.Hiro",
 	HandlerType: (*HiroServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AudienceCreate",
+			Handler:    _Hiro_AudienceCreate_Handler,
+		},
+		{
+			MethodName: "AudienceUpdate",
+			Handler:    _Hiro_AudienceUpdate_Handler,
+		},
+		{
+			MethodName: "AudienceGet",
+			Handler:    _Hiro_AudienceGet_Handler,
+		},
+		{
+			MethodName: "AudienceDelete",
+			Handler:    _Hiro_AudienceDelete_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "AudienceList",

@@ -24,7 +24,7 @@ import "github.com/ModelRocket/hiro/pkg/hiro/pb"
 type (
 	// RPCServer is a hiro rpc server
 	RPCServer struct {
-		ctrl Controller
+		Controller
 		pb.UnimplementedHiroServer
 	}
 )
@@ -32,6 +32,6 @@ type (
 // NewRPCServer returns a new hiro rpc Server
 func NewRPCServer(c Controller) *RPCServer {
 	return &RPCServer{
-		ctrl: c,
+		Controller: c,
 	}
 }

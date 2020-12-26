@@ -9,29 +9,40 @@ This project is used by Model Rocket client projects to provide a common foundat
 Developing with the project requires `go 1.14` or greater.
 
 ## Project Layout
-
 This project follows the [Standard go Project Layout](https://github.com/golang-standards/project-layout)
 
 ```
 ~~~
-├── api/                        // API definitions and services
-│   └── server/                 // The hiro server implementation
-|   └── swagger.yaml            // The api definition source
-|   └── swagger-gen.yaml        // goswagger configuration
+├── api/                        // API definitions
+|   └── proto                   // gRPC protocol definitions
+|   └── swagger                 // Swagger/OpenAPI 2.0 definitions
 ├── cmd/                        // Project executables
 |   └── hiro/                   // The hiro tool
 ├── db/                         // The default database components
 |   └── sql /                   // Postgres SQL scripts
-├── deployments/                // Container and orchestration
-|   └── hiro/                   // Hiro backend deployments
-|       └── docker-compose.yml  // Docker compose script for backend services
 ├── pkg/                        // Library packages
-|   └── hiro/                   // The hiro backend implementation
-|   └── oauth/                  // The base oauth implementation
+|   └── api/                    // Simple REST api services library
+|   └── api/                    // Simple REST api services library
+|       └── session/            // Browser session manager
+|   └── hiro/                   // The hiro platform
 |   └── null/                   // SQL null helpers
+|   └── oauth/                  // The base oauth implementation
 |   └── ptr/                    // Pointer helpers
+|   └── safe/                   // Safe type helpers
 ├── LICENSE                     // The project license
 ├── Makefile                    // The project Makefile
 
 ~~~
 ```
+
+## Pre-requisites
+All projects based on hiro require postgres12+.
+## Core Components
+The core `hiro` platform components are:
+
+1. [`api`](./pkg/api/README.md) - API Services Library for simplifying REST APIs, authorizations, etc.
+1. [`oauth`](./pkg/oauth/README.md) - OAuth 2.0 library for 
+1. [`hiro`](./pkg/hiro/README.md) - The Hiro Platform for managing apis, applications, users, and more.
+
+## Hiro Tool
+The `hiro` tool provides command line support to running instances of hiro applications. More details are in its [README.md](./cmd/hiro/README.md).

@@ -25,6 +25,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/oauth"
 )
 
 type (
@@ -41,6 +42,12 @@ func ClientCredentials(config clientcredentials.Config, secure bool) (credential
 		return nil, err
 	}
 
+	if secure {
+		// for secure requests, we use the proper interface
+		return oauth.NewOauthAccess(token), nil
+	}
+
+	// this implementation allows for oauth over local insecure connections
 	return oauthCreds{
 		token:  token,
 		secure: secure,

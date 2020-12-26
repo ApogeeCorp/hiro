@@ -21,13 +21,11 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"time"
 
@@ -36,14 +34,9 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/dustin/go-humanize"
-	"github.com/johnsiilver/getcert"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -211,18 +204,33 @@ func audienceCreate(c *cli.Context) error {
 }
 
 func audienceGet(c *cli.Context) error {
-	var params hiro.AudienceGetInput
-
-	if id := hiro.ID(c.String("id")); id.Valid() {
-		params.AudienceID = id
-	} else if name := c.String("name"); name != "" {
-		params.Name = &name
-	}
-
-	aud, err := h.AudienceGet(context.Background(), params)
+	var aud hiro.Audience
+	conn, err := rpcClient(c)
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
+
+	h := pb.NewHiroClient(conn)
+
+	req := &pb.AudienceGetRequest{}
+
+	if id := c.String("id"); id != "" {
+		req.GetBy = &pb.AudienceGetRequest_Id{
+			Id: id,
+		}
+	} else if name := c.String("name"); name != "" {
+		req.GetBy = &pb.AudienceGetRequest_Name{
+			Name: name,
+		}
+	}
+
+	rval, err := h.AudienceGet(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	aud.FromProto(rval)
 
 	dumpValue(aud)
 
@@ -262,54 +270,14 @@ func audienceList(c *cli.Context) error {
 	type entry struct {
 		ID          hiro.ID `header:"id"`
 		Name        string  `header:"name"`
-		Description string  `header:"description"`
+		Description *string `header:"description"`
 		CreatedAt   string  `header:"created_at"`
 	}
 
-	u, err := url.Parse(c.String("api-host"))
+	conn, err := rpcClient(c)
 	if err != nil {
 		return err
 	}
-
-	creds, err := oauth.ClientCredentials(clientcredentials.Config{
-		TokenURL:       fmt.Sprintf("%s/oauth/token", u.String()),
-		EndpointParams: url.Values{"audience": []string{c.String("audience")}},
-		ClientID:       c.String("client-id"),
-		ClientSecret:   c.String("client-secret"),
-		AuthStyle:      oauth2.AuthStyleInParams,
-		Scopes:         []string{},
-	}, !c.Bool("rpc-no-tls"))
-
-	var conn *grpc.ClientConn
-
-	if !c.Bool("rpc-no-tls") {
-		tlsCert, _, err := getcert.FromTLSServer(u.String(), true)
-		if err != nil {
-			return err
-		}
-
-		conn, err = grpc.Dial(
-			u.Host,
-			grpc.WithTransportCredentials(
-				credentials.NewTLS(
-					&tls.Config{
-						ServerName:         c.String("api-host"),
-						Certificates:       []tls.Certificate{tlsCert},
-						ClientAuth:         tls.NoClientCert,
-						InsecureSkipVerify: true,
-					})),
-			grpc.WithPerRPCCredentials(creds))
-	} else {
-		conn, err = grpc.Dial(
-			u.Host,
-			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(creds),
-		)
-	}
-	if err != nil {
-		return err
-	}
-
 	defer conn.Close()
 
 	h := pb.NewHiroClient(conn)
