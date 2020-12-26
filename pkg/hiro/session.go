@@ -29,8 +29,6 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/api/session"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/gorilla/sessions"
 )
 
@@ -41,9 +39,9 @@ type (
 
 	// Session is the backend store representation of session.Session
 	Session struct {
-		ID         types.ID   `json:"id" db:"id"`
-		AudienceID types.ID   `json:"audience_id" db:"audience_id"`
-		UserID     types.ID   `json:"user_id" db:"user_id"`
+		ID         ID         `json:"id" db:"id"`
+		AudienceID ID         `json:"audience_id" db:"audience_id"`
+		UserID     ID         `json:"user_id" db:"user_id"`
 		Data       string     `json:"data" db:"data"`
 		CreatedAt  time.Time  `json:"created_at" db:"created_at"`
 		ExpiresAt  time.Time  `json:"expires_at" db:"expires_at"`
@@ -68,10 +66,10 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 	log := s.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
 	var p AudienceGetInput
-	if !types.ID(sess.Audience).Valid() {
+	if !ID(sess.Audience).Valid() {
 		p.Name = &sess.Audience
 	} else {
-		p.AudienceID = ptr.ID(sess.Audience)
+		p.AudienceID = ID(sess.Audience)
 	}
 
 	aud, err := s.Backend.AudienceGet(ctx, p)
@@ -90,7 +88,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 				"expires_at").
 			Values(
 				aud.ID,
-				types.ID(sess.Subject),
+				ID(sess.Subject),
 				sess.Data,
 				time.Now().Add(aud.SessionLifetime),
 			).
@@ -115,7 +113,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 	}
 
 	*sess = session.Session{
-		ID:        out.ID,
+		ID:        out.ID.String(),
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -141,7 +139,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 		stmt, args, err := sq.Update("hiro.sessions").
 			Set("data", sess.Data).
 			Set("expires_at", sess.ExpiresAt).
-			Where(sq.Eq{"id": types.ID(sess.ID)}).
+			Where(sq.Eq{"id": ID(sess.ID)}).
 			PlaceholderFormat(sq.Dollar).
 			Suffix(`RETURNING *`).
 			ToSql()
@@ -163,7 +161,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 	}
 
 	*sess = session.Session{
-		ID:        out.ID,
+		ID:        out.ID.String(),
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -187,7 +185,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 		stmt, args, err := sq.Select("*").
 			From("hiro.sessions").
 			PlaceholderFormat(sq.Dollar).
-			Where(sq.Eq{"id": types.ID(id)}).
+			Where(sq.Eq{"id": ID(id)}).
 			ToSql()
 		if err != nil {
 			log.Error(err.Error())
@@ -208,7 +206,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 		// delete expired sessions as we come accross them
 		if out.ExpiresAt.Before(time.Now()) {
 			if _, err := sq.Delete("hiro.sessions").
-				Where(sq.Eq{"id": types.ID(id)}).
+				Where(sq.Eq{"id": ID(id)}).
 				PlaceholderFormat(sq.Dollar).
 				RunWith(tx).
 				ExecContext(ctx); err != nil {
@@ -224,7 +222,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 	}
 
 	return session.Session{
-		ID:        out.ID,
+		ID:        out.ID.String(),
 		Audience:  out.AudienceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
@@ -238,7 +236,7 @@ func (s *sessionController) SessionDestroy(ctx context.Context, id string) error
 	db := s.Backend.DB(ctx)
 
 	if _, err := sq.Delete("hiro.sessions").
-		Where(sq.Eq{"id": types.ID(id)}).
+		Where(sq.Eq{"id": ID(id)}).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
@@ -250,10 +248,10 @@ func (s *sessionController) SessionDestroy(ctx context.Context, id string) error
 
 func (s *sessionController) SessionOptions(ctx context.Context, id string) (session.Options, error) {
 	var p AudienceGetInput
-	if !types.ID(id).Valid() {
+	if !ID(id).Valid() {
 		p.Name = &id
 	} else {
-		p.AudienceID = ptr.ID(id)
+		p.AudienceID = ID(id)
 	}
 
 	aud, err := s.Backend.AudienceGet(ctx, p)

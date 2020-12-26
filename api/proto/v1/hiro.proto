@@ -8,25 +8,45 @@ import "google/protobuf/struct.proto";
 package hiro;
 
 service Hiro {
-    rpc AudienceGet(AudienceGetRequest) returns (Audience);
+    rpc AudienceList(AudienceListRequest) returns (stream Audience);
 }
 
-message AudienceGetRequest {
-    oneof query {
-        string id = 1;
-        string name = 2;
-    }
+message AudienceListRequest{
+    uint64 limit = 1;
+    uint64 offset = 2;
 }
 
 message Audience {
-
     string id = 1;
     string name = 2;
-    string description = 3;
-    google.protobuf.Timestamp created_at = 4;
-    google.protobuf.Timestamp updated_at = 5;
-    repeated string permissions = 6;
-    google.protobuf.Struct metadata = 7;
-    int64 session_lifetime = 8;
+    string slug = 3;
+    string description = 4;
+    repeated Secret secrets = 5;
+    Secret.TokenAlgorithm token_algorithm = 6;
+    uint64 token_lifetime = 7;
+    uint64 session_lifetime = 8;
+    google.protobuf.Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    repeated string permissions = 11;
+    google.protobuf.Struct metadata = 12;
 }
 
+message Secret {
+    enum SecretType {
+        TOKEN = 0;
+        SESSION = 1;
+    }
+
+    enum TokenAlgorithm {
+        RS256 = 0;
+        HS256 = 1;
+    }
+
+    string id = 1;
+    SecretType type = 2;
+    string audience_id = 3;
+    TokenAlgorithm algorithm = 4;
+    string key = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+}

@@ -31,7 +31,8 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/reno/pkg/reno"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -39,46 +40,46 @@ import (
 type (
 	// User is a hiro user
 	User struct {
-		ID                types.ID        `json:"id" db:"id"`
-		CreatedAt         time.Time       `json:"created_at" db:"created_at"`
-		UpdatedAt         *time.Time      `json:"updated_at,omitempty" db:"updated_at"`
-		Login             string          `json:"login" db:"login"`
-		Password          *string         `json:"-" db:"-"`
-		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
-		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
-		LockedUntil       *time.Time      `json:"locked_until,omitempty" db:"locked_until,omitempty"`
-		Roles             []string        `json:"roles,omitempty"`
-		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" db:"-"`
-		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
-		Metadata          types.Metadata  `json:"metadata,omitempty" db:"metadata"`
+		ID                ID                `json:"id" db:"id"`
+		CreatedAt         time.Time         `json:"created_at" db:"created_at"`
+		UpdatedAt         *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
+		Login             string            `json:"login" db:"login"`
+		Password          *string           `json:"-" db:"-"`
+		PasswordHash      *string           `json:"-" db:"password_hash,omitempty"`
+		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		LockedUntil       *time.Time        `json:"locked_until,omitempty" db:"locked_until,omitempty"`
+		Roles             []string          `json:"roles,omitempty"`
+		Permissions       oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
+		Profile           *openid.Profile   `json:"profile,omitempty" db:"profile"`
+		Metadata          reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// UserCreateInput is the user create request input
 	UserCreateInput struct {
-		Login             string          `json:"login"`
-		Password          *string         `json:"password,omitempty"`
-		Roles             []string        `json:"roles,omitempty"`
-		Profile           *openid.Profile `json:"profile,omitempty"`
-		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" `
-		Metadata          types.Metadata  `json:"metadata,omitempty"`
+		Login             string            `json:"login"`
+		Password          *string           `json:"password,omitempty"`
+		Roles             []string          `json:"roles,omitempty"`
+		Profile           *openid.Profile   `json:"profile,omitempty"`
+		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" `
+		Metadata          reno.InterfaceMap `json:"metadata,omitempty"`
 	}
 
 	// UserUpdateInput is the update user request input
 	UserUpdateInput struct {
-		UserID            *types.ID       `json:"user_id" structs:"-"`
-		Login             *string         `json:"login,omitempty"`
-		Password          *string         `json:"password,omitempty" structs:"-"`
-		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
-		PasswordExpiresAt *time.Time      `json:"-" structs:"password_expires_at,omitempty"`
-		LockedUntil       *time.Time      `json:"locked_until,omitempty" structs:"-"`
-		Roles             []string        `json:"roles,omitempty" structs:"-"`
-		Metadata          types.Metadata  `json:"metadata,omitempty" structs:"-"`
+		UserID            ID                `json:"user_id" structs:"-"`
+		Login             *string           `json:"login,omitempty"`
+		Password          *string           `json:"password,omitempty" structs:"-"`
+		Profile           *openid.Profile   `json:"profile,omitempty" structs:"profile,omitempty"`
+		PasswordExpiresAt *time.Time        `json:"-" structs:"password_expires_at,omitempty"`
+		LockedUntil       *time.Time        `json:"locked_until,omitempty" structs:"-"`
+		Roles             []string          `json:"roles,omitempty" structs:"-"`
+		Metadata          reno.InterfaceMap `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// UserGetInput is used to get an user for the id
 	UserGetInput struct {
-		UserID *types.ID `json:"user_id,omitempty"`
-		Login  *string   `json:"login,omitempty"`
+		UserID ID      `json:"user_id,omitempty"`
+		Login  *string `json:"login,omitempty"`
 	}
 
 	// UserListInput is the user list request
@@ -90,7 +91,7 @@ type (
 
 	// UserDeleteInput is the user delete request input
 	UserDeleteInput struct {
-		UserID types.ID `json:"user_id"`
+		UserID ID `json:"user_id"`
 	}
 
 	userPatchInput struct {
@@ -110,16 +111,16 @@ func (u UserCreateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the UserCreateInput struct
 func (u UserUpdateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&u,
-		validation.Field(&u.UserID, validation.When(u.Login == nil, validation.Required).Else(validation.Nil)),
-		validation.Field(&u.Login, validation.When(u.UserID == nil, validation.Required).Else(validation.Nil)),
+		validation.Field(&u.UserID, validation.When(u.Login == nil, validation.Required).Else(validation.Empty)),
+		validation.Field(&u.Login, validation.When(!u.UserID.Valid(), validation.Required).Else(validation.Nil)),
 	)
 }
 
 // ValidateWithContext handles validation of the UserGetInput struct
 func (u UserGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&u,
-		validation.Field(&u.UserID, validation.When(u.Login == nil, validation.Required).Else(validation.Nil)),
-		validation.Field(&u.Login, validation.When(u.UserID == nil, validation.Required).Else(validation.Nil)),
+		validation.Field(&u.UserID, validation.When(u.Login == nil, validation.Required).Else(validation.Empty)),
+		validation.Field(&u.Login, validation.When(!u.UserID.Valid(), validation.Required).Else(validation.Nil)),
 	)
 }
 
@@ -221,7 +222,7 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 
 		updates := structs.Map(params)
 
-		if len(params.Metadata) > 0 {
+		if params.Metadata != nil {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
@@ -245,7 +246,7 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 			}
 		}
 
-		if params.UserID != nil {
+		if params.UserID.Valid() {
 			q = q.Where(sq.Eq{"id": params.UserID})
 		} else if params.Login != nil {
 			q = q.Where(sq.Eq{"login": params.Login})
@@ -302,8 +303,8 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 		From("hiro.users").
 		PlaceholderFormat(sq.Dollar)
 
-	if params.UserID != nil {
-		query = query.Where(sq.Eq{"id": *params.UserID})
+	if params.UserID.Valid() {
+		query = query.Where(sq.Eq{"id": params.UserID})
 	} else if params.Login != nil {
 		query = query.Where(sq.Eq{"login": *params.Login})
 	} else {
@@ -350,11 +351,11 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 	query := sq.Select(target).
 		From("hiro.users")
 
-	if params.Limit != nil {
+	if safe.Uint64(params.Limit) > 0 {
 		query = query.Limit(*params.Limit)
 	}
 
-	if params.Offset != nil {
+	if safe.Uint64(params.Offset) > 0 {
 		query = query.Offset(*params.Offset)
 	}
 
@@ -435,7 +436,7 @@ func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
 			Preload: ptr.False,
 		}
 
-		if roleID := types.ID(role); roleID.Valid() {
+		if roleID := ID(role); roleID.Valid() {
 			input.RoleID = &roleID
 		} else {
 			input.Name = &role

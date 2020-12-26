@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package id
+package hiro
 
 import (
 	"database/sql/driver"
@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58/base58"
+	"github.com/spf13/cast"
 )
 
 type (
@@ -35,8 +36,26 @@ type (
 	ID string
 )
 
-// NewID generatesa new id
-func NewID() ID {
+// NullID will parse or generate a value to make a new ID
+func NullID(id ...interface{}) ID {
+	if len(id) > 0 {
+		switch t := id[0].(type) {
+		case ID:
+			return t
+
+		case *ID:
+			if t != nil {
+				return *t
+			}
+
+		case nil:
+			return ID("")
+
+		default:
+			return ID(cast.ToString(t))
+		}
+	}
+
 	u := uuid.Must(uuid.NewRandom())
 
 	return ID(base58.Encode(u[:]))
@@ -44,6 +63,10 @@ func NewID() ID {
 
 // Valid returns true if the id is valid
 func (id ID) Valid() bool {
+	// empty ids are not considered valid
+	if id == "" {
+		return false
+	}
 	if err := id.Validate(); err != nil {
 		return false
 	}
@@ -53,6 +76,11 @@ func (id ID) Valid() bool {
 
 // Validate validates the id as a uuid
 func (id ID) Validate() error {
+	// empty ids should be validated because they could be coming from the db some other marshalling
+	if id == "" {
+		return nil
+	}
+
 	data, err := base58.Decode(string(id))
 	if err != nil {
 		return err
@@ -115,7 +143,7 @@ func (id *ID) Scan(value interface{}) error {
 	case nil:
 
 	default:
-		return errors.New("unexpected type for reno.ID")
+		return errors.New("unexpected type for ID")
 	}
 
 	return nil

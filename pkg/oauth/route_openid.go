@@ -133,7 +133,7 @@ func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 		}
 
 		key := jose.JSONWebKey{
-			KeyID:     s.ID().String(),
+			KeyID:     s.ID(),
 			Key:       &s.Key().(*rsa.PrivateKey).PublicKey,
 			Algorithm: s.Algorithm().String(),
 			Use:       "sig",

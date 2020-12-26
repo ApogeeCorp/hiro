@@ -25,7 +25,49 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	serverCommand = &cli.Command{
+		Name:    "server",
+		Aliases: []string{"aud"},
+		Usage:   "Starts a local hiro server",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "db",
+				Usage:   "specify the database path",
+				EnvVars: []string{"DB_SOURCE"},
+			},
+			&cli.StringFlag{
+				Name:    "server-addr",
+				Usage:   "specify the hiro server listen address",
+				Value:   "127.0.0.1:9000",
+				EnvVars: []string{"SERVER_ADDR"},
+			},
+			&cli.StringSliceFlag{
+				Name:    "cors-allowed-origin",
+				Usage:   "Set the cors allowed origin on the http api server",
+				Value:   cli.NewStringSlice("*"),
+				EnvVars: []string{"CORS_ALLOWED_ORIGIN"},
+			},
+			&cli.BoolFlag{
+				Name:    "http-tracing",
+				Usage:   "Enable http tracing",
+				EnvVars: []string{"HTTP_TRACE_ENABLE"},
+			},
+		},
+		Action: serverMain,
+	}
+)
+
 func serverMain(c *cli.Context) error {
+	h, err := hiro.New(
+		hiro.WithDBSource(c.String("db")),
+		hiro.Automigrate(),
+		hiro.Initialize(),
+	)
+	if err != nil {
+		return err
+	}
+
 	d, err := hiro.NewDaemon(
 		hiro.WithServerAddr(c.String("server-addr")),
 		hiro.WithController(h),

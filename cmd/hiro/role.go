@@ -27,7 +27,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
@@ -130,7 +129,7 @@ func roleCreate(c *cli.Context) error {
 func roleGet(c *cli.Context) error {
 	var params hiro.RoleGetInput
 
-	if id := types.ID(c.String("id")); id.Valid() {
+	if id := hiro.ID(c.String("id")); id.Valid() {
 		params.RoleID = &id
 	} else if name := c.String("name"); name != "" {
 		params.Name = &name
@@ -147,7 +146,7 @@ func roleGet(c *cli.Context) error {
 }
 
 func roleDelete(c *cli.Context) error {
-	id := types.ID(c.String("id"))
+	id := hiro.ID(c.String("id"))
 
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Delete Role %s", id.String()),
@@ -184,9 +183,9 @@ func roleList(c *cli.Context) error {
 	fmt.Printf("Found %d role(s)\n\n", len(roles))
 
 	type entry struct {
-		ID        types.ID `header:"id"`
-		Name      string   `header:"name"`
-		CreatedAt string   `header:"created_at"`
+		ID        hiro.ID `header:"id"`
+		Name      string  `header:"name"`
+		CreatedAt string  `header:"created_at"`
 	}
 
 	list := make([]entry, 0)
@@ -207,7 +206,7 @@ func roleUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.RoleUpdateInput{
-		RoleID:      types.ID(c.String("id")),
+		RoleID:      hiro.ID(c.String("id")),
 		Permissions: &hiro.PermissionsUpdate{Add: oauth.ScopeSet(c.Generic("permissions").(permArg))},
 	}
 

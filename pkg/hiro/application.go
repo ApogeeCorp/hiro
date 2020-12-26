@@ -28,9 +28,11 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/reno/pkg/reno"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -38,41 +40,41 @@ import (
 type (
 	// Application is the database model for an application
 	Application struct {
-		ID          types.ID         `json:"id" db:"id"`
-		Name        string           `json:"name" db:"name"`
-		Slug        string           `json:"slug" db:"slug"`
-		Description *string          `json:"description,omitempty" db:"description"`
-		Type        oauth.ClientType `json:"type" db:"type"`
-		SecretKey   *string          `json:"secret_key,omitempty" db:"secret_key"`
-		Permissions oauth.ScopeSet   `json:"permissions,omitempty" db:"-"`
-		Grants      oauth.Grants     `json:"grants,omitempty" db:"-"`
-		URIs        oauth.URIList    `json:"uris,omitempty" db:"uris"`
-		CreatedAt   time.Time        `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time       `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    types.Metadata   `json:"metadata,omitempty" db:"metadata"`
+		ID          ID                `json:"id" db:"id"`
+		Name        string            `json:"name" db:"name"`
+		Slug        string            `json:"slug" db:"slug"`
+		Description *string           `json:"description,omitempty" db:"description"`
+		Type        oauth.ClientType  `json:"type" db:"type"`
+		SecretKey   *string           `json:"secret_key,omitempty" db:"secret_key"`
+		Permissions oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
+		Grants      oauth.Grants      `json:"grants,omitempty" db:"-"`
+		URIs        oauth.URIList     `json:"uris,omitempty" db:"uris"`
+		CreatedAt   time.Time         `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// ApplicationCreateInput is the application create request
 	ApplicationCreateInput struct {
-		Name        string           `json:"name"`
-		Description *string          `json:"description,omitempty"`
-		Type        oauth.ClientType `json:"type" db:"type"`
-		Permissions oauth.ScopeSet   `json:"permissions,omitempty"`
-		Grants      oauth.Grants     `json:"grants,omitempty"`
-		URIs        oauth.URIList    `json:"uris,omitempty"`
-		Metadata    types.Metadata   `json:"metadata,omitempty"`
+		Name        string            `json:"name"`
+		Description *string           `json:"description,omitempty"`
+		Type        oauth.ClientType  `json:"type" db:"type"`
+		Permissions oauth.ScopeSet    `json:"permissions,omitempty"`
+		Grants      oauth.Grants      `json:"grants,omitempty"`
+		URIs        oauth.URIList     `json:"uris,omitempty"`
+		Metadata    reno.InterfaceMap `json:"metadata,omitempty"`
 	}
 
 	// ApplicationUpdateInput is the application update request
 	ApplicationUpdateInput struct {
-		ApplicationID types.ID           `json:"id" structs:"-"`
+		ApplicationID ID                 `json:"id" structs:"-"`
 		Name          *string            `json:"name" structs:"name,omitempty"`
 		Description   *string            `json:"description,omitempty" structs:"description,omitempty"`
 		Type          *oauth.ClientType  `json:"type" structs:"type,omitempty"`
 		Permissions   *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
 		Grants        oauth.Grants       `json:"grants,omitempty" structs:"-"`
 		URIs          oauth.URIList      `json:"uris,omitempty" structs:"-"`
-		Metadata      types.Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		Metadata      reno.InterfaceMap  `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// PermissionsUpdate is used to modify permissions
@@ -84,8 +86,8 @@ type (
 
 	// ApplicationGetInput is used to get an application for the id
 	ApplicationGetInput struct {
-		ApplicationID *types.ID `json:"application_id,omitempty"`
-		Name          *string   `json:"name,omitempty"`
+		ApplicationID ID      `json:"application_id,omitempty"`
+		Name          *string `json:"name,omitempty"`
 	}
 
 	// ApplicationListInput is the application list request
@@ -97,7 +99,7 @@ type (
 
 	// ApplicationDeleteInput is the application delete request input
 	ApplicationDeleteInput struct {
-		ApplicationID types.ID `json:"application_id"`
+		ApplicationID ID `json:"application_id"`
 	}
 
 	// ApplicationType defines an application type
@@ -138,8 +140,8 @@ func (a ApplicationUpdateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the ApplicationGetInput struct
 func (a ApplicationGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.ApplicationID, validation.When(a.Name == nil, validation.Required).Else(validation.Nil)),
-		validation.Field(&a.Name, validation.When(a.ApplicationID == nil, validation.Required).Else(validation.Nil)),
+		validation.Field(&a.ApplicationID, validation.When(a.Name == nil, validation.Required).Else(validation.Empty)),
+		validation.Field(&a.Name, validation.When(!a.ApplicationID.Valid(), validation.Required).Else(validation.Nil)),
 	)
 }
 
@@ -246,7 +248,7 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 
 		updates := structs.Map(params)
 
-		if len(params.Metadata) > 0 {
+		if params.Metadata != nil {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
@@ -272,7 +274,7 @@ func (b *Backend) ApplicationUpdate(ctx context.Context, params ApplicationUpdat
 			}
 		} else {
 			a, err := b.ApplicationGet(ctx, ApplicationGetInput{
-				ApplicationID: &params.ApplicationID,
+				ApplicationID: params.ApplicationID,
 			})
 			if err != nil {
 				return err
@@ -314,8 +316,8 @@ func (b *Backend) ApplicationGet(ctx context.Context, params ApplicationGetInput
 		From("hiro.applications").
 		PlaceholderFormat(sq.Dollar)
 
-	if params.ApplicationID != nil {
-		query = query.Where(sq.Eq{"id": *params.ApplicationID})
+	if params.ApplicationID.Valid() {
+		query = query.Where(sq.Eq{"id": params.ApplicationID})
 	} else if params.Name != nil {
 		query = query.Where(sq.Or{
 			sq.Eq{"name": *params.Name},
@@ -365,11 +367,11 @@ func (b *Backend) ApplicationList(ctx context.Context, params ApplicationListInp
 	query := sq.Select(target).
 		From("hiro.applications")
 
-	if params.Limit != nil {
+	if safe.Uint64(params.Limit) > 0 {
 		query = query.Limit(*params.Limit)
 	}
 
-	if params.Offset != nil {
+	if safe.Uint64(params.Offset) > 0 {
 		query = query.Offset(*params.Offset)
 	}
 
@@ -430,7 +432,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 	db := b.DB(ctx)
 
 	for audID, perms := range params.Permissions.Add {
-		if !types.ID(audID).Valid() {
+		if !ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
 			})
@@ -449,7 +451,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			if _, err := sq.Delete("hiro.application_permissions").
 				Where(
 					sq.Eq{
-						"audience_id":    types.ID(audID),
+						"audience_id":    ID(audID),
 						"application_id": params.Application.ID,
 					}).
 				PlaceholderFormat(sq.Dollar).
@@ -466,7 +468,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				Columns("application_id", "audience_id", "permission").
 				Values(
 					params.Application.ID,
-					types.ID(audID),
+					ID(audID),
 					p,
 				).
 				Suffix("ON CONFLICT DO NOTHING").
@@ -482,7 +484,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 	}
 
 	for audID, perms := range params.Permissions.Remove {
-		if !types.ID(audID).Valid() {
+		if !ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
 			})
@@ -501,7 +503,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 			if _, err := sq.Delete("hiro.application_permissions").
 				Where(
 					sq.Eq{
-						"audience_id":    types.ID(audID),
+						"audience_id":    ID(audID),
 						"application_id": params.Application.ID,
 						"permission":     p,
 					}).
@@ -516,7 +518,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 	}
 
 	for audID, grants := range params.Grants {
-		if !types.ID(audID).Valid() {
+		if !ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
 			})
@@ -533,7 +535,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 
 		if _, err := sq.Delete("hiro.application_grants").
 			Where(
-				sq.Eq{"audience_id": types.ID(audID)},
+				sq.Eq{"audience_id": ID(audID)},
 				sq.Eq{"application_id": params.Application.ID},
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -549,7 +551,7 @@ func (b *Backend) applicationPatch(ctx context.Context, params applicationPatchI
 				Columns("application_id", "audience_id", "grant_type").
 				Values(
 					params.Application.ID,
-					types.ID(audID),
+					ID(audID),
 					g,
 				).
 				Suffix("ON CONFLICT DO NOTHING").

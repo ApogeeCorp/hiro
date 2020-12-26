@@ -17,24 +17,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ptr
+package oauth
 
-import (
-	"github.com/ModelRocket/hiro/pkg/types"
-	"github.com/spf13/cast"
-)
-
-// ID returns a pointer to the id
-func ID(id interface{}) *types.ID {
-	switch t := id.(type) {
-	case types.ID:
-		return &t
-
-	case *types.ID:
-		return t
+type (
+	// ID is a simple id interface used to abstract from the controller interfaces
+	ID interface {
+		String() string
 	}
-
-	v := types.ID(cast.ToString(id))
-
-	return &v
-}
+)

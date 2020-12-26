@@ -21,22 +21,29 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
+	"github.com/johnsiilver/getcert"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -206,8 +213,8 @@ func audienceCreate(c *cli.Context) error {
 func audienceGet(c *cli.Context) error {
 	var params hiro.AudienceGetInput
 
-	if id := types.ID(c.String("id")); id.Valid() {
-		params.AudienceID = &id
+	if id := hiro.ID(c.String("id")); id.Valid() {
+		params.AudienceID = id
 	} else if name := c.String("name"); name != "" {
 		params.Name = &name
 	}
@@ -223,7 +230,7 @@ func audienceGet(c *cli.Context) error {
 }
 
 func audienceDelete(c *cli.Context) error {
-	id := types.ID(c.String("id"))
+	id := hiro.ID(c.String("id"))
 
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Delete Audience %s", id.String()),
@@ -252,30 +259,86 @@ func audienceDelete(c *cli.Context) error {
 }
 
 func audienceList(c *cli.Context) error {
-	auds, err := h.AudienceList(context.Background(), hiro.AudienceListInput{})
+	type entry struct {
+		ID          hiro.ID `header:"id"`
+		Name        string  `header:"name"`
+		Description string  `header:"description"`
+		CreatedAt   string  `header:"created_at"`
+	}
+
+	u, err := url.Parse(c.String("api-host"))
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Found %d audience(s)\n\n", len(auds))
+	creds, err := oauth.ClientCredentials(clientcredentials.Config{
+		TokenURL:       fmt.Sprintf("%s/oauth/token", u.String()),
+		EndpointParams: url.Values{"audience": []string{c.String("audience")}},
+		ClientID:       c.String("client-id"),
+		ClientSecret:   c.String("client-secret"),
+		AuthStyle:      oauth2.AuthStyleInParams,
+		Scopes:         []string{},
+	}, !c.Bool("rpc-no-tls"))
 
-	type entry struct {
-		ID          types.ID `header:"id"`
-		Name        string   `header:"name"`
-		Description string   `header:"description"`
-		CreatedAt   string   `header:"created_at"`
+	var conn *grpc.ClientConn
+
+	if !c.Bool("rpc-no-tls") {
+		tlsCert, _, err := getcert.FromTLSServer(u.String(), true)
+		if err != nil {
+			return err
+		}
+
+		conn, err = grpc.Dial(
+			u.Host,
+			grpc.WithTransportCredentials(
+				credentials.NewTLS(
+					&tls.Config{
+						ServerName:         c.String("api-host"),
+						Certificates:       []tls.Certificate{tlsCert},
+						ClientAuth:         tls.NoClientCert,
+						InsecureSkipVerify: true,
+					})),
+			grpc.WithPerRPCCredentials(creds))
+	} else {
+		conn, err = grpc.Dial(
+			u.Host,
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(creds),
+		)
+	}
+	if err != nil {
+		return err
+	}
+
+	defer conn.Close()
+
+	h := pb.NewHiroClient(conn)
+
+	auds, err := h.AudienceList(context.Background(), &pb.AudienceListRequest{})
+	if err != nil {
+		return err
 	}
 
 	list := make([]entry, 0)
-	for _, a := range auds {
+
+	for {
+		a, err := auds.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
 		list = append(list, entry{
-			ID:          a.ID,
+			ID:          hiro.ID(a.Id),
 			Name:        a.Name,
-			Description: safe.String(a.Description),
-			CreatedAt:   humanize.Time(a.CreatedAt),
+			Description: a.Description,
+			CreatedAt:   humanize.Time(a.CreatedAt.AsTime()),
 		})
 	}
+
 	tableprinter.Print(os.Stdout, list)
+
 	fmt.Println()
 
 	return nil
@@ -285,7 +348,7 @@ func audienceUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.AudienceUpdateInput{
-		AudienceID: types.ID(c.String("id")),
+		AudienceID: hiro.ID(c.String("id")),
 	}
 
 	lifetime := c.Duration("token_lifetime")

@@ -39,7 +39,6 @@ func main() {
 	app.Name = "hiro"
 	app.Usage = "Hiro Platform Toolkit"
 	app.Version = "1.0.0"
-	app.Action = serverMain
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -49,26 +48,31 @@ func main() {
 			EnvVars: []string{"LOG_LEVEL"},
 		},
 		&cli.StringFlag{
-			Name:    "db",
-			Usage:   "specify the database path",
-			EnvVars: []string{"DB_SOURCE"},
-		},
-		&cli.StringFlag{
-			Name:    "server-addr",
-			Usage:   "specify the server listen address",
-			Value:   "0.0.0.0:9000",
-			EnvVars: []string{"SERVER_ADDR"},
-		},
-		&cli.StringSliceFlag{
-			Name:    "cors-allowed-origin",
-			Usage:   "Set the cors allowed origin on the http api server",
-			Value:   cli.NewStringSlice("*"),
-			EnvVars: []string{"CORS_ALLOWED_ORIGIN"},
+			Name:    "api-host",
+			Usage:   "specify the hiro server host",
+			Value:   "http://127.0.0.1:9000",
+			EnvVars: []string{"API_HOST"},
 		},
 		&cli.BoolFlag{
-			Name:    "http-tracing",
-			Usage:   "Enable http tracing",
-			EnvVars: []string{"HTTP_TRACE_ENABLE"},
+			Name:    "rpc-no-tls",
+			Value:   false,
+			EnvVars: []string{"RPC_NO_TLS"},
+		},
+		&cli.StringFlag{
+			Name:    "audience",
+			Usage:   "the hiro audience",
+			Value:   "hiro",
+			EnvVars: []string{"HIRO_AUDIENCE"},
+		},
+		&cli.StringFlag{
+			Name:    "client-id",
+			Usage:   "the hiro application client id",
+			EnvVars: []string{"CLIENT_ID"},
+		},
+		&cli.StringFlag{
+			Name:    "client-secret",
+			Usage:   "the hiro application client secret",
+			EnvVars: []string{"CLIENT_SECRET"},
 		},
 		&cli.StringFlag{
 			Name:    "env",
@@ -86,18 +90,7 @@ func main() {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		var err error
-
 		loadConfig(c)
-
-		h, err = hiro.New(
-			hiro.WithDBSource(c.String("db")),
-			hiro.Automigrate(),
-			hiro.Initialize(),
-		)
-		if err != nil {
-			return err
-		}
 
 		if logLevel := c.String("log-level"); logLevel != "" {
 			if level, err := log.ParseLevel(logLevel); err == nil {

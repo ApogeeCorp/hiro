@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
-	"github.com/ModelRocket/hiro/pkg/types"
 )
 
 type (
@@ -73,7 +72,7 @@ type (
 		TokenGet(ctx context.Context, id string, use ...TokenUse) (Token, error)
 
 		// TokenRevoke revokes a token by id
-		TokenRevoke(ctx context.Context, id types.ID) error
+		TokenRevoke(ctx context.Context, id string) error
 
 		// TokenRevokeAll will remove all tokens for a subject
 		TokenRevokeAll(ctx context.Context, sub string, uses ...TokenUse) error

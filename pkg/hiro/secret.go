@@ -34,7 +34,6 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dgrijalva/jwt-go"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -42,9 +41,9 @@ import (
 type (
 	// Secret is a secret key implemenation of oauth.TokenSecret
 	Secret struct {
-		ID         types.ID              `json:"id" db:"id"`
+		ID         ID                    `json:"id" db:"id"`
 		Type       SecretType            `json:"type"`
-		AudienceID types.ID              `json:"audience_id" db:"audience_id"`
+		AudienceID ID                    `json:"audience_id" db:"audience_id"`
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty" db:"algorithm"`
 		Key        string                `json:"key" db:"key"`
 		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
@@ -53,7 +52,7 @@ type (
 
 	// SecretCreateInput is the params used to create a secret
 	SecretCreateInput struct {
-		AudienceID types.ID              `json:"audience_id"`
+		AudienceID ID                    `json:"audience_id"`
 		Type       SecretType            `json:"type"`
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty"`
 		Key        *string               `json:"key,omitempty"`
@@ -62,7 +61,7 @@ type (
 
 	// SecretDeleteInput is the secret delete request input
 	SecretDeleteInput struct {
-		SecretID types.ID `json:"secret_id"`
+		SecretID ID `json:"secret_id"`
 	}
 
 	// SecretType is a secret type
@@ -246,8 +245,8 @@ func (b *Backend) SecretDelete(ctx context.Context, params SecretDeleteInput) er
 	return nil
 }
 
-func (s oauthSecret) ID() types.ID {
-	return s.Secret.ID
+func (s oauthSecret) ID() string {
+	return s.Secret.ID.String()
 }
 
 func (s oauthSecret) Algorithm() oauth.TokenAlgorithm {
@@ -255,6 +254,21 @@ func (s oauthSecret) Algorithm() oauth.TokenAlgorithm {
 }
 
 func (s oauthSecret) Key() interface{} {
+	return s.key
+}
+
+func (s oauthSecret) VerifyKey() interface{} {
+	if s.Type != SecretTypeToken {
+		return nil
+	}
+
+	switch *s.Secret.Algorithm {
+	case oauth.TokenAlgorithmHS256:
+		return s.key
+	case oauth.TokenAlgorithmRS256:
+		return &s.key.(*rsa.PrivateKey).PublicKey
+	}
+
 	return s.key
 }
 

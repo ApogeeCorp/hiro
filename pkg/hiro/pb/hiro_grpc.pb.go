@@ -17,7 +17,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type HiroClient interface {
-	AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error)
+	AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error)
 }
 
 type hiroClient struct {
@@ -28,20 +28,43 @@ func NewHiroClient(cc grpc.ClientConnInterface) HiroClient {
 	return &hiroClient{cc}
 }
 
-func (c *hiroClient) AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error) {
-	out := new(Audience)
-	err := c.cc.Invoke(ctx, "/hiro.Hiro/AudienceGet", in, out, opts...)
+func (c *hiroClient) AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Hiro_serviceDesc.Streams[0], "/hiro.Hiro/AudienceList", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &hiroAudienceListClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Hiro_AudienceListClient interface {
+	Recv() (*Audience, error)
+	grpc.ClientStream
+}
+
+type hiroAudienceListClient struct {
+	grpc.ClientStream
+}
+
+func (x *hiroAudienceListClient) Recv() (*Audience, error) {
+	m := new(Audience)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // HiroServer is the server API for Hiro service.
 // All implementations must embed UnimplementedHiroServer
 // for forward compatibility
 type HiroServer interface {
-	AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error)
+	AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error
 	mustEmbedUnimplementedHiroServer()
 }
 
@@ -49,8 +72,8 @@ type HiroServer interface {
 type UnimplementedHiroServer struct {
 }
 
-func (UnimplementedHiroServer) AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AudienceGet not implemented")
+func (UnimplementedHiroServer) AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error {
+	return status.Errorf(codes.Unimplemented, "method AudienceList not implemented")
 }
 func (UnimplementedHiroServer) mustEmbedUnimplementedHiroServer() {}
 
@@ -65,33 +88,37 @@ func RegisterHiroServer(s grpc.ServiceRegistrar, srv HiroServer) {
 	s.RegisterService(&_Hiro_serviceDesc, srv)
 }
 
-func _Hiro_AudienceGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AudienceGetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Hiro_AudienceList_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AudienceListRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(HiroServer).AudienceGet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/hiro.Hiro/AudienceGet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HiroServer).AudienceGet(ctx, req.(*AudienceGetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(HiroServer).AudienceList(m, &hiroAudienceListServer{stream})
+}
+
+type Hiro_AudienceListServer interface {
+	Send(*Audience) error
+	grpc.ServerStream
+}
+
+type hiroAudienceListServer struct {
+	grpc.ServerStream
+}
+
+func (x *hiroAudienceListServer) Send(m *Audience) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 var _Hiro_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "hiro.Hiro",
 	HandlerType: (*HiroServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "AudienceGet",
-			Handler:    _Hiro_AudienceGet_Handler,
+			StreamName:    "AudienceList",
+			Handler:       _Hiro_AudienceList_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "hiro.proto",
 }

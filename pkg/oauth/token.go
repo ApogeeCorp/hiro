@@ -27,7 +27,6 @@ import (
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -38,7 +37,7 @@ import (
 type (
 	// Token represents a revokable set of claims
 	Token struct {
-		ID        types.ID `json:"jti,omitempty"`
+		ID        string   `json:"jti,omitempty"`
 		Issuer    *URI     `json:"iss,omitempty"`
 		Subject   *string  `json:"sub,omitempty"`
 		Audience  string   `json:"aud,omitempty"`
@@ -173,6 +172,8 @@ func (t Token) AuthClaims() api.Claims {
 func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, error)) (Token, error) {
 	var c Claims
 
+	bearer = strings.TrimPrefix(bearer, "Bearer ")
+
 	token, err := jwt.Parse(bearer, func(token *jwt.Token) (interface{}, error) {
 		c = Claims(token.Claims.(jwt.MapClaims))
 
@@ -181,7 +182,7 @@ func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, e
 			return nil, err
 		}
 
-		return secret.Key(), nil
+		return secret.VerifyKey(), nil
 	})
 	if err != nil {
 		return Token{}, ErrInvalidToken.WithDetail(err)
@@ -202,7 +203,7 @@ func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, e
 
 	rval.Bearer = ptr.String(bearer)
 
-	tokenCache.Set(rval.ID.String(), rval, cache.DefaultExpiration)
+	tokenCache.Set(rval.ID, rval, cache.DefaultExpiration)
 
 	return rval, nil
 }

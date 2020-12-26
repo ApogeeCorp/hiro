@@ -202,7 +202,7 @@ func (c Claims) Sign(s TokenSecret) (string, error) {
 
 	}
 
-	token.Header["kid"] = s.ID().String()
+	token.Header["kid"] = s.ID()
 
 	return token.SignedString(s.Key())
 }

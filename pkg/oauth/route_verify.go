@@ -209,7 +209,7 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 		return api.ErrServerError.WithError(err)
 	}
 	q := link.Query()
-	q.Set("access_token", v.ID.String())
+	q.Set("access_token", v.ID)
 	link.RawQuery = q.Encode()
 
 	if err := ctrl.UserNotify(ctx, &verifyNotification{

@@ -34,7 +34,6 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/patrickmn/go-cache"
@@ -55,9 +54,9 @@ type (
 
 	// OptionUpdateInput is the option update input
 	OptionUpdateInput struct {
-		AudienceID       types.ID `json:"audience_id"`
-		Name             string   `json:"name"`
-		Option           Option   `json:"-"`
+		AudienceID       ID     `json:"audience_id"`
+		Name             string `json:"name"`
+		Option           Option `json:"-"`
 		suppressHandlers bool
 	}
 

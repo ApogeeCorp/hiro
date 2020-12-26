@@ -24,7 +24,7 @@ import "time"
 type (
 	// Audience is the common oauth audience interface
 	Audience interface {
-		// ID returns the audience id
+		// ID returns the audience id as a string
 		ID() string
 
 		// Name returns the audience name

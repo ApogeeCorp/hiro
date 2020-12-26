@@ -28,7 +28,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/ModelRocket/reno/pkg/reno"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -36,38 +36,38 @@ import (
 type (
 	// Role is the database model for an role
 	Role struct {
-		ID          types.ID       `json:"id" db:"id"`
-		Name        string         `json:"name" db:"name"`
-		Slug        string         `json:"slug" db:"slug"`
-		Description *string        `json:"description,omitempty" db:"description"`
-		Permissions oauth.ScopeSet `json:"permissions,omitempty" db:"-"`
-		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    types.Metadata `json:"metadata,omitempty" db:"metadata"`
+		ID          ID                `json:"id" db:"id"`
+		Name        string            `json:"name" db:"name"`
+		Slug        string            `json:"slug" db:"slug"`
+		Description *string           `json:"description,omitempty" db:"description"`
+		Permissions oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
+		CreatedAt   time.Time         `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// RoleCreateInput is the role create request
 	RoleCreateInput struct {
-		Name        string         `json:"name"`
-		Description *string        `json:"description,omitempty"`
-		Permissions oauth.ScopeSet `json:"permissions,omitempty"`
-		Metadata    types.Metadata `json:"metadata,omitempty"`
+		Name        string            `json:"name"`
+		Description *string           `json:"description,omitempty"`
+		Permissions oauth.ScopeSet    `json:"permissions,omitempty"`
+		Metadata    reno.InterfaceMap `json:"metadata,omitempty"`
 	}
 
 	// RoleUpdateInput is the role update request
 	RoleUpdateInput struct {
-		RoleID      types.ID           `json:"id" structs:"-"`
+		RoleID      ID                 `json:"id" structs:"-"`
 		Name        *string            `json:"name" structs:"name,omitempty"`
 		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
 		Permissions *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata    types.Metadata     `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		Metadata    reno.InterfaceMap  `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// RoleGetInput is used to get an role for the id
 	RoleGetInput struct {
-		RoleID  *types.ID `json:"role_id,omitempty"`
-		Name    *string   `json:"name,omitempty"`
-		Preload *bool     `json:"preload,omitempty"`
+		RoleID  *ID     `json:"role_id,omitempty"`
+		Name    *string `json:"name,omitempty"`
+		Preload *bool   `json:"preload,omitempty"`
 	}
 
 	// RoleListInput is the role list request
@@ -78,7 +78,7 @@ type (
 
 	// RoleDeleteInput is the role delete request input
 	RoleDeleteInput struct {
-		RoleID types.ID `json:"role_id"`
+		RoleID ID `json:"role_id"`
 	}
 
 	// RoleType defines an role type
@@ -212,7 +212,7 @@ func (b *Backend) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role
 
 		updates := structs.Map(params)
 
-		if len(params.Metadata) > 0 {
+		if params.Metadata != nil {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
@@ -359,7 +359,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 	db := b.DB(ctx)
 
 	for audID, perms := range params.Permissions.Add {
-		if !types.ID(audID).Valid() {
+		if !ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
 			})
@@ -378,7 +378,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 			if _, err := sq.Delete("hiro.role_permissions").
 				Where(
 					sq.Eq{
-						"audience_id": types.ID(audID),
+						"audience_id": ID(audID),
 						"role_id":     params.Role.ID,
 					}).
 				PlaceholderFormat(sq.Dollar).
@@ -395,7 +395,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 				Columns("role_id", "audience_id", "permission").
 				Values(
 					params.Role.ID,
-					types.ID(audID),
+					ID(audID),
 					p,
 				).
 				Suffix("ON CONFLICT DO NOTHING").
@@ -411,7 +411,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 	}
 
 	for audID, perms := range params.Permissions.Remove {
-		if !types.ID(audID).Valid() {
+		if !ID(audID).Valid() {
 			aud, err := b.AudienceGet(ctx, AudienceGetInput{
 				Name: &audID,
 			})
@@ -430,7 +430,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 			if _, err := sq.Delete("hiro.role_permissions").
 				Where(
 					sq.Eq{
-						"audience_id": types.ID(audID),
+						"audience_id": ID(audID),
 						"role_id":     params.Role.ID,
 						"permission":  p,
 					}).

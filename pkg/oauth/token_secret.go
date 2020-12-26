@@ -22,16 +22,16 @@ package oauth
 import (
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
 	// TokenSecret is a token secret interface
 	TokenSecret interface {
-		ID() types.ID
+		ID() string
 		Algorithm() TokenAlgorithm
 		Key() interface{}
+		VerifyKey() interface{}
 		ExpiresAt() *time.Time
 	}
 

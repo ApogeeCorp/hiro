@@ -20,7 +20,6 @@
 package oauth
 
 import (
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -29,7 +28,7 @@ type (
 	// RequestToken represents an oauth request used for several different flows
 	// These tokens are generally single use and should not be exposed, other than their id
 	RequestToken struct {
-		ID                  types.ID
+		ID                  ID
 		Type                RequestTokenType
 		CreatedAt           Time
 		Audience            string

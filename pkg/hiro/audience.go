@@ -30,7 +30,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
+	"github.com/ModelRocket/reno/pkg/reno"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -38,7 +38,7 @@ import (
 type (
 	// Audience is the database model for an audience
 	Audience struct {
-		ID              types.ID             `json:"id" db:"id"`
+		ID              ID                   `json:"id" db:"id"`
 		Name            string               `json:"name" db:"name"`
 		Slug            string               `json:"slug" db:"slug"`
 		Description     *string              `json:"description,omitempty" db:"description"`
@@ -51,7 +51,7 @@ type (
 		CreatedAt       time.Time            `json:"created_at" db:"created_at"`
 		UpdatedAt       *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
 		Permissions     oauth.Scope          `json:"permissions,omitempty" db:"-"`
-		Metadata        types.Metadata       `json:"metadata,omitempty" db:"metadata"`
+		Metadata        reno.InterfaceMap    `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceInitializeInput is the input to the audience initialization
@@ -62,7 +62,7 @@ type (
 		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty"`
 		Permissions     oauth.Scope           `json:"permissions,omitempty"`
-		Metadata        types.Metadata        `json:"metadata,omitempty"`
+		Metadata        reno.InterfaceMap     `json:"metadata,omitempty"`
 		Roles           oauth.ScopeSet        `json:"roles,omitempty"`
 	}
 
@@ -74,19 +74,19 @@ type (
 		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime time.Duration        `json:"session_lifetime,omitempty"`
 		Permissions     oauth.Scope          `json:"permissions,omitempty"`
-		Metadata        types.Metadata       `json:"metadata,omitempty"`
+		Metadata        reno.InterfaceMap    `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
 	AudienceUpdateInput struct {
-		AudienceID      types.ID                   `json:"audience_id" structs:"-"`
+		AudienceID      ID                         `json:"audience_id" structs:"-"`
 		Name            *string                    `json:"name" structs:"name,omitempty"`
 		Description     *string                    `json:"description,omitempty" structs:"description,omitempty"`
 		TokenAlgorithm  *oauth.TokenAlgorithm      `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
 		TokenLifetime   *time.Duration             `json:"token_lifetime" structs:"token_lifetime,omitempty"`
 		SessionLifetime *time.Duration             `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
 		Permissions     *AudiencePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata        types.Metadata             `json:"metadata,omitempty" structs:"-"`
+		Metadata        reno.InterfaceMap          `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// AudiencePermissionsUpdate is used to update audience permissions
@@ -98,8 +98,8 @@ type (
 
 	// AudienceGetInput is used to get an audience for the id
 	AudienceGetInput struct {
-		AudienceID *types.ID `json:"audience_id,omitempty"`
-		Name       *string   `json:"name,omitempty"`
+		AudienceID ID      `json:"audience_id,omitempty"`
+		Name       *string `json:"name,omitempty"`
 	}
 
 	// AudienceListInput is the audience list request
@@ -111,7 +111,7 @@ type (
 
 	// AudienceDeleteInput is the audience delete request input
 	AudienceDeleteInput struct {
-		AudienceID types.ID `json:"audience_id"`
+		AudienceID ID `json:"audience_id"`
 	}
 )
 
@@ -147,8 +147,8 @@ func (a AudienceUpdateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the AudienceGetInput struct
 func (a AudienceGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.AudienceID, validation.When(a.Name == nil, validation.Required).Else(validation.Nil)),
-		validation.Field(&a.Name, validation.When(a.AudienceID == nil, validation.Required).Else(validation.Nil)),
+		validation.Field(&a.AudienceID, validation.When(a.Name == nil, validation.Required).Else(validation.Empty)),
+		validation.Field(&a.Name, validation.When(!a.AudienceID.Valid(), validation.Required).Else(validation.Nil)),
 	)
 }
 
@@ -252,9 +252,11 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 			Type: oauth.ClientTypeMachine,
 			Permissions: oauth.ScopeSet{
 				aud.Name: aud.Permissions,
+				"hiro":   append(Scopes, oauth.Scopes...),
 			},
 			Grants: oauth.Grants{
 				aud.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				"hiro":   {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
 			},
 		})
 		if err != nil && !errors.Is(err, ErrDuplicateObject) {
@@ -262,9 +264,14 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		}
 		if _, err := b.ApplicationUpdate(ctx, ApplicationUpdateInput{
 			ApplicationID: app.ID,
+			Grants: oauth.Grants{
+				aud.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				"hiro":   {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+			},
 			Permissions: &PermissionsUpdate{
 				Add: oauth.ScopeSet{
 					aud.Name: aud.Permissions,
+					"hiro":   append(Scopes, oauth.Scopes...),
 				},
 			},
 		}); err != nil {
@@ -390,7 +397,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 
 		updates := structs.Map(params)
 
-		if len(params.Metadata) > 0 {
+		if params.Metadata != nil {
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
@@ -412,7 +419,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 			}
 		} else {
 			a, err := b.AudienceGet(ctx, AudienceGetInput{
-				AudienceID: &params.AudienceID,
+				AudienceID: params.AudienceID,
 			})
 			if err != nil {
 				return err
@@ -436,7 +443,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 
 	log := b.Log(ctx).WithField("operation", "AudienceGet").
 		WithField("id", params.AudienceID).
-		WithField("name", params.Name)
+		WithField("name", safe.String(params.Name))
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -454,8 +461,8 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 		From("hiro.audiences").
 		PlaceholderFormat(sq.Dollar)
 
-	if params.AudienceID != nil {
-		query = query.Where(sq.Eq{"id": *params.AudienceID})
+	if params.AudienceID.Valid() {
+		query = query.Where(sq.Eq{"id": params.AudienceID})
 	} else if params.Name != nil {
 		query = query.Where(sq.Or{
 			sq.Eq{"name": *params.Name},
@@ -505,11 +512,11 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 	query := sq.Select(target).
 		From("hiro.audiences")
 
-	if params.Limit != nil {
+	if safe.Uint64(params.Limit) > 0 {
 		query = query.Limit(*params.Limit)
 	}
 
-	if params.Offset != nil {
+	if safe.Uint64(params.Offset) > 0 {
 		query = query.Offset(*params.Offset)
 	}
 

@@ -20,46 +20,85 @@
 package hiro
 
 import (
-	"context"
-
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
-	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/golang/protobuf/ptypes"
 )
 
-// AudienceGet handles the audience get rpc request
-func (s *RPCServer) AudienceGet(ctx context.Context, req *pb.AudienceGetRequest) (*pb.Audience, error) {
-	var params AudienceGetInput
-
-	switch req.Query.(type) {
-	case *pb.AudienceGetRequest_Id:
-		params.AudienceID = ptr.ID(req.GetId())
-
-	case *pb.AudienceGetRequest_Name:
-		params.Name = ptr.String(req.GetName())
+var (
+	pbSecretMap = map[pb.Secret_SecretType]SecretType{
+		pb.Secret_TOKEN:   SecretTypeToken,
+		pb.Secret_SESSION: SecretTypeSession,
 	}
 
-	aud, err := s.ctrl.AudienceGet(ctx, params)
+	pbAlgoMap = map[pb.Secret_TokenAlgorithm]oauth.TokenAlgorithm{
+		pb.Secret_RS256: oauth.TokenAlgorithmRS256,
+		pb.Secret_HS256: oauth.TokenAlgorithmHS256,
+	}
+
+	apiSecretMap = map[SecretType]pb.Secret_SecretType{
+		SecretTypeToken:   pb.Secret_TOKEN,
+		SecretTypeSession: pb.Secret_SESSION,
+	}
+
+	apiAlgoMap = map[oauth.TokenAlgorithm]pb.Secret_TokenAlgorithm{
+		oauth.TokenAlgorithmRS256: pb.Secret_RS256,
+		oauth.TokenAlgorithmHS256: pb.Secret_HS256,
+	}
+)
+
+// AudienceList handles the AudienceList rpc request
+func (s *RPCServer) AudienceList(req *pb.AudienceListRequest, stream pb.Hiro_AudienceListServer) error {
+	auds, err := s.ctrl.AudienceList(stream.Context(), AudienceListInput{
+		Limit:  &req.Limit,
+		Offset: &req.Offset,
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	rval := &pb.Audience{
-		Id:          aud.ID.String(),
-		Name:        aud.Name,
-		Description: safe.String(aud.Description),
-		CreatedAt:   timestamppb.New(aud.CreatedAt),
-		UpdatedAt:   timestamppb.New(safe.Time(*aud.UpdatedAt, aud.CreatedAt)),
-		Permissions: aud.Permissions,
-	}
+	for _, a := range auds {
+		secrets := make([]*pb.Secret, 0)
 
-	if len(aud.Metadata) > 0 {
-		if v, err := structpb.NewValue(map[string]interface{}(aud.Metadata)); err == nil {
-			rval.Metadata = v.GetStructValue()
+		for _, s := range a.Secrets {
+			var algo pb.Secret_TokenAlgorithm
+
+			if s.Algorithm != nil {
+				algo = apiAlgoMap[*s.Algorithm]
+			}
+
+			secrets = append(secrets, &pb.Secret{
+				Id:         s.ID.String(),
+				Type:       apiSecretMap[s.Type],
+				AudienceId: a.ID.String(),
+				Algorithm:  algo,
+				Key:        s.Key,
+			})
 		}
+
+		createdAt, err := ptypes.TimestampProto(a.CreatedAt)
+		if err != nil {
+			return err
+		}
+
+		updatedAt, err := ptypes.TimestampProto(safe.Time(a.UpdatedAt))
+		if err != nil {
+			return err
+		}
+
+		pa := &pb.Audience{
+			Id:          a.ID.String(),
+			Name:        a.Name,
+			Slug:        a.Slug,
+			Description: safe.String(a.Description),
+			Secrets:     secrets,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
+		}
+
+		stream.Send(pa)
 	}
 
-	return rval, nil
+	return nil
 }

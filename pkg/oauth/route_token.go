@@ -29,7 +29,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -280,7 +279,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				}
 			}
 
-			log.Debugf("identity token %s issued", id.ID)
+			log.Debugf("identity token %s issued", id)
 
 			tokens = append(tokens, id)
 		}
@@ -409,7 +408,7 @@ func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	if len(params.Token) == 22 {
-		if err := ctrl.TokenRevoke(ctx, types.ID(params.Token)); err != nil {
+		if err := ctrl.TokenRevoke(ctx, params.Token); err != nil {
 			return api.Error(err)
 		}
 

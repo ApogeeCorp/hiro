@@ -99,7 +99,7 @@ func (a authorizer) Authorize(r *http.Request, rt api.Route) (api.Principal, err
 			}
 
 			for _, s := range aud.Secrets() {
-				if s.ID().String() == kid {
+				if s.ID() == kid {
 					return s, nil
 				}
 			}

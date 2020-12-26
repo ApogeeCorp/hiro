@@ -71,6 +71,24 @@ func Int64(i interface{}, def ...int64) int64 {
 	return cast.ToInt64(i)
 }
 
+// Uint64 returns a safe uint64 from the value or default if nil
+func Uint64(i interface{}, def ...uint64) uint64 {
+	switch t := i.(type) {
+	case uint64:
+		return t
+	case *uint64:
+		if t == nil {
+			if len(def) > 0 {
+				return def[0]
+			}
+			break
+		}
+		return *t
+	}
+
+	return cast.ToUint64(i)
+}
+
 // Int returns a safe int64 from the value or default if nil
 func Int(i interface{}, def ...int) int {
 	switch t := i.(type) {

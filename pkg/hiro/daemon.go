@@ -40,6 +40,9 @@ import (
 	"github.com/soheilhy/cmux"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type (
@@ -161,7 +164,10 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		AddRoutes(Routes()...)
 
 	if d.rpcServer == nil {
-		d.rpcServer = grpc.NewServer()
+		d.rpcServer = grpc.NewServer(
+			grpc.UnaryInterceptor(d.validateTokenUnary),
+			grpc.StreamInterceptor(d.validateTokenStream),
+		)
 	}
 
 	// register the hiro rpc server
@@ -288,23 +294,30 @@ func (d *Daemon) Serve(ready func()) error {
 
 	// create the multiplexer
 	m := cmux.New(l)
+	grpcL := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+	httpL := m.Match(cmux.HTTP1Fast())
 
 	// use an error group to collect errors
 	errs := new(errgroup.Group)
 
 	// start the http server
 	errs.Go(func() error {
-		l := m.Match(cmux.HTTP1Fast())
 		s := &http.Server{Handler: d.apiServer}
 
-		return s.Serve(l)
+		if err := s.Serve(httpL); err != nil && err != cmux.ErrListenerClosed {
+			return err
+		}
+
+		return nil
 	})
 
 	// start the rpc server
 	errs.Go(func() error {
-		l := m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		if err := d.rpcServer.Serve(grpcL); err != nil && err != cmux.ErrListenerClosed {
+			return err
+		}
 
-		return d.rpcServer.Serve(l)
+		return nil
 	})
 
 	// start the mux
@@ -359,4 +372,70 @@ func (d *Daemon) RPCServer() *grpc.Server {
 // APIServer returns the api server that services can register with
 func (d *Daemon) APIServer() *api.Server {
 	return d.apiServer
+}
+
+func (d *Daemon) validateTokenUnary(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "missing metadata")
+	}
+
+	auth, ok := md["authorization"]
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+	}
+
+	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
+		aud, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
+		if err != nil {
+			return nil, err
+		}
+
+		for _, s := range aud.Secrets() {
+			if string(s.ID()) == kid {
+				return s, nil
+			}
+		}
+
+		return nil, oauth.ErrKeyNotFound
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+	}
+
+	return handler(ctx, req)
+}
+
+func (d *Daemon) validateTokenStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	ctx := ss.Context()
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "missing metadata")
+	}
+
+	auth, ok := md["authorization"]
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "invalid token")
+	}
+
+	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
+		aud, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
+		if err != nil {
+			return nil, err
+		}
+
+		for _, s := range aud.Secrets() {
+			if string(s.ID()) == kid {
+				return s, nil
+			}
+		}
+
+		return nil, oauth.ErrKeyNotFound
+	})
+	if err != nil {
+		return status.Errorf(codes.Unauthenticated, "invalid token")
+	}
+
+	return handler(srv, ss)
 }

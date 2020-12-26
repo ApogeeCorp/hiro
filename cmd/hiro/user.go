@@ -27,7 +27,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
@@ -127,8 +126,8 @@ func userCreate(c *cli.Context) error {
 func userGet(c *cli.Context) error {
 	var params hiro.UserGetInput
 
-	if id := types.ID(c.String("id")); id.Valid() {
-		params.UserID = &id
+	if id := hiro.ID(c.String("id")); id.Valid() {
+		params.UserID = id
 	} else if login := c.String("login"); login != "" {
 		params.Login = &login
 	}
@@ -144,7 +143,7 @@ func userGet(c *cli.Context) error {
 }
 
 func userDelete(c *cli.Context) error {
-	id := types.ID(c.String("id"))
+	id := hiro.ID(c.String("id"))
 
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Delete User %s", id.String()),
@@ -181,10 +180,10 @@ func userList(c *cli.Context) error {
 	fmt.Printf("Found %d user(s)\n\n", len(users))
 
 	type entry struct {
-		ID        types.ID `header:"id"`
-		Login     string   `header:"login"`
-		CreatedAt string   `header:"created_at"`
-		Roles     string   `header:"roles"`
+		ID        hiro.ID `header:"id"`
+		Login     string  `header:"login"`
+		CreatedAt string  `header:"created_at"`
+		Roles     string  `header:"roles"`
 	}
 
 	list := make([]entry, 0)
@@ -206,7 +205,7 @@ func userUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.UserUpdateInput{
-		UserID: ptr.ID(c.String("id")),
+		UserID: hiro.ID(c.String("id")),
 		Roles:  c.StringSlice("roles"),
 	}
 

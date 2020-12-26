@@ -30,7 +30,6 @@ import (
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
-	"github.com/ModelRocket/hiro/pkg/types"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
@@ -173,8 +172,8 @@ func applicationCreate(c *cli.Context) error {
 func applicationGet(c *cli.Context) error {
 	var params hiro.ApplicationGetInput
 
-	if id := types.ID(c.String("id")); id.Valid() {
-		params.ApplicationID = &id
+	if id := hiro.ID(c.String("id")); id.Valid() {
+		params.ApplicationID = id
 	} else if name := c.String("name"); name != "" {
 		params.Name = &name
 	}
@@ -190,7 +189,7 @@ func applicationGet(c *cli.Context) error {
 }
 
 func applicationDelete(c *cli.Context) error {
-	id := types.ID(c.String("id"))
+	id := hiro.ID(c.String("id"))
 
 	prompt := promptui.Prompt{
 		Label:     fmt.Sprintf("Delete Application %s", id.String()),
@@ -227,10 +226,10 @@ func applicationList(c *cli.Context) error {
 	fmt.Printf("Found %d application(s)\n\n", len(apps))
 
 	type entry struct {
-		ID          types.ID `header:"id"`
-		Name        string   `header:"name"`
-		Description string   `header:"description"`
-		CreatedAt   string   `header:"created_at"`
+		ID          hiro.ID `header:"id"`
+		Name        string  `header:"name"`
+		Description string  `header:"description"`
+		CreatedAt   string  `header:"created_at"`
 	}
 
 	list := make([]entry, 0)
@@ -252,7 +251,7 @@ func applicationUpdate(c *cli.Context) error {
 	var err error
 
 	params := hiro.ApplicationUpdateInput{
-		ApplicationID: types.ID(c.String("id")),
+		ApplicationID: hiro.ID(c.String("id")),
 		Permissions: &hiro.PermissionsUpdate{
 			Add:       oauth.ScopeSet(c.Generic("permissions").(permArg)),
 			Overwrite: true,

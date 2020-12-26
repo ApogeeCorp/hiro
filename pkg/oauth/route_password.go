@@ -224,7 +224,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 		}
 
 		q := link.Query()
-		q.Set("access_token", token.ID.String())
+		q.Set("access_token", token.ID)
 		q.Set("request_token", reqToken)
 
 		link.RawQuery = q.Encode()
