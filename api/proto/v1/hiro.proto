@@ -14,6 +14,9 @@ service Hiro {
     rpc AudienceGet(AudienceGetRequest) returns (Audience);
     rpc AudienceList(AudienceListRequest) returns (stream Audience);
     rpc AudienceDelete(AudienceDeleteRequest) returns (google.protobuf.Empty);
+
+    rpc SecretCreate(SecretCreateRequest) returns (Secret);
+    rpc SecreteDelete(SecretDeleteRequest) returns (google.protobuf.Empty);
 }
 
 message AudienceCreateRequest {
@@ -74,6 +77,18 @@ message Audience {
     google.protobuf.Struct metadata = 12;
 }
 
+message SecretCreateRequest {
+    Secret.SecretType type = 1;
+    string audience_id = 2;
+    Secret.TokenAlgorithm algorithm = 3;
+    optional string key = 4;
+    google.protobuf.Timestamp expires_at = 5;
+}
+
+message SecretDeleteRequest {
+    string id = 1;
+}
+
 message Secret {
     enum SecretType {
         TOKEN = 0;
@@ -89,9 +104,9 @@ message Secret {
     string id = 1;
     SecretType type = 2;
     string audience_id = 3;
-    TokenAlgorithm algorithm = 4;
+    optional TokenAlgorithm algorithm = 4;
     string key = 5;
     google.protobuf.Timestamp created_at = 6;
-    google.protobuf.Timestamp updated_at = 7;
+    google.protobuf.Timestamp expires_at = 7;
 }
 

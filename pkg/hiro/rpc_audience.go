@@ -61,19 +61,7 @@ func (a Audience) ToProto() (*pb.Audience, error) {
 	secrets := make([]*pb.Secret, 0)
 
 	for _, s := range a.Secrets {
-		var algo pb.Secret_TokenAlgorithm
-
-		if s.Algorithm != nil {
-			algo = apiAlgoMap[*s.Algorithm]
-		}
-
-		secrets = append(secrets, &pb.Secret{
-			Id:         s.ID.String(),
-			Type:       apiSecretMap[s.Type],
-			AudienceId: a.ID.String(),
-			Algorithm:  algo,
-			Key:        s.Key,
-		})
+		secrets = append(secrets, s.ToProto())
 	}
 
 	createdAt, err := ptypes.TimestampProto(a.CreatedAt)
@@ -112,15 +100,11 @@ func (a *Audience) FromProto(p *pb.Audience) {
 	a.Secrets = make([]*Secret, 0)
 
 	for _, s := range p.Secrets {
-		algo := pbAlgoMap[s.Algorithm]
+		var sec Secret
 
-		a.Secrets = append(a.Secrets, &Secret{
-			ID:         ID(s.Id),
-			Type:       pbSecretMap[s.Type],
-			AudienceID: ID(s.AudienceId),
-			Algorithm:  &algo,
-			Key:        s.Key,
-		})
+		sec.FromProto(s)
+
+		a.Secrets = append(a.Secrets, &sec)
 	}
 
 	if p.CreatedAt != nil {

@@ -23,6 +23,8 @@ type HiroClient interface {
 	AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error)
 	AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error)
 	AudienceDelete(ctx context.Context, in *AudienceDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	SecretCreate(ctx context.Context, in *SecretCreateRequest, opts ...grpc.CallOption) (*Secret, error)
+	SecreteDelete(ctx context.Context, in *SecretDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type hiroClient struct {
@@ -101,6 +103,24 @@ func (c *hiroClient) AudienceDelete(ctx context.Context, in *AudienceDeleteReque
 	return out, nil
 }
 
+func (c *hiroClient) SecretCreate(ctx context.Context, in *SecretCreateRequest, opts ...grpc.CallOption) (*Secret, error) {
+	out := new(Secret)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/SecretCreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) SecreteDelete(ctx context.Context, in *SecretDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/SecreteDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HiroServer is the server API for Hiro service.
 // All implementations must embed UnimplementedHiroServer
 // for forward compatibility
@@ -110,6 +130,8 @@ type HiroServer interface {
 	AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error)
 	AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error
 	AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error)
+	SecretCreate(context.Context, *SecretCreateRequest) (*Secret, error)
+	SecreteDelete(context.Context, *SecretDeleteRequest) (*empty.Empty, error)
 	mustEmbedUnimplementedHiroServer()
 }
 
@@ -131,6 +153,12 @@ func (UnimplementedHiroServer) AudienceList(*AudienceListRequest, Hiro_AudienceL
 }
 func (UnimplementedHiroServer) AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AudienceDelete not implemented")
+}
+func (UnimplementedHiroServer) SecretCreate(context.Context, *SecretCreateRequest) (*Secret, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SecretCreate not implemented")
+}
+func (UnimplementedHiroServer) SecreteDelete(context.Context, *SecretDeleteRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SecreteDelete not implemented")
 }
 func (UnimplementedHiroServer) mustEmbedUnimplementedHiroServer() {}
 
@@ -238,6 +266,42 @@ func _Hiro_AudienceDelete_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Hiro_SecretCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SecretCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).SecretCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/SecretCreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).SecretCreate(ctx, req.(*SecretCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_SecreteDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SecretDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).SecreteDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/SecreteDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).SecreteDelete(ctx, req.(*SecretDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Hiro_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "hiro.Hiro",
 	HandlerType: (*HiroServer)(nil),
@@ -257,6 +321,14 @@ var _Hiro_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AudienceDelete",
 			Handler:    _Hiro_AudienceDelete_Handler,
+		},
+		{
+			MethodName: "SecretCreate",
+			Handler:    _Hiro_SecretCreate_Handler,
+		},
+		{
+			MethodName: "SecreteDelete",
+			Handler:    _Hiro_SecreteDelete_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

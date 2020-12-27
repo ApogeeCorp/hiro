@@ -44,6 +44,7 @@ var (
 		&cli.StringFlag{
 			Name:  "name",
 			Usage: "The audience name",
+			Required: true,
 		},
 		&cli.StringFlag{
 			Name:  "description",
@@ -55,8 +56,8 @@ var (
 		},
 		&cli.StringFlag{
 			Name:  "token_algorithm",
-			Usage: "Specify the oauth token algorithm",
-			Value: string(oauth.TokenAlgorithmRS256),
+			Usage: "Specify the oauth token algorithm (rsa,hmac)",
+			Value: "rsa",
 		},
 		&cli.StringSliceFlag{
 			Name:  "permissions",
@@ -74,6 +75,34 @@ var (
 		&cli.StringFlag{
 			Name:  "token",
 			Usage: "Specify the token as a base64 string",
+		},
+	}
+
+	audienceUpdateFlags = []cli.Flag{
+		&cli.StringFlag{
+			Name:  "name",
+			Usage: "The audience name",
+		},
+		&cli.StringFlag{
+			Name:  "description",
+			Usage: "The audience description",
+		},
+		&cli.DurationFlag{
+			Name:  "token_lifetime",
+			Usage: "The oauth token lifetime in seconds for the audience",
+		},
+		&cli.StringFlag{
+			Name:  "token_algorithm",
+			Usage: "Specify the oauth token algorithm (rsa,hmac)",
+			Value: "rsa",
+		},
+		&cli.StringSliceFlag{
+			Name:  "permissions",
+			Usage: "Specifiy the audience permissions",
+		},
+		&cli.DurationFlag{
+			Name:  "session_lifetime",
+			Usage: "Specify the audience browser session lifetime",
 		},
 	}
 
@@ -118,7 +147,7 @@ var (
 			{
 				Name:   "update",
 				Usage:  "Update and existing audience",
-				Flags:  audienceCreateFlags,
+				Flags:  audienceUpdateFlags,
 				Action: audienceUpdate,
 			},
 		},
@@ -127,6 +156,15 @@ var (
 
 func audienceCreate(c *cli.Context) error {
 	var err error
+	var aud hiro.Audience
+
+	conn, err := rpcClient(c)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	h := pb.NewHiroClient(conn)
 
 	lifetime := time.Duration(c.Duration("token_lifetime"))
 	if lifetime == 0 {
@@ -143,13 +181,24 @@ func audienceCreate(c *cli.Context) error {
 		perms = append(hiro.Scopes, oauth.Scopes...)
 	}
 
-	aud, err := h.AudienceCreate(context.Background(), hiro.AudienceCreateInput{
+	var algo pb.Secret_TokenAlgorithm
+
+	switch c.String("token_algorithm") {
+	case "rsa":
+		algo = pb.Secret_RS256
+	case "hmac":
+		algo = pb.Secret_HS256
+	default:
+		return errors.New("invalid token_algorithm")
+	}
+
+	a, err := h.AudienceCreate(context.Background(), &pb.AudienceCreateRequest{
 		Name:            c.String("name"),
 		Description:     ptr.NilString(c.String("description")),
-		TokenLifetime:   lifetime,
-		TokenAlgorithm:  oauth.TokenAlgorithm(c.String("token_algorithm")),
+		TokenLifetime:   uint64(lifetime.Seconds()),
+		TokenAlgorithm:  algo,
 		Permissions:     oauth.Scope(perms),
-		SessionLifetime: sessionLifetime,
+		SessionLifetime: uint64(sessionLifetime.Seconds()),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -160,11 +209,11 @@ func audienceCreate(c *cli.Context) error {
 	}
 
 	if m := c.String("token_hmac"); m != "" {
-		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-			AudienceID: aud.ID,
-			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
-			Key:        ptr.String(m),
+		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
+			AudienceId: a.Id,
+			Type:       pb.Secret_TOKEN,
+			Algorithm:  pb.Secret_HS256,
+			Key:        &m,
 		})
 	} else if r := c.Path("token_rsa"); r != "" {
 		data, err := ioutil.ReadFile(r)
@@ -172,29 +221,32 @@ func audienceCreate(c *cli.Context) error {
 			return err
 		}
 
-		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-			AudienceID: aud.ID,
-			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmRS256.Ptr(),
-			Key:        ptr.String(base64.RawURLEncoding.EncodeToString(data)),
+		key := base64.RawURLEncoding.EncodeToString(data)
+
+		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
+			AudienceId: a.Id,
+			Type:       pb.Secret_TOKEN,
+			Algorithm:  pb.Secret_RS256,
+			Key:        &key,
 		})
 	} else {
-		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-			AudienceID: aud.ID,
-			Type:       hiro.SecretTypeToken,
-			Algorithm:  aud.TokenAlgorithm.Ptr(),
+		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
+			AudienceId: a.Id,
+			Type:       pb.Secret_TOKEN,
+			Algorithm:  a.TokenAlgorithm,
 		})
 	}
 
 	// generate a new session secret
-	_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-		AudienceID: aud.ID,
-		Type:       hiro.SecretTypeSession,
-		Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
+	_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
+		AudienceId: a.Id,
+		Type:       pb.Secret_SESSION,
 	})
 	if err != nil {
 		return err
 	}
+
+	aud.FromProto(a)
 
 	fmt.Printf("Audiece %s [%s] created.\n", aud.Name, aud.ID)
 
@@ -205,6 +257,7 @@ func audienceCreate(c *cli.Context) error {
 
 func audienceGet(c *cli.Context) error {
 	var aud hiro.Audience
+
 	conn, err := rpcClient(c)
 	if err != nil {
 		return err
@@ -238,10 +291,10 @@ func audienceGet(c *cli.Context) error {
 }
 
 func audienceDelete(c *cli.Context) error {
-	id := hiro.ID(c.String("id"))
+	id := c.String("id")
 
 	prompt := promptui.Prompt{
-		Label:     fmt.Sprintf("Delete Audience %s", id.String()),
+		Label:     fmt.Sprintf("Delete Audience %s", id),
 		IsConfirm: true,
 	}
 
@@ -251,8 +304,16 @@ func audienceDelete(c *cli.Context) error {
 	}
 
 	if result == "y" {
-		if err := h.AudienceDelete(context.Background(), hiro.AudienceDeleteInput{
-			AudienceID: id,
+		conn, err := rpcClient(c)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+
+		h := pb.NewHiroClient(conn)
+
+		if _, err := h.AudienceDelete(context.Background(), &pb.AudienceDeleteRequest{
+			Id: id,
 		}); err != nil {
 			return err
 		}
@@ -315,16 +376,24 @@ func audienceList(c *cli.Context) error {
 func audienceUpdate(c *cli.Context) error {
 	var err error
 
-	params := hiro.AudienceUpdateInput{
-		AudienceID: hiro.ID(c.String("id")),
+	conn, err := rpcClient(c)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	h := pb.NewHiroClient(conn)
+
+	params := pb.AudienceUpdateRequest{
+		Id: c.String("id"),
 	}
 
-	lifetime := c.Duration("token_lifetime")
+	lifetime := uint64(c.Duration("token_lifetime").Seconds())
 	if lifetime > 0 {
 		params.TokenLifetime = &lifetime
 	}
 
-	sessionLifetime := c.Duration("session_lifetime")
+	sessionLifetime := uint64(c.Duration("session_lifetime").Seconds())
 	if sessionLifetime > 0 {
 		params.SessionLifetime = &sessionLifetime
 	}
@@ -338,35 +407,17 @@ func audienceUpdate(c *cli.Context) error {
 	}
 
 	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = &hiro.AudiencePermissionsUpdate{Add: oauth.Scope(perms)}
+		params.Permissions = &pb.AudienceUpdateRequest_PermissionsUpdate{
+			Add: oauth.Scope(perms),
+		}
 	}
 
-	aud, err := h.AudienceUpdate(context.Background(), params)
+	aud, err := h.AudienceUpdate(context.Background(), &params)
 	if err != nil {
 		return err
 	}
 
-	if m := c.String("token_hmac"); m != "" {
-		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-			AudienceID: aud.ID,
-			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
-			Key:        ptr.String(m),
-		})
-	} else if r := c.Path("token_rsa"); r != "" {
-		data, err := ioutil.ReadFile(r)
-		if err != nil {
-			return err
-		}
-		_, err = h.SecretCreate(context.Background(), hiro.SecretCreateInput{
-			AudienceID: aud.ID,
-			Type:       hiro.SecretTypeToken,
-			Algorithm:  oauth.TokenAlgorithmHS256.Ptr(),
-			Key:        ptr.String(base64.RawURLEncoding.EncodeToString(data)),
-		})
-	}
-
-	fmt.Printf("Audiece %s [%s] updated.\n", aud.Name, aud.ID)
+	fmt.Printf("Audiece %s [%s] updated.\n", aud.Name, aud.Id)
 
 	dumpValue(aud)
 
