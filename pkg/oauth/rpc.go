@@ -21,6 +21,8 @@ package oauth
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -37,7 +39,16 @@ type (
 
 // ClientCredentials returns the ClientCredentials for the hiro
 func ClientCredentials(config clientcredentials.Config, secure bool) (credentials.PerRPCCredentials, error) {
-	token, err := config.Token(oauth2.NoContext)
+	ctx := context.WithValue(
+		context.Background(),
+		oauth2.HTTPClient,
+		&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		})
+
+	token, err := config.Token(ctx)
 	if err != nil {
 		return nil, err
 	}

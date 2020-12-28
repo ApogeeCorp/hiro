@@ -87,6 +87,7 @@ func main() {
 		applicationCommand,
 		userCommand,
 		roleCommand,
+		serverCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {

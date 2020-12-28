@@ -164,8 +164,6 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 		}
 
 		if err := tx.GetContext(ctx, &role, stmt, args...); err != nil {
-			log.Error(err.Error())
-
 			return ParseSQLError(err)
 		}
 

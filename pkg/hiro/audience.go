@@ -357,19 +357,14 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 		return b.audienceUpdatePermissions(ctx, &aud, &AudiencePermissionsUpdate{Add: params.Permissions})
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
-			a, err := b.AudienceGet(ctx, AudienceGetInput{
+			return b.AudienceGet(ctx, AudienceGetInput{
 				Name: &params.Name,
 			})
-			if err != nil {
-				return nil, err
-			}
-
-			aud = *a
-		} else {
-			log.Error(err.Error())
 		}
 
-		return &aud, err
+		log.Error(err.Error())
+
+		return nil, err
 	}
 
 	log.Debugf("audience %s created", aud.ID)

@@ -49,19 +49,27 @@ func rpcClient(c *cli.Context) (*grpc.ClientConn, error) {
 		AuthStyle:      oauth2.AuthStyleInParams,
 		Scopes:         []string{},
 	}, !c.Bool("rpc-no-tls"))
+	if err != nil {
+		return nil, err
+	}
+
+	port := u.Port()
+	if port == "" {
+		port = "443"
+	}
 
 	if !c.Bool("rpc-no-tls") {
-		tlsCert, _, err := getcert.FromTLSServer(u.String(), true)
+		tlsCert, _, err := getcert.FromTLSServer(u.Hostname()+":"+port, true)
 		if err != nil {
 			return nil, err
 		}
 
 		conn, err = grpc.Dial(
-			u.Host,
+			u.Host+":"+port,
 			grpc.WithTransportCredentials(
 				credentials.NewTLS(
 					&tls.Config{
-						ServerName:         c.String("api-host"),
+						ServerName:         u.Host,
 						Certificates:       []tls.Certificate{tlsCert},
 						ClientAuth:         tls.NoClientCert,
 						InsecureSkipVerify: true,

@@ -107,7 +107,7 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...err
 			for _, e := range ref.ignore {
 				if errors.Is(err, e) {
 					txErr = err
-					n := len(ref.stack) -1
+					n := len(ref.stack) - 1
 					id := ref.stack[n]
 					ref.stack = ref.stack[:n]
 
@@ -124,9 +124,11 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...err
 				ref.Rollback()
 				log.Debugf("database tx %s rollback", ref.id)
 			}
+
+			err = ParseSQLError(err)
 		}
 
-		if atomic.AddInt64(&ref.count, -1) > 0 {
+		if atomic.AddInt64(&ref.count, -1) > 0 || err != nil {
 			return
 		}
 
@@ -151,7 +153,7 @@ func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, 
 		if len(ref.ignore) > 0 {
 			id := uuid.Must(uuid.NewRandom())
 			ref.stack = append(ref.stack, base58.Encode(id[:]))
-			n := len(ref.stack) -1
+			n := len(ref.stack) - 1
 			if _, err := ref.ExecContext(ctx, fmt.Sprintf(`SAVEPOINT "%s";`, ref.stack[n])); err != nil {
 				return nil, nil, err
 			}

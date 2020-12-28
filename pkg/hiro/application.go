@@ -208,19 +208,13 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 		return b.applicationPatch(ctx, applicationPatchInput{&app, &PermissionsUpdate{Add: params.Permissions}, params.Grants})
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
-			a, err := b.ApplicationGet(ctx, ApplicationGetInput{
+			return b.ApplicationGet(ctx, ApplicationGetInput{
 				Name: &params.Name,
 			})
-			if err != nil {
-				return nil, err
-			}
-
-			app = *a
-		} else {
-			log.Error(err.Error())
 		}
+		log.Error(err.Error())
 
-		return &app, err
+		return nil, err
 	}
 
 	log.Debugf("application %s created", app.ID)
