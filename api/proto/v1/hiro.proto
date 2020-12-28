@@ -15,6 +15,12 @@ service Hiro {
     rpc AudienceList(AudienceListRequest) returns (stream Audience);
     rpc AudienceDelete(AudienceDeleteRequest) returns (google.protobuf.Empty);
 
+    rpc ApplicationCreate(ApplicationCreateRequest) returns (Application);
+    rpc ApplicationUpdate(ApplicationUpdateRequest) returns (Application);
+    rpc ApplicationGet(ApplicationGetRequest) returns (Application);
+    rpc ApplicationList(ApplicationListRequest) returns (stream Application);
+    rpc ApplicationDelete(ApplicationDeleteRequest) returns (google.protobuf.Empty);
+
     rpc SecretCreate(SecretCreateRequest) returns (Secret);
     rpc SecreteDelete(SecretDeleteRequest) returns (google.protobuf.Empty);
 }
@@ -91,12 +97,12 @@ message SecretDeleteRequest {
 
 message Secret {
     enum SecretType {
-        TOKEN = 0;
-        SESSION = 1;
+        Token = 0;
+        Session = 1;
     }
 
     enum TokenAlgorithm {
-        NONE = 0;
+        None = 0;
         RS256 = 1;
         HS256 = 2;
     }
@@ -110,3 +116,68 @@ message Secret {
     google.protobuf.Timestamp expires_at = 7;
 }
 
+message Permissions {
+    repeated string scopes = 1;
+    repeated string grants = 2;
+}
+
+message PermissionsUpdate {
+    map<string,Permissions> add = 1;
+    map<string,Permissions> remove = 2;
+    bool overwrite = 3;
+}
+
+message Application {
+    enum ClientType {
+        Web = 0;
+        Native = 1;
+        Machine = 2;
+    }
+
+    string id = 1;
+    string name = 2;
+    string slug = 3;
+    optional string description = 4;
+    ClientType type = 5;
+    optional string secret_key = 6;
+    map <string, Permissions> permissions = 7;
+    repeated string uris = 8;
+    google.protobuf.Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    google.protobuf.Struct metadata = 11;
+}
+
+message ApplicationCreateRequest {
+    string name = 1;
+    optional string description = 2;
+    Application.ClientType type = 3;
+    map <string, Permissions> permissions = 4;
+    repeated string uris = 5;
+    google.protobuf.Struct metadata = 6;
+}
+
+message ApplicationUpdateRequest {
+    string id = 1;
+    optional string name = 2;
+    optional string description = 3;
+    optional Application.ClientType type = 4;
+    PermissionsUpdate permissions = 5;
+    repeated string uris = 6;
+    google.protobuf.Struct metadata = 7;
+}
+
+message ApplicationGetRequest {
+    oneof get_by {
+        string id = 1;
+        string name = 2;
+    }
+}
+
+message ApplicationListRequest{
+    uint64 limit = 1;
+    uint64 offset = 2;
+}
+
+message ApplicationDeleteRequest {
+    string id = 1;
+}

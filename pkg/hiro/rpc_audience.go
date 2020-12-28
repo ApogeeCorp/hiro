@@ -34,23 +34,23 @@ import (
 
 var (
 	pbSecretMap = map[pb.Secret_SecretType]SecretType{
-		pb.Secret_TOKEN:   SecretTypeToken,
-		pb.Secret_SESSION: SecretTypeSession,
+		pb.Secret_Token:   SecretTypeToken,
+		pb.Secret_Session: SecretTypeSession,
 	}
 
 	pbAlgoMap = map[pb.Secret_TokenAlgorithm]oauth.TokenAlgorithm{
-		pb.Secret_NONE:  oauth.TokenAlgorithmNone,
+		pb.Secret_None:  oauth.TokenAlgorithmNone,
 		pb.Secret_RS256: oauth.TokenAlgorithmRS256,
 		pb.Secret_HS256: oauth.TokenAlgorithmHS256,
 	}
 
 	apiSecretMap = map[SecretType]pb.Secret_SecretType{
-		SecretTypeToken:   pb.Secret_TOKEN,
-		SecretTypeSession: pb.Secret_SESSION,
+		SecretTypeToken:   pb.Secret_Token,
+		SecretTypeSession: pb.Secret_Session,
 	}
 
 	apiAlgoMap = map[oauth.TokenAlgorithm]pb.Secret_TokenAlgorithm{
-		oauth.TokenAlgorithmNone:  pb.Secret_NONE,
+		oauth.TokenAlgorithmNone:  pb.Secret_None,
 		oauth.TokenAlgorithmRS256: pb.Secret_RS256,
 		oauth.TokenAlgorithmHS256: pb.Secret_HS256,
 	}

@@ -18,3 +18,35 @@
  */
 
 package hiro
+
+import (
+	"context"
+
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
+	"github.com/golang/protobuf/ptypes/empty"
+)
+
+// ApplicationCreate implements the pb.HiroServer interface
+func (s *RPCServer) ApplicationCreate(ctx context.Context, params *pb.ApplicationCreateRequest) (*pb.Application, error) {
+	return nil, nil
+}
+
+// ApplicationUpdate implements the pb.HiroServer interface
+func (s *RPCServer) ApplicationUpdate(ctx context.Context, params *pb.ApplicationUpdateRequest) (*pb.Application, error) {
+	return nil, nil
+}
+
+// ApplicationGet implements the pb.HiroServer interface
+func (s *RPCServer) ApplicationGet(ctx context.Context, params *pb.ApplicationGetRequest) (*pb.Application, error) {
+	return nil, nil
+}
+
+// ApplicationList implements the pb.HiroServer interface
+func (s *RPCServer) ApplicationList(req *pb.ApplicationListRequest, stream pb.Hiro_ApplicationListServer) error {
+	return nil
+}
+
+// ApplicationDelete implements the pb.HiroServer interface
+func (s *RPCServer) ApplicationDelete(ctx context.Context, params *pb.ApplicationDeleteRequest) (*empty.Empty, error) {
+	return nil, nil
+}

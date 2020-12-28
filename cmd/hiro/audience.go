@@ -42,8 +42,8 @@ import (
 var (
 	audienceCreateFlags = []cli.Flag{
 		&cli.StringFlag{
-			Name:  "name",
-			Usage: "The audience name",
+			Name:     "name",
+			Usage:    "The audience name",
 			Required: true,
 		},
 		&cli.StringFlag{
@@ -211,7 +211,7 @@ func audienceCreate(c *cli.Context) error {
 	if m := c.String("token_hmac"); m != "" {
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
 			AudienceId: a.Id,
-			Type:       pb.Secret_TOKEN,
+			Type:       pb.Secret_Token,
 			Algorithm:  pb.Secret_HS256,
 			Key:        &m,
 		})
@@ -225,14 +225,14 @@ func audienceCreate(c *cli.Context) error {
 
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
 			AudienceId: a.Id,
-			Type:       pb.Secret_TOKEN,
+			Type:       pb.Secret_Token,
 			Algorithm:  pb.Secret_RS256,
 			Key:        &key,
 		})
 	} else {
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
 			AudienceId: a.Id,
-			Type:       pb.Secret_TOKEN,
+			Type:       pb.Secret_Token,
 			Algorithm:  a.TokenAlgorithm,
 		})
 	}
@@ -240,7 +240,7 @@ func audienceCreate(c *cli.Context) error {
 	// generate a new session secret
 	_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
 		AudienceId: a.Id,
-		Type:       pb.Secret_SESSION,
+		Type:       pb.Secret_Session,
 	})
 	if err != nil {
 		return err

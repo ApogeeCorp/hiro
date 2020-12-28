@@ -23,6 +23,11 @@ type HiroClient interface {
 	AudienceGet(ctx context.Context, in *AudienceGetRequest, opts ...grpc.CallOption) (*Audience, error)
 	AudienceList(ctx context.Context, in *AudienceListRequest, opts ...grpc.CallOption) (Hiro_AudienceListClient, error)
 	AudienceDelete(ctx context.Context, in *AudienceDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ApplicationCreate(ctx context.Context, in *ApplicationCreateRequest, opts ...grpc.CallOption) (*Application, error)
+	ApplicationUpdate(ctx context.Context, in *ApplicationUpdateRequest, opts ...grpc.CallOption) (*Application, error)
+	ApplicationGet(ctx context.Context, in *ApplicationGetRequest, opts ...grpc.CallOption) (*Application, error)
+	ApplicationList(ctx context.Context, in *ApplicationListRequest, opts ...grpc.CallOption) (Hiro_ApplicationListClient, error)
+	ApplicationDelete(ctx context.Context, in *ApplicationDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SecretCreate(ctx context.Context, in *SecretCreateRequest, opts ...grpc.CallOption) (*Secret, error)
 	SecreteDelete(ctx context.Context, in *SecretDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
@@ -103,6 +108,74 @@ func (c *hiroClient) AudienceDelete(ctx context.Context, in *AudienceDeleteReque
 	return out, nil
 }
 
+func (c *hiroClient) ApplicationCreate(ctx context.Context, in *ApplicationCreateRequest, opts ...grpc.CallOption) (*Application, error) {
+	out := new(Application)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/ApplicationCreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) ApplicationUpdate(ctx context.Context, in *ApplicationUpdateRequest, opts ...grpc.CallOption) (*Application, error) {
+	out := new(Application)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/ApplicationUpdate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) ApplicationGet(ctx context.Context, in *ApplicationGetRequest, opts ...grpc.CallOption) (*Application, error) {
+	out := new(Application)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/ApplicationGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hiroClient) ApplicationList(ctx context.Context, in *ApplicationListRequest, opts ...grpc.CallOption) (Hiro_ApplicationListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Hiro_serviceDesc.Streams[1], "/hiro.Hiro/ApplicationList", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &hiroApplicationListClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Hiro_ApplicationListClient interface {
+	Recv() (*Application, error)
+	grpc.ClientStream
+}
+
+type hiroApplicationListClient struct {
+	grpc.ClientStream
+}
+
+func (x *hiroApplicationListClient) Recv() (*Application, error) {
+	m := new(Application)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *hiroClient) ApplicationDelete(ctx context.Context, in *ApplicationDeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/ApplicationDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hiroClient) SecretCreate(ctx context.Context, in *SecretCreateRequest, opts ...grpc.CallOption) (*Secret, error) {
 	out := new(Secret)
 	err := c.cc.Invoke(ctx, "/hiro.Hiro/SecretCreate", in, out, opts...)
@@ -130,6 +203,11 @@ type HiroServer interface {
 	AudienceGet(context.Context, *AudienceGetRequest) (*Audience, error)
 	AudienceList(*AudienceListRequest, Hiro_AudienceListServer) error
 	AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error)
+	ApplicationCreate(context.Context, *ApplicationCreateRequest) (*Application, error)
+	ApplicationUpdate(context.Context, *ApplicationUpdateRequest) (*Application, error)
+	ApplicationGet(context.Context, *ApplicationGetRequest) (*Application, error)
+	ApplicationList(*ApplicationListRequest, Hiro_ApplicationListServer) error
+	ApplicationDelete(context.Context, *ApplicationDeleteRequest) (*empty.Empty, error)
 	SecretCreate(context.Context, *SecretCreateRequest) (*Secret, error)
 	SecreteDelete(context.Context, *SecretDeleteRequest) (*empty.Empty, error)
 	mustEmbedUnimplementedHiroServer()
@@ -153,6 +231,21 @@ func (UnimplementedHiroServer) AudienceList(*AudienceListRequest, Hiro_AudienceL
 }
 func (UnimplementedHiroServer) AudienceDelete(context.Context, *AudienceDeleteRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AudienceDelete not implemented")
+}
+func (UnimplementedHiroServer) ApplicationCreate(context.Context, *ApplicationCreateRequest) (*Application, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplicationCreate not implemented")
+}
+func (UnimplementedHiroServer) ApplicationUpdate(context.Context, *ApplicationUpdateRequest) (*Application, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplicationUpdate not implemented")
+}
+func (UnimplementedHiroServer) ApplicationGet(context.Context, *ApplicationGetRequest) (*Application, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplicationGet not implemented")
+}
+func (UnimplementedHiroServer) ApplicationList(*ApplicationListRequest, Hiro_ApplicationListServer) error {
+	return status.Errorf(codes.Unimplemented, "method ApplicationList not implemented")
+}
+func (UnimplementedHiroServer) ApplicationDelete(context.Context, *ApplicationDeleteRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplicationDelete not implemented")
 }
 func (UnimplementedHiroServer) SecretCreate(context.Context, *SecretCreateRequest) (*Secret, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SecretCreate not implemented")
@@ -266,6 +359,99 @@ func _Hiro_AudienceDelete_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Hiro_ApplicationCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplicationCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).ApplicationCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/ApplicationCreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).ApplicationCreate(ctx, req.(*ApplicationCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_ApplicationUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplicationUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).ApplicationUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/ApplicationUpdate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).ApplicationUpdate(ctx, req.(*ApplicationUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_ApplicationGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplicationGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).ApplicationGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/ApplicationGet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).ApplicationGet(ctx, req.(*ApplicationGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Hiro_ApplicationList_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ApplicationListRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(HiroServer).ApplicationList(m, &hiroApplicationListServer{stream})
+}
+
+type Hiro_ApplicationListServer interface {
+	Send(*Application) error
+	grpc.ServerStream
+}
+
+type hiroApplicationListServer struct {
+	grpc.ServerStream
+}
+
+func (x *hiroApplicationListServer) Send(m *Application) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Hiro_ApplicationDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplicationDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).ApplicationDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/ApplicationDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).ApplicationDelete(ctx, req.(*ApplicationDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Hiro_SecretCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SecretCreateRequest)
 	if err := dec(in); err != nil {
@@ -323,6 +509,22 @@ var _Hiro_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Hiro_AudienceDelete_Handler,
 		},
 		{
+			MethodName: "ApplicationCreate",
+			Handler:    _Hiro_ApplicationCreate_Handler,
+		},
+		{
+			MethodName: "ApplicationUpdate",
+			Handler:    _Hiro_ApplicationUpdate_Handler,
+		},
+		{
+			MethodName: "ApplicationGet",
+			Handler:    _Hiro_ApplicationGet_Handler,
+		},
+		{
+			MethodName: "ApplicationDelete",
+			Handler:    _Hiro_ApplicationDelete_Handler,
+		},
+		{
 			MethodName: "SecretCreate",
 			Handler:    _Hiro_SecretCreate_Handler,
 		},
@@ -335,6 +537,11 @@ var _Hiro_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "AudienceList",
 			Handler:       _Hiro_AudienceList_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ApplicationList",
+			Handler:       _Hiro_ApplicationList_Handler,
 			ServerStreams: true,
 		},
 	},

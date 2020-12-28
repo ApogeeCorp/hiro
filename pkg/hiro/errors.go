@@ -53,7 +53,7 @@ func ParseSQLError(err error) error {
 	if err == nil {
 		return nil
 	}
-	
+
 	if errors.Is(err, sql.ErrNoRows) {
 		err = fmt.Errorf("%w", err)
 		return fmt.Errorf("%w: %s", err, ErrNotFound)
@@ -61,6 +61,8 @@ func ParseSQLError(err error) error {
 
 	if pe, ok := err.(*pq.Error); ok {
 		switch pe.Code.Name() {
+		case "exclusion_violation":
+			fallthrough
 		case "unique_violation":
 			return fmt.Errorf("%w [%s.%s]: %s", ErrDuplicateObject, pe.Schema, pe.Table, pe.Detail)
 		}
