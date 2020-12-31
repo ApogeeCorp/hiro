@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/sparks/pkg/api"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/patrickmn/go-cache"

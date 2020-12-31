@@ -23,8 +23,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/api"
 	"github.com/spf13/cast"
 )
 

@@ -23,7 +23,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/oauth"
 	"golang.org/x/crypto/bcrypt"
 )
 

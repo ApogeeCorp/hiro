@@ -29,11 +29,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/api/session"
-	"github.com/ModelRocket/hiro/pkg/env"
-	"github.com/ModelRocket/hiro/pkg/hiro/pb"
-	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/pb"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/reno/pkg/env"
+	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/sparks/pkg/api/session"
 	"github.com/apex/log"
 	"github.com/go-co-op/gocron"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -162,8 +162,8 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	d.apiServer.Router(
 		d.hiroPath,
 		api.WithVersioning("1.0.0"),
-		api.WithContext(d.ctrl),
-		api.WithAuthorizers(oauth.Authorizer())).
+		api.WithContext(d.ctrl),		api.WithAuthorizers(oauth.Authorizer())).
+
 		AddRoutes(Routes()...)
 
 	if d.rpcServer == nil {

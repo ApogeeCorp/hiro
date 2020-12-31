@@ -1,1 +1,0 @@
-# Hiro API Session Library

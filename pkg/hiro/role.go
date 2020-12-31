@@ -26,8 +26,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/null"
-	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/reno/pkg/null"
 	"github.com/ModelRocket/reno/pkg/reno"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"

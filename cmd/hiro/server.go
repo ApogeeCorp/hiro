@@ -20,8 +20,8 @@
 package main
 
 import (
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/ModelRocket/sparks/pkg/api"
 	"github.com/urfave/cli/v2"
 )
 

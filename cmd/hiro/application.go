@@ -27,9 +27,9 @@ import (
 	"strings"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/safe"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/reno/pkg/ptr"
+	"github.com/ModelRocket/reno/pkg/safe"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"

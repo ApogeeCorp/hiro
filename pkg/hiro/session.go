@@ -27,8 +27,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/api/session"
-	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/sparks/pkg/api/session"
 	"github.com/gorilla/sessions"
 )
 

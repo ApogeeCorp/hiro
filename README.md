@@ -21,14 +21,8 @@ This project follows the [Standard go Project Layout](https://github.com/golang-
 ├── db/                         // The default database components
 |   └── sql /                   // Postgres SQL scripts
 ├── pkg/                        // Library packages
-|   └── api/                    // Simple REST api services library
-|   └── api/                    // Simple REST api services library
-|       └── session/            // Browser session manager
 |   └── hiro/                   // The hiro platform
-|   └── null/                   // SQL null helpers
-|   └── oauth/                  // The base oauth implementation
-|   └── ptr/                    // Pointer helpers
-|   └── safe/                   // Safe type helpers
+|   └── pb/                     // The hiro protocol buffers platform
 ├── LICENSE                     // The project license
 ├── Makefile                    // The project Makefile
 

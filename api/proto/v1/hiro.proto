@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/ModelRocket/hiro/pkg/hiro/pb";
+option go_package = "github.com/ModelRocket/hiro/pkg/pb";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";

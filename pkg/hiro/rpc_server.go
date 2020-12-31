@@ -19,7 +19,7 @@
 
 package hiro
 
-import "github.com/ModelRocket/hiro/pkg/hiro/pb"
+import "github.com/ModelRocket/hiro/pkg/pb"
 
 type (
 	// RPCServer is a hiro rpc server

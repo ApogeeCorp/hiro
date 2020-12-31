@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/sparks/pkg/api"
 	"github.com/ghodss/yaml"
 )
 

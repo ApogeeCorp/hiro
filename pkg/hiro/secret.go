@@ -32,8 +32,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/reno/pkg/ptr"
 	"github.com/dgrijalva/jwt-go"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
