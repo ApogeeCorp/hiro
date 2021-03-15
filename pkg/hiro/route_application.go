@@ -23,8 +23,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/spf13/cast"
 )
 
@@ -47,76 +47,6 @@ type (
 	// ApplicationDeleteRoute is the application create route definition
 	ApplicationDeleteRoute func(ctx context.Context, params *ApplicationDeleteInput) api.Responder
 )
-
-func applicationCreate(ctx context.Context, params *ApplicationCreateInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-
-	aud, err := ctrl.ApplicationCreate(ctx, *params)
-	if err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse(aud).WithStatus(http.StatusCreated)
-}
-
-func applicationGet(ctx context.Context, params *ApplicationGetInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-
-	aud, err := ctrl.ApplicationGet(ctx, *params)
-	if err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse(aud)
-}
-
-func applicationCount(ctx context.Context, params *ApplicationListInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-	var count uint64
-
-	params.Offset = nil
-	params.Limit = nil
-	params.Count = &count
-
-	_, err := ctrl.ApplicationList(ctx, *params)
-	if err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse().WithHeader("X-Query-Count", cast.ToString(params.Count))
-}
-
-func applicationList(ctx context.Context, params *ApplicationListInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-
-	auds, err := ctrl.ApplicationList(ctx, *params)
-	if err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse(auds).WithHeader("X-Query-Count", cast.ToString(len(auds)))
-}
-
-func applicationUpdate(ctx context.Context, params *ApplicationUpdateInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-
-	aud, err := ctrl.ApplicationUpdate(ctx, *params)
-	if err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse(aud)
-}
-
-func applicationDelete(ctx context.Context, params *ApplicationDeleteInput) api.Responder {
-	ctrl := api.Context(ctx).(Controller)
-
-	if err := ctrl.ApplicationDelete(ctx, *params); err != nil {
-		return api.Error(err)
-	}
-
-	return api.NewResponse().WithStatus(http.StatusNoContent)
-}
 
 // Name implements api.Route
 func (ApplicationCreateRoute) Name() string {
@@ -141,6 +71,17 @@ func (ApplicationCreateRoute) RequireAuth() []api.CredentialType {
 // Scopes implements oauth.Route
 func (ApplicationCreateRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationWrite)
+}
+
+func applicationCreate(ctx context.Context, params *ApplicationCreateInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+
+	aud, err := ctrl.ApplicationCreate(ctx, *params)
+	if err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse(aud).WithStatus(http.StatusCreated)
 }
 
 // Name implements api.Route
@@ -168,6 +109,17 @@ func (ApplicationGetRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationRead)
 }
 
+func applicationGet(ctx context.Context, params *ApplicationGetInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+
+	aud, err := ctrl.ApplicationGet(ctx, *params)
+	if err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse(aud)
+}
+
 // Name implements api.Route
 func (ApplicationCountRoute) Name() string {
 	return "application:count"
@@ -191,6 +143,22 @@ func (ApplicationCountRoute) RequireAuth() []api.CredentialType {
 // Scopes implements oauth.Route
 func (ApplicationCountRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationRead)
+}
+
+func applicationCount(ctx context.Context, params *ApplicationListInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+	var count uint64
+
+	params.Offset = nil
+	params.Limit = nil
+	params.Count = &count
+
+	_, err := ctrl.ApplicationList(ctx, *params)
+	if err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse().WithHeader("X-Query-Count", cast.ToString(params.Count))
 }
 
 // Name implements api.Route
@@ -218,6 +186,17 @@ func (ApplicationListRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationRead)
 }
 
+func applicationList(ctx context.Context, params *ApplicationListInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+
+	auds, err := ctrl.ApplicationList(ctx, *params)
+	if err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse(auds).WithHeader("X-Query-Count", cast.ToString(len(auds)))
+}
+
 // Name implements api.Route
 func (ApplicationUpdateRoute) Name() string {
 	return "application:update"
@@ -243,6 +222,17 @@ func (ApplicationUpdateRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationWrite)
 }
 
+func applicationUpdate(ctx context.Context, params *ApplicationUpdateInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+
+	aud, err := ctrl.ApplicationUpdate(ctx, *params)
+	if err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse(aud)
+}
+
 // Name implements api.Route
 func (ApplicationDeleteRoute) Name() string {
 	return "application:delete"
@@ -266,4 +256,14 @@ func (ApplicationDeleteRoute) RequireAuth() []api.CredentialType {
 // Scopes implements oauth.Route
 func (ApplicationDeleteRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeApplicationWrite)
+}
+
+func applicationDelete(ctx context.Context, params *ApplicationDeleteInput) api.Responder {
+	ctrl := api.Context(ctx).(Controller)
+
+	if err := ctrl.ApplicationDelete(ctx, *params); err != nil {
+		return api.Error(err)
+	}
+
+	return api.NewResponse().WithStatus(http.StatusNoContent)
 }

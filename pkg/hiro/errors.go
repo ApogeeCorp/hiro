@@ -24,7 +24,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/lib/pq"
 )
 

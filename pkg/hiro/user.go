@@ -27,53 +27,62 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/sparks/pkg/oauth/openid"
-	"github.com/ModelRocket/reno/pkg/null"
-	"github.com/ModelRocket/reno/pkg/ptr"
-	"github.com/ModelRocket/reno/pkg/reno"
-	"github.com/ModelRocket/reno/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/common"
+	"github.com/ModelRocket/hiro/pkg/null"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// UserController is the user API interface
+	UserController interface {
+		UserCreate(ctx context.Context, params UserCreateInput) (*User, error)
+		UserGet(ctx context.Context, params UserGetInput) (*User, error)
+		UserList(ctx context.Context, params UserListInput) ([]*User, error)
+		UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error)
+		UserDelete(ctx context.Context, params UserDeleteInput) error
+	}
+
 	// User is a hiro user
 	User struct {
-		ID                ID                `json:"id" db:"id"`
-		CreatedAt         time.Time         `json:"created_at" db:"created_at"`
-		UpdatedAt         *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
-		Login             string            `json:"login" db:"login"`
-		Password          *string           `json:"-" db:"-"`
-		PasswordHash      *string           `json:"-" db:"password_hash,omitempty"`
-		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" db:"password_expires_at"`
-		LockedUntil       *time.Time        `json:"locked_until,omitempty" db:"locked_until,omitempty"`
-		Roles             []string          `json:"roles,omitempty"`
-		Permissions       oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
-		Profile           *openid.Profile   `json:"profile,omitempty" db:"profile"`
-		Metadata          reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
+		ID                ID              `json:"id" db:"id"`
+		CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+		UpdatedAt         *time.Time      `json:"updated_at,omitempty" db:"updated_at"`
+		Login             string          `json:"login" db:"login"`
+		Password          *string         `json:"-" db:"-"`
+		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
+		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		LockedUntil       *time.Time      `json:"locked_until,omitempty" db:"locked_until,omitempty"`
+		Roles             []string        `json:"roles,omitempty"`
+		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" db:"-"`
+		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
+		Metadata          common.Map      `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// UserCreateInput is the user create request input
 	UserCreateInput struct {
-		Login             string            `json:"login"`
-		Password          *string           `json:"password,omitempty"`
-		Roles             []string          `json:"roles,omitempty"`
-		Profile           *openid.Profile   `json:"profile,omitempty"`
-		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" `
-		Metadata          reno.InterfaceMap `json:"metadata,omitempty"`
+		Login             string          `json:"login"`
+		Password          *string         `json:"password,omitempty"`
+		Roles             []string        `json:"roles,omitempty"`
+		Profile           *openid.Profile `json:"profile,omitempty"`
+		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" `
+		Metadata          common.Map      `json:"metadata,omitempty"`
 	}
 
 	// UserUpdateInput is the update user request input
 	UserUpdateInput struct {
-		UserID            ID                `json:"user_id" structs:"-"`
-		Login             *string           `json:"login,omitempty"`
-		Password          *string           `json:"password,omitempty" structs:"-"`
-		Profile           *openid.Profile   `json:"profile,omitempty" structs:"profile,omitempty"`
-		PasswordExpiresAt *time.Time        `json:"-" structs:"password_expires_at,omitempty"`
-		LockedUntil       *time.Time        `json:"locked_until,omitempty" structs:"-"`
-		Roles             []string          `json:"roles,omitempty" structs:"-"`
-		Metadata          reno.InterfaceMap `json:"metadata,omitempty" structs:"-"`
+		UserID            ID              `json:"user_id" structs:"-"`
+		Login             *string         `json:"login,omitempty"`
+		Password          *string         `json:"password,omitempty" structs:"-"`
+		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
+		PasswordExpiresAt *time.Time      `json:"-" structs:"password_expires_at,omitempty"`
+		LockedUntil       *time.Time      `json:"locked_until,omitempty" structs:"-"`
+		Roles             []string        `json:"roles,omitempty" structs:"-"`
+		Metadata          common.Map      `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// UserGetInput is used to get an user for the id

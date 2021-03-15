@@ -26,7 +26,7 @@ import (
 	"os"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"

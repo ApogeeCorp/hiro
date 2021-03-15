@@ -20,8 +20,8 @@
 package main
 
 import (
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/sparks/pkg/api"
 	"github.com/urfave/cli/v2"
 )
 
@@ -68,7 +68,7 @@ func serverMain(c *cli.Context) error {
 		return err
 	}
 
-	d, err := hiro.NewDaemon(
+	d, err := hiro.NewService(
 		hiro.WithServerAddr(c.String("server-addr")),
 		hiro.WithController(h),
 		hiro.WithAPIOptions(

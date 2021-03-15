@@ -38,6 +38,12 @@ const (
 	// ScopeRoleWrite is used to create or modify roles
 	ScopeRoleWrite = "role:write"
 
+	// ScopeAssetRead is required to read assets
+	ScopeAssetRead = "asset:read"
+
+	// ScopeAssetWrite is required to write and update assets
+	ScopeAssetWrite = "asset:write"
+
 	// ScopeUserRead is used to read users
 	ScopeUserRead = "user:read"
 
@@ -56,6 +62,6 @@ const (
 	// ScopeSessionRead is used to read sessions
 	ScopeSessionRead = "session:read"
 
-	// SessionRevoke is used to destory sessions
-	SessionRevoke = "session:destroy"
+	// ScopeSessionRevoke is used to destory sessions
+	ScopeSessionRevoke = "session:destroy"
 )

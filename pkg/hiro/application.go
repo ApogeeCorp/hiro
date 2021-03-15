@@ -29,40 +29,49 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/null"
-	"github.com/ModelRocket/reno/pkg/reno"
-	"github.com/ModelRocket/reno/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/common"
+	"github.com/ModelRocket/hiro/pkg/null"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// ApplicationController is the applications API interface
+	ApplicationController interface {
+		ApplicationCreate(ctx context.Context, params ApplicationCreateInput) (*Application, error)
+		ApplicationGet(ctx context.Context, params ApplicationGetInput) (*Application, error)
+		ApplicationList(ctx context.Context, params ApplicationListInput) ([]*Application, error)
+		ApplicationUpdate(ctx context.Context, params ApplicationUpdateInput) (*Application, error)
+		ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error
+	}
+
 	// Application is the database model for an application
 	Application struct {
-		ID          ID                `json:"id" db:"id"`
-		Name        string            `json:"name" db:"name"`
-		Slug        string            `json:"slug" db:"slug"`
-		Description *string           `json:"description,omitempty" db:"description"`
-		Type        oauth.ClientType  `json:"type" db:"type"`
-		SecretKey   *string           `json:"secret_key,omitempty" db:"secret_key"`
-		Permissions oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
-		Grants      oauth.Grants      `json:"grants,omitempty" db:"-"`
-		URIs        oauth.URIList     `json:"uris,omitempty" db:"uris"`
-		CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
+		ID          ID               `json:"id" db:"id"`
+		Name        string           `json:"name" db:"name"`
+		Slug        string           `json:"slug" db:"slug"`
+		Description *string          `json:"description,omitempty" db:"description"`
+		Type        oauth.ClientType `json:"type" db:"type"`
+		SecretKey   *string          `json:"secret_key,omitempty" db:"secret_key"`
+		Permissions oauth.ScopeSet   `json:"permissions,omitempty" db:"-"`
+		Grants      oauth.Grants     `json:"grants,omitempty" db:"-"`
+		URIs        oauth.URIList    `json:"uris,omitempty" db:"uris"`
+		CreatedAt   time.Time        `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time       `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    common.Map       `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// ApplicationCreateInput is the application create request
 	ApplicationCreateInput struct {
-		Name        string            `json:"name"`
-		Description *string           `json:"description,omitempty"`
-		Type        oauth.ClientType  `json:"type" db:"type"`
-		Permissions oauth.ScopeSet    `json:"permissions,omitempty"`
-		Grants      oauth.Grants      `json:"grants,omitempty"`
-		URIs        oauth.URIList     `json:"uris,omitempty"`
-		Metadata    reno.InterfaceMap `json:"metadata,omitempty"`
+		Name        string           `json:"name"`
+		Description *string          `json:"description,omitempty"`
+		Type        oauth.ClientType `json:"type" db:"type"`
+		Permissions oauth.ScopeSet   `json:"permissions,omitempty"`
+		Grants      oauth.Grants     `json:"grants,omitempty"`
+		URIs        oauth.URIList    `json:"uris,omitempty"`
+		Metadata    common.Map       `json:"metadata,omitempty"`
 	}
 
 	// ApplicationUpdateInput is the application update request
@@ -74,7 +83,7 @@ type (
 		Permissions   *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
 		Grants        oauth.Grants       `json:"grants,omitempty" structs:"-"`
 		URIs          oauth.URIList      `json:"uris,omitempty" structs:"-"`
-		Metadata      reno.InterfaceMap  `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		Metadata      common.Map         `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// PermissionsUpdate is used to modify permissions
@@ -175,8 +184,6 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 	}
 
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
-		log.Debugf("creating new application")
-
 		stmt, args, err := sq.Insert("hiro.applications").
 			Columns(
 				"name",

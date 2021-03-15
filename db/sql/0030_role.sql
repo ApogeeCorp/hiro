@@ -2,18 +2,27 @@
 -- SQL in section 'Up' is executed when this migration is applied
 CREATE TABLE IF NOT EXISTS hiro.roles(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    audience_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    name VARCHAR(64) NOT NULL UNIQUE,
-    slug VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(64) NOT NULL,
+    slug VARCHAR(64) NOT NULL,
     description VARCHAR(1024),
-    metadata JSONB
+    metadata JSONB,
+    FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS role_name ON hiro.roles(audience_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS role_slug ON hiro.roles(audience_id, slug);
+
+DROP TRIGGER IF EXISTS update_timestamp on hiro.roles CASCADE;
 
 CREATE TRIGGER update_timestamp
   BEFORE UPDATE ON hiro.roles
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
+
+DROP TRIGGER IF EXISTS update_slug on hiro.roles CASCADE;
 
 CREATE TRIGGER update_slug
   BEFORE INSERT OR UPDATE ON hiro.roles

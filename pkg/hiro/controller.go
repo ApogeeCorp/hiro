@@ -22,45 +22,20 @@ package hiro
 import (
 	"context"
 
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/sparks/pkg/api/session"
+	"github.com/ModelRocket/hiro/pkg/api/session"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 )
 
 type (
 	// Controller is the hiro API controller interface
 	Controller interface {
-		// Audience interface
-		AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error)
-		AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error)
-		AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error)
-		AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error)
-		AudienceDelete(ctx context.Context, params AudienceDeleteInput) error
-
-		// Secrets interface
-		SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error)
-		SecretDelete(ctx context.Context, params SecretDeleteInput) error
-
-		// Application interface
-		ApplicationCreate(ctx context.Context, params ApplicationCreateInput) (*Application, error)
-		ApplicationGet(ctx context.Context, params ApplicationGetInput) (*Application, error)
-		ApplicationList(ctx context.Context, params ApplicationListInput) ([]*Application, error)
-		ApplicationUpdate(ctx context.Context, params ApplicationUpdateInput) (*Application, error)
-		ApplicationDelete(ctx context.Context, params ApplicationDeleteInput) error
-
-		// Role interface
-		RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error)
-		RoleGet(ctx context.Context, params RoleGetInput) (*Role, error)
-		RoleList(ctx context.Context, params RoleListInput) ([]*Role, error)
-		RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error)
-		RoleDelete(ctx context.Context, params RoleDeleteInput) error
-
-		// User interface
-		UserCreate(ctx context.Context, params UserCreateInput) (*User, error)
-		UserGet(ctx context.Context, params UserGetInput) (*User, error)
-		UserList(ctx context.Context, params UserListInput) ([]*User, error)
-		UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error)
-		UserDelete(ctx context.Context, params UserDeleteInput) error
+		AudienceController
+		SecretsController
+		ApplicationController
+		RoleController
+		UserController
+		AssetController
 
 		// Returns the log from the context
 		Log(ctx context.Context) log.Interface
@@ -71,8 +46,7 @@ type (
 		// Gets a handle to the database
 		DB(ctx context.Context) DB
 
-		// Return the OAuth Controller
-		OAuthController() oauth.Controller
+		oauth.ControllerProxy
 
 		// SessionController return the session controller
 		SessionController() session.Controller

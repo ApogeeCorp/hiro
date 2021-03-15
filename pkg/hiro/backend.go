@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/db"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/env"
-	"github.com/ModelRocket/reno/pkg/ptr"
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/env"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -39,6 +39,7 @@ type (
 	Backend struct {
 		dbSource      string
 		db            *sqlx.DB
+		assetVolume   string
 		automigrate   bool
 		initialize    bool
 		audiencces    []AudienceInitializeInput
@@ -58,16 +59,21 @@ type (
 var (
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
 	Scopes = oauth.Scope{
-		"audience:read",
-		"audience:write",
-		"application:read",
-		"application:write",
-		"user:read",
-		"user:write",
-		"token:read",
-		"token:write",
-		"session:read",
-		"session:write",
+		ScopeAudienceRead,
+		ScopeAudienceWrite,
+		ScopeApplicationRead,
+		ScopeApplicationWrite,
+		ScopeUserRead,
+		ScopeUserWrite,
+		ScopeTokenRead,
+		ScopeTokenCreate,
+		ScopeTokenRevoke,
+		ScopeSessionRead,
+		ScopeSessionRevoke,
+		ScopeRoleRead,
+		ScopeRoleWrite,
+		ScopeAssetRead,
+		ScopeAssetWrite,
 	}
 
 	// Roles is the list of hiro roles by name
@@ -98,7 +104,8 @@ func New(opts ...BackendOption) (*Backend, error) {
 	)
 
 	var (
-		defaultSource = env.Get("DB_SOURCE", localSource)
+		defaultSource      = env.Get("DB_SOURCE", localSource)
+		defaultAssetVolume = env.Get("HIRO_ASSET_VOLUME")
 	)
 
 	b := &Backend{
@@ -110,6 +117,7 @@ func New(opts ...BackendOption) (*Backend, error) {
 		log:           log.Log,
 		passwords:     DefaultPasswordManager,
 		migrations:    make([]Migration, 0),
+		assetVolume:   defaultAssetVolume,
 	}
 
 	for _, opt := range opts {
@@ -228,6 +236,13 @@ func WithDBSource(source string) BackendOption {
 		if source != "" {
 			b.dbSource = source
 		}
+	}
+}
+
+// WithAssetVolume sets the asset volume for the instance
+func WithAssetVolume(v string) BackendOption {
+	return func(b *Backend) {
+		b.assetVolume = v
 	}
 }
 

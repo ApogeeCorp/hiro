@@ -26,21 +26,31 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/null"
-	"github.com/ModelRocket/reno/pkg/ptr"
-	"github.com/ModelRocket/reno/pkg/reno"
-	"github.com/ModelRocket/reno/pkg/safe"
+	"github.com/ModelRocket/hiro/pkg/common"
+	"github.com/ModelRocket/hiro/pkg/null"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// AudienceController is the audience API interface
+	AudienceController interface {
+		AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error)
+		AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error)
+		AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error)
+		AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error)
+		AudienceDelete(ctx context.Context, params AudienceDeleteInput) error
+	}
+
 	// Audience is the database model for an audience
 	Audience struct {
 		ID              ID                   `json:"id" db:"id"`
 		Name            string               `json:"name" db:"name"`
 		Slug            string               `json:"slug" db:"slug"`
+		Domain          *string              `json:"domain" db:"domain"`
 		Description     *string              `json:"description,omitempty" db:"description"`
 		TokenSecrets    []oauth.TokenSecret  `json:"-" db:"-"`
 		SessionKeys     []SessionKey         `json:"-" db:"-"`
@@ -51,18 +61,19 @@ type (
 		CreatedAt       time.Time            `json:"created_at" db:"created_at"`
 		UpdatedAt       *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
 		Permissions     oauth.Scope          `json:"permissions,omitempty" db:"-"`
-		Metadata        reno.InterfaceMap    `json:"metadata,omitempty" db:"metadata"`
+		Metadata        common.Map           `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// AudienceInitializeInput is the input to the audience initialization
 	AudienceInitializeInput struct {
 		Name            string                `json:"name"`
 		Description     *string               `json:"description,omitempty"`
+		Domain          *string               `json:"domain" db:"domain"`
 		TokenLifetime   *time.Duration        `json:"token_lifetime"`
 		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty"`
 		Permissions     oauth.Scope           `json:"permissions,omitempty"`
-		Metadata        reno.InterfaceMap     `json:"metadata,omitempty"`
+		Metadata        common.Map            `json:"metadata,omitempty"`
 		Roles           oauth.ScopeSet        `json:"roles,omitempty"`
 	}
 
@@ -70,11 +81,12 @@ type (
 	AudienceCreateInput struct {
 		Name            string               `json:"name"`
 		Description     *string              `json:"description,omitempty"`
+		Domain          *string              `json:"domain" db:"domain"`
 		TokenLifetime   time.Duration        `json:"token_lifetime"`
 		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime time.Duration        `json:"session_lifetime,omitempty"`
 		Permissions     oauth.Scope          `json:"permissions,omitempty"`
-		Metadata        reno.InterfaceMap    `json:"metadata,omitempty"`
+		Metadata        common.Map           `json:"metadata,omitempty"`
 	}
 
 	// AudienceUpdateInput is the audience update request
@@ -82,11 +94,12 @@ type (
 		AudienceID      ID                         `json:"audience_id" structs:"-"`
 		Name            *string                    `json:"name" structs:"name,omitempty"`
 		Description     *string                    `json:"description,omitempty" structs:"description,omitempty"`
+		Domain          *string                    `json:"domain" structs:"domain,omitempty"`
 		TokenAlgorithm  *oauth.TokenAlgorithm      `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
 		TokenLifetime   *time.Duration             `json:"token_lifetime" structs:"token_lifetime,omitempty"`
 		SessionLifetime *time.Duration             `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
 		Permissions     *AudiencePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata        reno.InterfaceMap          `json:"metadata,omitempty" structs:"-"`
+		Metadata        common.Map                 `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// AudiencePermissionsUpdate is used to update audience permissions
@@ -100,6 +113,7 @@ type (
 	AudienceGetInput struct {
 		AudienceID ID      `json:"audience_id,omitempty"`
 		Name       *string `json:"name,omitempty"`
+		Domain     *string `json:"domain,omitempty"`
 	}
 
 	// AudienceListInput is the audience list request
@@ -146,10 +160,7 @@ func (a AudienceUpdateInput) ValidateWithContext(ctx context.Context) error {
 
 // ValidateWithContext handles validation of the AudienceGetInput struct
 func (a AudienceGetInput) ValidateWithContext(ctx context.Context) error {
-	return validation.ValidateStruct(&a,
-		validation.Field(&a.AudienceID, validation.When(a.Name == nil, validation.Required).Else(validation.Empty)),
-		validation.Field(&a.Name, validation.When(!a.AudienceID.Valid(), validation.Required).Else(validation.Nil)),
-	)
+	return nil
 }
 
 // ValidateWithContext handles validation of the AudienceListInput struct
@@ -203,6 +214,7 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		aud, err = b.AudienceCreate(ctx, AudienceCreateInput{
 			Name:            params.Name,
 			Description:     params.Description,
+			Domain:          params.Domain,
 			TokenLifetime:   *params.TokenLifetime,
 			TokenAlgorithm:  *params.TokenAlgorithm,
 			SessionLifetime: *params.SessionLifetime,
@@ -280,7 +292,8 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 
 		for r, p := range params.Roles {
 			role, err := b.RoleCreate(ctx, RoleCreateInput{
-				Name: r,
+				AudienceID: aud.ID,
+				Name:       r,
 				Permissions: oauth.ScopeSet{
 					aud.Slug: p,
 				},
@@ -331,6 +344,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Columns(
 				"name",
 				"description",
+				"domain",
 				"token_algorithm",
 				"token_lifetime",
 				"session_lifetime",
@@ -338,6 +352,7 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Values(
 				params.Name,
 				null.String(params.Description),
+				null.String(params.Domain),
 				params.TokenAlgorithm,
 				params.TokenLifetime,
 				params.SessionLifetime,
@@ -438,7 +453,8 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 
 	log := b.Log(ctx).WithField("operation", "AudienceGet").
 		WithField("id", params.AudienceID).
-		WithField("name", safe.String(params.Name))
+		WithField("name", safe.String(params.Name)).
+		WithField("domain", safe.String(params.Domain))
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -463,8 +479,13 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 			sq.Eq{"name": *params.Name},
 			sq.Eq{"slug": *params.Name},
 		})
+	} else if params.Domain != nil {
+		query = query.Where(sq.Or{
+			sq.Eq{"domain": *params.Domain},
+			sq.Expr("? ~ domain", *params.Domain),
+		})
 	} else {
-		return nil, fmt.Errorf("%w: audience id or name required", ErrInputValidation)
+		return nil, fmt.Errorf("%w: audience id, name, or domain required", ErrInputValidation)
 	}
 
 	stmt, args, err := query.

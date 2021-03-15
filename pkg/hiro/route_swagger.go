@@ -24,8 +24,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/api/swagger"
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ghodss/yaml"
+
+	_ "embed"
 )
 
 type (
@@ -40,10 +43,9 @@ type (
 )
 
 func spec(ctx context.Context, params *SpecGetInput) api.Responder {
-	data, err := ApiSwaggerV1HiroSwaggerYamlBytes()
-	if err != nil {
-		return api.Error(err)
-	}
+	var err error
+
+	data := swagger.HiroSwaggerSpec
 
 	switch params.Format {
 	case "yaml":

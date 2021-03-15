@@ -19,7 +19,7 @@
 
 package hiro
 
-import "github.com/ModelRocket/sparks/pkg/api"
+import "github.com/ModelRocket/hiro/pkg/api"
 
 // Routes returns the oauth api routes
 func Routes() []api.Route {
@@ -30,6 +30,12 @@ func Routes() []api.Route {
 		AudienceListRoute(audienceList),
 		AudienceUpdateRoute(audienceUpdate),
 		AudienceDeleteRoute(audienceDelete),
+		AssetCreateRoute(assetCreate),
+		AssetCountRoute(assetCount),
+		AssetGetRoute(assetGet),
+		AssetListRoute(assetList),
+		AssetUpdateRoute(assetUpdate),
+		AssetDeleteRoute(assetDelete),
 		ApplicationCreateRoute(applicationCreate),
 		ApplicationGetRoute(applicationGet),
 		ApplicationCountRoute(applicationCount),

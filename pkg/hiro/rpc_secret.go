@@ -22,8 +22,8 @@ package hiro
 import (
 	"context"
 
-	"github.com/ModelRocket/hiro/pkg/pb"
-	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 

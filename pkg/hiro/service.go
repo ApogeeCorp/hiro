@@ -29,11 +29,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ModelRocket/hiro/pkg/pb"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/env"
-	"github.com/ModelRocket/sparks/pkg/api"
-	"github.com/ModelRocket/sparks/pkg/api/session"
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api/session"
+	"github.com/ModelRocket/hiro/pkg/env"
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 	"github.com/go-co-op/gocron"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -46,9 +46,9 @@ import (
 )
 
 type (
-	// Daemon is the core hiro service object
-	// Platoform projects use the hiro.Daemon to provide services
-	Daemon struct {
+	// Service is the core hiro service object
+	// Platoform projects use the hiro.Service to provide services
+	Service struct {
 		name        string
 		apiServer   *api.Server
 		apiOptions  []api.Option
@@ -68,7 +68,7 @@ type (
 		log         log.Interface
 	}
 
-	// Job is a job handler that the daemon will schedule
+	// Job is a job handler that the service will schedule
 	Job struct {
 		Function interface{}
 		Params   []interface{}
@@ -76,12 +76,12 @@ type (
 		At       *time.Time
 	}
 
-	// DaemonOption is a daemon option
-	DaemonOption func(d *Daemon)
+	// ServiceOption is a service option
+	ServiceOption func(d *Service)
 )
 
-// NewDaemon creates a new daemon object
-func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
+// NewService creates a new service object
+func NewService(opts ...ServiceOption) (*Service, error) {
 	const (
 		localServerAddr   = "127.0.0.0:9000"
 		defaultHiroPath   = "/hiro"
@@ -94,7 +94,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		defaultServerAddr = env.Get("HIRO_SERVER_ADDR", localServerAddr)
 	)
 
-	d := &Daemon{
+	d := &Service{
 		name:        defaultName,
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
@@ -111,7 +111,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		opt(d)
 	}
 
-	d.log = log.WithField("daemon", d.name)
+	d.log = log.WithField("service", d.name)
 
 	if d.ctrl == nil {
 		back, err := New(d.backOptions...)
@@ -128,7 +128,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 
 	// The oauth.Controller doesn't define how tokens are managed, hiro
 	// starts a cron job to ensure expired and revoked tokens are periodically
-	// removed from the database.
+	// removed from the database or are at least marked unusable.
 	d.sched.Every(uint64(env.Duration("TOKEN_CLEANUP_INTERVAL", time.Minute*15).Minutes())).
 		Minutes().
 		StartImmediately().
@@ -138,7 +138,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 		d.sessionCtrl = d.ctrl.SessionController()
 	}
 
-	// start the session cleanup job, as purpose as the token cleanup
+	// start the session cleanup job, same purpose as the token cleanup
 	d.sched.Every(uint64(env.Duration("SESSION_CLEANUP_INTERVAL", time.Minute*15).Minutes())).
 		Minutes().
 		StartImmediately().
@@ -162,8 +162,7 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	d.apiServer.Router(
 		d.hiroPath,
 		api.WithVersioning("1.0.0"),
-		api.WithContext(d.ctrl),		api.WithAuthorizers(oauth.Authorizer())).
-
+		api.WithContext(d.ctrl), api.WithAuthorizers(oauth.Authorizer())).
 		AddRoutes(Routes()...)
 
 	if d.rpcServer == nil {
@@ -189,80 +188,80 @@ func NewDaemon(opts ...DaemonOption) (*Daemon, error) {
 	return d, nil
 }
 
-// WithName sets the daemon name
-func WithName(name string) DaemonOption {
-	return func(d *Daemon) {
+// WithName sets the service name
+func WithName(name string) ServiceOption {
+	return func(d *Service) {
 		d.name = name
 	}
 }
 
-// WithServerAddr sets the daemon listening address
-func WithServerAddr(addr string) DaemonOption {
-	return func(d *Daemon) {
-		d.serverAddr = addr
+// WithServerAddr sets the service listening address
+func WithServerAddr(addr string) ServiceOption {
+	return func(s *Service) {
+		s.serverAddr = addr
 	}
 }
 
 // WithBackendOptions sets backend options
-func WithBackendOptions(o []BackendOption) DaemonOption {
-	return func(d *Daemon) {
-		d.backOptions = o
+func WithBackendOptions(o []BackendOption) ServiceOption {
+	return func(s *Service) {
+		s.backOptions = o
 	}
 }
 
-// WithController sets the daemon controller
-func WithController(c Controller) DaemonOption {
-	return func(d *Daemon) {
-		d.ctrl = c
+// WithController sets the service controller
+func WithController(c Controller) ServiceOption {
+	return func(s *Service) {
+		s.ctrl = c
 	}
 }
 
-// WithOAuthController set the daemon oauth controller
-func WithOAuthController(o oauth.Controller) DaemonOption {
-	return func(d *Daemon) {
-		d.oauthCtrl = o
+// WithOAuthController set the service oauth controller
+func WithOAuthController(o oauth.Controller) ServiceOption {
+	return func(s *Service) {
+		s.oauthCtrl = o
 	}
 }
 
-// WithSessionController set the daemon session controller
-func WithSessionController(s session.Controller) DaemonOption {
-	return func(d *Daemon) {
-		d.sessionCtrl = s
+// WithSessionController set the service session controller
+func WithSessionController(c session.Controller) ServiceOption {
+	return func(s *Service) {
+		s.sessionCtrl = c
 	}
 }
 
-// WithAPIServer sets the daemon api server; mutally exclusive with WithAPIOptions
-func WithAPIServer(s *api.Server) DaemonOption {
-	return func(d *Daemon) {
-		d.apiServer = s
+// WithAPIServer sets the service api server; mutally exclusive with WithAPIOptions
+func WithAPIServer(srv *api.Server) ServiceOption {
+	return func(s *Service) {
+		s.apiServer = srv
 	}
 }
 
 // WithAPIOptions sets api server options; mutally exclusive with WithAPIServer
-func WithAPIOptions(o ...api.Option) DaemonOption {
-	return func(d *Daemon) {
-		d.apiOptions = append(d.apiOptions, o...)
+func WithAPIOptions(o ...api.Option) ServiceOption {
+	return func(s *Service) {
+		s.apiOptions = append(s.apiOptions, o...)
 	}
 }
 
-// WithRPCServer sets the daemon rpc server
-func WithRPCServer(s *grpc.Server) DaemonOption {
-	return func(d *Daemon) {
-		d.rpcServer = s
+// WithRPCServer sets the service rpc server
+func WithRPCServer(r *grpc.Server) ServiceOption {
+	return func(s *Service) {
+		s.rpcServer = r
 	}
 }
 
 // Run starts the service, blocks and handle interrupts
-func (d *Daemon) Run() error {
+func (d *Service) Run() error {
 	done := make(chan os.Signal, 1)
 
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		if err := d.Serve(func() {
-			d.log.Infof("daemon started %s", d.serverAddr)
+			d.log.Infof("service started %s", d.serverAddr)
 		}); err != nil {
-			d.log.Fatalf("failed to start the hiro daemon %+v", err)
+			d.log.Fatalf("failed to start the hiro service %+v", err)
 		}
 	}()
 
@@ -276,7 +275,7 @@ func (d *Daemon) Run() error {
 }
 
 // Serve starts the dameon server
-func (d *Daemon) Serve(ready func()) error {
+func (d *Service) Serve(ready func()) error {
 	l, err := net.Listen("tcp", d.serverAddr)
 	if err != nil {
 		return err
@@ -332,8 +331,8 @@ func (d *Daemon) Serve(ready func()) error {
 	return errs.Wait()
 }
 
-// Shutdown terminates the daemon services
-func (d *Daemon) Shutdown(ctx context.Context) error {
+// Shutdown terminates the service services
+func (d *Service) Shutdown(ctx context.Context) error {
 	done := make(chan bool)
 
 	d.sched.Stop()
@@ -355,8 +354,8 @@ func (d *Daemon) Shutdown(ctx context.Context) error {
 	}
 }
 
-// AddJob adds a job to the daemon scheduler
-func (d *Daemon) AddJob(job Job) error {
+// AddJob adds a job to the service scheduler
+func (d *Service) AddJob(job Job) error {
 	j := d.sched.Every(uint64(job.Interval.Seconds())).Seconds()
 
 	if job.At != nil {
@@ -369,16 +368,16 @@ func (d *Daemon) AddJob(job Job) error {
 }
 
 // RPCServer returns the rpc server services can register with
-func (d *Daemon) RPCServer() *grpc.Server {
+func (d *Service) RPCServer() *grpc.Server {
 	return d.rpcServer
 }
 
 // APIServer returns the api server that services can register with
-func (d *Daemon) APIServer() *api.Server {
+func (d *Service) APIServer() *api.Server {
 	return d.apiServer
 }
 
-func (d *Daemon) validateToken(ctx context.Context) error {
+func (d *Service) validateToken(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "missing metadata")
@@ -410,7 +409,7 @@ func (d *Daemon) validateToken(ctx context.Context) error {
 	return nil
 }
 
-func (d *Daemon) validateTokenUnary(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func (d *Service) validateTokenUnary(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	if err := d.validateToken(ctx); err != nil {
 		return nil, err
 	}
@@ -418,7 +417,7 @@ func (d *Daemon) validateTokenUnary(ctx context.Context, req interface{}, _ *grp
 	return handler(ctx, req)
 }
 
-func (d *Daemon) validateTokenStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (d *Service) validateTokenStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	if err := d.validateToken(ss.Context()); err != nil {
 		return err
 	}

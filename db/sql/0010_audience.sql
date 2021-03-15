@@ -8,16 +8,21 @@ CREATE TABLE IF NOT EXISTS hiro.audiences(
     name VARCHAR(64) NOT NULL UNIQUE,
     slug VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
+    domain VARCHAR(1024) UNIQUE,
     token_algorithm VARCHAR(16) NOT NULL,
     token_lifetime BIGINT NOT NULL,
     session_lifetime BIGINT NOT NULL, 
     metadata JSONB
 );
 
+DROP TRIGGER IF EXISTS update_timestamp ON hiro.audiences;
+
 CREATE TRIGGER update_timestamp
   BEFORE UPDATE ON hiro.audiences
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
+
+DROP TRIGGER IF EXISTS update_slug ON hiro.audiences;
 
 CREATE TRIGGER update_slug
   BEFORE INSERT OR UPDATE ON hiro.audiences
@@ -29,6 +34,8 @@ CREATE TABLE IF NOT EXISTS hiro.audience_permissions(
   permission TEXT NOT NULL,
   PRIMARY KEY(audience_id, permission)
 );
+
+DROP TRIGGER IF EXISTS update_slug  ON hiro.audience_permissions;
 
 CREATE TRIGGER update_slug
   BEFORE INSERT OR UPDATE ON hiro.audience_permissions

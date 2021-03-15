@@ -15,12 +15,16 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     metadata JSONB
 );
 
-CREATE INDEX application_credentials ON hiro.applications(id, secret_key);
+CREATE INDEX IF NOT EXISTS application_credentials ON hiro.applications(id, secret_key);
+
+DROP TRIGGER IF EXISTS update_timestamp ON hiro.applications;
 
 CREATE TRIGGER update_timestamp
   BEFORE UPDATE ON hiro.applications
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
+
+DROP TRIGGER IF EXISTS update_slug ON hiro.applications;
 
 CREATE TRIGGER update_slug
   BEFORE INSERT OR UPDATE ON hiro.applications

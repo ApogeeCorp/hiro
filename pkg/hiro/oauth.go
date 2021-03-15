@@ -29,12 +29,12 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/sparks/pkg/oauth/openid"
-	"github.com/ModelRocket/reno/pkg/null"
-	"github.com/ModelRocket/reno/pkg/ptr"
-	"github.com/ModelRocket/reno/pkg/safe"
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/null"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	"github.com/ModelRocket/hiro/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/apex/log"
 )
 

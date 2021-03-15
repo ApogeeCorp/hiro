@@ -32,13 +32,19 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/ptr"
+	"github.com/ModelRocket/hiro/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/dgrijalva/jwt-go"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// SecretsController is the secrets API interface
+	SecretsController interface {
+		SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error)
+		SecretDelete(ctx context.Context, params SecretDeleteInput) error
+	}
+
 	// Secret is a secret key implemenation of oauth.TokenSecret
 	Secret struct {
 		ID         ID                    `json:"id" db:"id"`

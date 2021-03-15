@@ -22,7 +22,7 @@ package hiro
 import (
 	"context"
 
-	"github.com/ModelRocket/hiro/pkg/pb"
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 

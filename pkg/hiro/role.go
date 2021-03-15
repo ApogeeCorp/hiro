@@ -26,32 +26,43 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/ModelRocket/sparks/pkg/oauth"
-	"github.com/ModelRocket/reno/pkg/null"
-	"github.com/ModelRocket/reno/pkg/reno"
+	"github.com/ModelRocket/hiro/pkg/common"
+	"github.com/ModelRocket/hiro/pkg/null"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
+	// RoleController is roles API interfcace
+	RoleController interface {
+		RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error)
+		RoleGet(ctx context.Context, params RoleGetInput) (*Role, error)
+		RoleList(ctx context.Context, params RoleListInput) ([]*Role, error)
+		RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error)
+		RoleDelete(ctx context.Context, params RoleDeleteInput) error
+	}
+
 	// Role is the database model for an role
 	Role struct {
-		ID          ID                `json:"id" db:"id"`
-		Name        string            `json:"name" db:"name"`
-		Slug        string            `json:"slug" db:"slug"`
-		Description *string           `json:"description,omitempty" db:"description"`
-		Permissions oauth.ScopeSet    `json:"permissions,omitempty" db:"-"`
-		CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    reno.InterfaceMap `json:"metadata,omitempty" db:"metadata"`
+		ID          ID             `json:"id" db:"id"`
+		AudienceID  ID             `json:"audience_id" db:"audience_id"`
+		Name        string         `json:"name" db:"name"`
+		Slug        string         `json:"slug" db:"slug"`
+		Description *string        `json:"description,omitempty" db:"description"`
+		Permissions oauth.ScopeSet `json:"permissions,omitempty" db:"-"`
+		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    common.Map     `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// RoleCreateInput is the role create request
 	RoleCreateInput struct {
-		Name        string            `json:"name"`
-		Description *string           `json:"description,omitempty"`
-		Permissions oauth.ScopeSet    `json:"permissions,omitempty"`
-		Metadata    reno.InterfaceMap `json:"metadata,omitempty"`
+		AudienceID  ID             `json:"audience_id"`
+		Name        string         `json:"name"`
+		Description *string        `json:"description,omitempty"`
+		Permissions oauth.ScopeSet `json:"permissions,omitempty"`
+		Metadata    common.Map     `json:"metadata,omitempty"`
 	}
 
 	// RoleUpdateInput is the role update request
@@ -60,7 +71,7 @@ type (
 		Name        *string            `json:"name" structs:"name,omitempty"`
 		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
 		Permissions *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata    reno.InterfaceMap  `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		Metadata    common.Map         `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// RoleGetInput is used to get an role for the id
@@ -93,6 +104,7 @@ type (
 // ValidateWithContext handles validation of the RoleCreateInput struct
 func (a RoleCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
+		validation.Field(&a.AudienceID, validation.Required),
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
@@ -146,10 +158,12 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 
 		stmt, args, err := sq.Insert("hiro.roles").
 			Columns(
+				"audience_id",
 				"name",
 				"description",
 				"metadata").
 			Values(
+				params.AudienceID,
 				params.Name,
 				null.String(params.Description),
 				null.JSON(params.Metadata),

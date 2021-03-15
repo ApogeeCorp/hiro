@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     FOREIGN KEY (user_id) REFERENCES hiro.users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX request_token_app ON hiro.request_tokens(application_id, type);
-CREATE INDEX request_token_user ON hiro.request_tokens(user_id, type);
+CREATE INDEX IF NOT EXISTS request_token_app ON hiro.request_tokens(application_id, type);
+CREATE INDEX IF NOT EXISTS request_token_user ON hiro.request_tokens(user_id, type);
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied

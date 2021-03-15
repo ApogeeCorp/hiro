@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/ModelRocket/sparks/pkg/oauth"
+	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/johnsiilver/getcert"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/oauth2"

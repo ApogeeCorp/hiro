@@ -33,7 +33,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ModelRocket/sparks/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/common"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/patrickmn/go-cache"
@@ -85,6 +86,7 @@ type (
 	option struct {
 		name     string
 		audience string
+		m        common.Map
 	}
 )
 
@@ -96,6 +98,8 @@ var (
 	optionRegLock  sync.Mutex
 
 	optionCache = cache.New(5*time.Minute, 10*time.Minute)
+
+	optionType = reflect.TypeOf(option{})
 )
 
 // Validate validates OptionUpdateInput
@@ -250,27 +254,27 @@ func RegisterOption(name string, val interface{}) error {
 }
 
 // Name gets the name of this polymorphic type
-func (m *option) Name() string {
-	if m.name != "" {
-		return m.name
+func (o *option) Name() string {
+	if o.name != "" {
+		return o.name
 	}
 
 	return "Option"
 }
 
 // SetName sets the name of this polymorphic type
-func (m *option) SetName(val string) {
-	m.name = val
+func (o *option) SetName(val string) {
+	o.name = val
 }
 
 // Audience returns the audience
-func (m *option) Audience() string {
-	return m.audience
+func (o *option) Audience() string {
+	return o.audience
 }
 
 // SetAudience sets the audience
-func (m *option) SetAudience(val string) {
-	m.audience = val
+func (o *option) SetAudience(val string) {
+	o.audience = val
 }
 
 // UnmarshalOptionSlice unmarshals polymorphic slices of Option
@@ -338,10 +342,12 @@ func unmarshalOption(data []byte, name ...string) (Option, error) {
 
 	t, ok := optionRegistry[strings.ToLower(optionName)]
 	if !ok {
-		return nil, fmt.Errorf("unregistered name value: %q", optionName)
+		t = optionType
 	}
 
 	result = reflect.New(t).Interface().(Option)
+
+	result.SetName(optionName)
 
 	if err := dec.Decode(result); err != nil {
 		return nil, err
@@ -360,21 +366,35 @@ func unmarshalOption(data []byte, name ...string) (Option, error) {
 	return result, nil
 }
 
-// Value returns Option as a value that can be stored as json in the database
-func (m option) Value() (driver.Value, error) {
-	return json.Marshal(m)
+// UnmarshalJSON unmarshals a map option from json
+func (o *option) UnmarshalJSON(data []byte) error {
+	if o.m == nil {
+		o.m = make(common.Map)
+	}
+
+	return json.Unmarshal(data, &o.m)
 }
 
-// Scan reads a json value from the database into a Option
-func (m *option) Scan(value interface{}) error {
+// MarshalJSON marhals a map option to json
+func (o option) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.m)
+}
+
+// Value returns SendGridConfig as a value that can be stored as json in the database
+func (o option) Value() (driver.Value, error) {
+	return json.Marshal(o.m)
+}
+
+// Scan reads a json value from the database into a SendGridConfig
+func (o *option) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
 	}
 
-	if err := json.Unmarshal(b, &m); err != nil {
-		return err
+	if o.m == nil {
+		o.m = make(common.Map)
 	}
 
-	return nil
+	return json.Unmarshal(b, &o.m)
 }
