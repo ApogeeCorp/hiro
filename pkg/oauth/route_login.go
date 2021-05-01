@@ -85,17 +85,17 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 	}
 
 	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u, ErrExpiredToken)
+		return api.Redirect(u).WithError(ErrExpiredToken)
 	}
 
 	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	// ensure the request audience is valid
 	aud, err := ctrl.AudienceGet(ctx, req.Audience)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	var user User
@@ -106,7 +106,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		user, err = ctrl.UserAuthenticate(ctx, params.Login, params.Password)
 	}
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	log.Debugf("user %s authenticated", user.Subject())
@@ -157,7 +157,7 @@ func login(ctx context.Context, params *LoginParams) api.Responder {
 		RedirectURI:         req.RedirectURI,
 	})
 	if err != nil {
-		api.Redirect(u, ErrAccessDenied.WithError(err))
+		api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("auth code %s created", code)
 

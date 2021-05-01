@@ -139,16 +139,16 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 	}
 
 	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u, err)
+		return api.Redirect(u).WithError(err)
 	}
 
 	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	user, err := ctrl.UserGet(ctx, params.Login)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	req.Subject = ptr.String(user.Subject())
 
@@ -179,7 +179,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 			ExpiresAt: req.ExpiresAt,
 		})
 		if err != nil {
-			return api.Redirect(u, ErrAccessDenied.WithError(err))
+			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 		}
 
 		req.Passcode = &passToken
@@ -187,7 +187,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 	reqToken, err := ctrl.RequestTokenCreate(ctx, req)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	note := &passwordNotification{
@@ -214,7 +214,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 		if err != nil {
 			log.Error(err.Error())
 
-			return api.Redirect(u, ErrAccessDenied.WithError(err))
+			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 		}
 
 		link, err := URI(
@@ -224,7 +224,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 		if err != nil {
 			log.Error(err.Error())
 
-			return api.Redirect(u, ErrAccessDenied.WithError(err))
+			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 		}
 
 		q := link.Query()
@@ -239,7 +239,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 	if err := ctrl.UserNotify(ctx, note); err != nil {
 		log.Error(err.Error())
 
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	if params.RedirectURI != nil {
@@ -262,7 +262,7 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 	u, err = req.RedirectURI.Parse()
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	q := u.Query()

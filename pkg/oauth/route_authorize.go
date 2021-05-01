@@ -155,7 +155,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 				RedirectURI:         params.RedirectURI,
 			})
 			if err != nil {
-				api.Redirect(u, ErrAccessDenied.WithError(err))
+				api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 			}
 
 			log.Debugf("auth code %s created", code)
@@ -196,7 +196,7 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	if err != nil {
 		log.Error(err.Error())
 
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("request token %s created", token)
 

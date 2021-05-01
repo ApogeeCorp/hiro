@@ -141,7 +141,7 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 		u.RawQuery = q.Encode()
 	}
 
-	return api.Redirect(u, err)
+	return api.Redirect(u).WithError(err)
 }
 
 // Name implements api.Route

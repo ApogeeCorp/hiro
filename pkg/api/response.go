@@ -58,6 +58,12 @@ type (
 		header  http.Header
 	}
 
+	// Redirector defines an api redirect
+	Redirector struct {
+		*Response
+		loc *url.URL
+	}
+
 	// Encoder is a response encoder
 	Encoder interface {
 		Encode(w io.Writer) error
@@ -117,42 +123,6 @@ func (r *Response) WithHeader(key string, value string) *Response {
 	return r
 }
 
-// Redirect will set the proper redirect headers and http.StatusFound
-func Redirect(u *url.URL, args ...interface{}) *Response {
-	r := NewResponse()
-
-	q := u.Query()
-
-	for _, a := range args {
-		switch t := a.(type) {
-		case map[string]string:
-			for k, v := range t {
-				q.Set(k, v)
-			}
-
-		case map[string]interface{}:
-			for k, v := range t {
-				q.Set(k, cast.ToString(v))
-			}
-
-		case ErrorResponse:
-			q.Set("error_status", cast.ToString(t.Status()))
-			q.Set("error_message", t.Error())
-			if detail := t.Detail(); len(detail) > 0 {
-				q.Set("error_detail", strings.Join(detail, ","))
-			}
-		}
-	}
-
-	u.RawQuery = q.Encode()
-
-	r.header.Set("Location", u.String())
-
-	r.status = http.StatusFound
-
-	return r
-}
-
 // WithWriter sets the writer
 func (r *Response) WithWriter(w WriterFunc) *Response {
 	r.writer = w
@@ -184,6 +154,57 @@ func (r *Response) Write(w http.ResponseWriter) error {
 		return nil
 	}
 	return r.writer(w, r.status, r.payload)
+}
+
+// Redirect will set the proper redirect headers and http.StatusFound
+func Redirect(u *url.URL) *Redirector {
+	r := &Redirector{
+		Response: NewResponse(),
+		loc:      u,
+	}
+
+	r.header.Set("Location", u.String())
+
+	r.status = http.StatusFound
+
+	return r
+}
+
+func (r *Redirector) WithQuery(vals *url.Values) *Redirector {
+	r.loc.RawQuery = vals.Encode()
+
+	r.header.Set("Location", r.loc.String())
+
+	return r
+}
+
+func (r *Redirector) WithError(err error) *Redirector {
+	q := r.loc.Query()
+
+	switch t := err.(type) {
+	case ErrorResponse:
+		q.Set("error", t.Code())
+		q.Set("error_description", t.Error())
+
+		for _, detail := range t.Detail() {
+			q.Add("error_detail", detail)
+		}
+		if detail := t.Detail(); len(detail) > 0 {
+			q.Set("error_detail", strings.Join(detail, ","))
+		}
+
+	case error:
+		e := Error(err)
+
+		q.Set("error", e.Code())
+		q.Set("error_description", e.Error())
+	}
+
+	r.loc.RawQuery = q.Encode()
+
+	r.header.Set("Location", r.loc.String())
+
+	return r
 }
 
 // WriteJSON writes json objects

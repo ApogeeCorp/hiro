@@ -278,13 +278,13 @@ definitions:
   Error:
     description: "A common error response"
     type: "object"
-    required: ["message"]
+    required: ["error"]
     properties:
-      message:
+      error:
         type: "string"
-        description: "The error message"
+        description: "The error code"
         x-nullable: false
-      detail:
+      error_description:
         type: "array"
         description: "The error detail"
         items:
@@ -680,7 +680,7 @@ paths:
           $ref: "#/responses/ServerError"
 
   /token-introspect:
-    get:
+    post:
       description: "Intropsect a token"
       operationId: "TokenIntrospect"
       tags: ["Auth"]
@@ -708,7 +708,7 @@ paths:
         - oauth: ["token:read"]
 
   /token-revoke:
-    get:
+    post:
       description: "Revoke a token"
       operationId: "TokenRevoke"
       tags: ["Auth"]

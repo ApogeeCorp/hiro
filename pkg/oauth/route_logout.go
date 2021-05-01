@@ -66,7 +66,7 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 	if params.RedirectURI == nil {
 		params.RedirectURI = params.PostLogoutRedirectURI
 	}
-	
+
 	// parse the redirect uri
 	u, err := params.RedirectURI.Parse()
 	if err != nil {
@@ -100,14 +100,14 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 
 	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID())
 	if err != nil {
-		return api.Redirect(u, api.ErrServerError.WithError(err))
+		return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
 	}
 
 	// check for a session
 	r, w := api.Request(ctx)
 	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
 	if err != nil {
-		return api.Redirect(u, api.ErrServerError.WithError(err))
+		return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
 	}
 
 	if !session.IsNew {
@@ -116,7 +116,7 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 		api.SessionManager(ctx).SessionDestroy(ctx, string(session.ID))
 
 		if err := sessions.Save(r, w); err != nil {
-			return api.Redirect(u, api.ErrServerError.WithError(err))
+			return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
 		}
 	}
 

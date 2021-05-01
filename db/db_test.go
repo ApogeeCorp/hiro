@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMigrate(t *testing.T) {
-	if _, err := Migrate(testDB, "postgres", "test", Migrations, migrate.Up); err != nil {
+	if _, err := Migrate(testDB, "postgres", "test", Hiro, migrate.Up); err != nil {
 		t.Fatalf("failed to perform migration: %s", err.Error())
 	}
 }

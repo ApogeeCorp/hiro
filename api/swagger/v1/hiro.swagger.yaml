@@ -490,14 +490,15 @@ definitions:
   Error:
     description: "A common error response"
     type: "object"
-    required: ["message"]
+    required: ["error"]
     properties:
-      message:
+      error:
         type: "string"
-        description: "The base error message"
-      detail:
+        description: "The error code"
+        x-nullable: false
+      error_description:
         type: "array"
-        description: "List of detailed error messages"
+        description: "The error detail"
         items:
           type: "string"
           

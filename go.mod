@@ -42,6 +42,7 @@ require (
 	github.com/rubenv/sql-migrate v0.0.0-20200616145509-8d140a17f351
 	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cast v1.3.1
+	github.com/stoewer/go-strcase v1.2.0
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect

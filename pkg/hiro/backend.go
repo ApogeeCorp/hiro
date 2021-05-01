@@ -155,7 +155,7 @@ func New(opts ...BackendOption) (*Backend, error) {
 
 	if b.automigrate {
 		// always migrate hiro first
-		if _, err := db.Migrate(b.db.DB, "postgres", "hiro", db.Migrations, migrate.Up); err != nil {
+		if _, err := db.Migrate(b.db.DB, "postgres", "hiro", db.Hiro, migrate.Up); err != nil {
 			return nil, err
 		}
 

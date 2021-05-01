@@ -76,17 +76,17 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 	}
 
 	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u, err)
+		return api.Redirect(u).WithError(err)
 	}
 
 	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	// ensure the request audience is valid
 	aud, err := ctrl.AudienceGet(ctx, req.Audience)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	invite := req
@@ -100,7 +100,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 
 	user, err := ctrl.UserCreate(ctx, params.Login, params.Password, invite)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("user %s created", user.Subject())
 
@@ -150,7 +150,7 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		RedirectURI:         req.RedirectURI,
 	})
 	if err != nil {
-		api.Redirect(u, ErrAccessDenied.WithError(err))
+		api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("auth code %s created", code)
 

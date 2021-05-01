@@ -29,6 +29,7 @@ import (
 	"net/http"
 
 	"github.com/spf13/cast"
+	"github.com/stoewer/go-strcase"
 )
 
 var (
@@ -63,6 +64,9 @@ type (
 		error
 		Responder
 
+		// Code returns the error code
+		Code() string
+
 		// Detail returns the detail
 		Detail() []string
 
@@ -75,6 +79,9 @@ type (
 		// WithStatus sets the status code for the error
 		WithStatus(status int) ErrorResponse
 
+		// WithCode sets the error code for the response, the default is the http status
+		WithCode(code string) ErrorResponse
+
 		// WithDetail adds detail to the error
 		WithDetail(detail ...interface{}) ErrorResponse
 	}
@@ -83,6 +90,7 @@ type (
 	StatusError struct {
 		err    error
 		status int
+		code   string
 		detail []string
 	}
 )
@@ -117,6 +125,32 @@ func (e StatusError) Error() string {
 	return e.err.Error()
 }
 
+// WithStatus returns the error with status
+func (e StatusError) WithStatus(status int) ErrorResponse {
+	e.status = status
+	return &e
+}
+
+// WithError returns the error with an underlying error
+func (e StatusError) WithError(err error) ErrorResponse {
+	return e.WithMessage(err.Error())
+}
+
+// WithMessage returns the error with a message
+func (e StatusError) WithMessage(format string, args ...interface{}) ErrorResponse {
+	msg := fmt.Errorf(format, args...)
+
+	e.err = fmt.Errorf("%w: %s", e.err, msg)
+
+	return &e
+}
+
+// WithCode sets the error code for the response, the default is the http status
+func (e StatusError) WithCode(code string) ErrorResponse {
+	e.code = code
+	return &e
+}
+
 // WithDetail returns the error with detail
 func (e StatusError) WithDetail(detail ...interface{}) ErrorResponse {
 	if e.detail == nil {
@@ -139,63 +173,25 @@ func (e StatusError) WithDetail(detail ...interface{}) ErrorResponse {
 	return &e
 }
 
-// Is implements the errors.Is interface
-func (e *StatusError) Is(target error) bool {
-	t, ok := target.(*StatusError)
-	if !ok {
-		return false
-	}
-
-	return errors.Is(t.err, target)
-}
-
-// WithMessage returns the error with a message
-func (e StatusError) WithMessage(format string, args ...interface{}) ErrorResponse {
-	e.err = fmt.Errorf(format, args...)
-	return &e
-}
-
-// WithStatus returns the error with status
-func (e StatusError) WithStatus(status int) ErrorResponse {
-	e.status = status
-	return &e
-}
-
-// WithError returns the error with an underlying error
-func (e StatusError) WithError(err error) ErrorResponse {
-	var r ErrorResponse
-
-	if err == nil {
-		return e
-	}
-
-	if errors.As(err, &r) {
-		if r.Status() <= e.status {
-			if e.Error() != r.Error() {
-				e.detail = append(e.detail, r.Error())
-			}
-			e.detail = append(e.detail, r.Detail()...)
-		}
-		if r.Status() > e.status {
-			e.err = r
-			e.status = r.Status()
-		}
-	} else {
-		e.detail = append(e.detail, err.Error())
-	}
-
-	return &e
-}
-
 // Payload implements the api.Responder interface
 func (e StatusError) Payload() interface{} {
 	return struct {
-		Message string   `json:"message"`
-		Detail  []string `json:"detail,omitempty"`
+		Error       string   `json:"error"`
+		Description string   `json:"error_description,omitempty"`
+		Detail      []string `json:"error_detail,omitempty"`
 	}{
-		Message: e.Error(),
-		Detail:  e.detail,
+		Error:       e.Code(),
+		Description: e.Error(),
+		Detail:      e.detail,
 	}
+}
+
+// Code returns the error code
+func (e StatusError) Code() string {
+	if e.code != "" {
+		return e.code
+	}
+	return strcase.SnakeCase(http.StatusText(e.status))
 }
 
 // Write implements the api.Responder interface
@@ -211,4 +207,14 @@ func (e StatusError) Status() int {
 // Detail returns the error detail
 func (e StatusError) Detail() []string {
 	return e.detail
+}
+
+// Is implements the errors.Is interface
+func (e *StatusError) Is(target error) bool {
+	t, ok := target.(*StatusError)
+	if !ok {
+		return false
+	}
+
+	return errors.Is(e.err, t.err)
 }

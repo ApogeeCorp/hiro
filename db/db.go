@@ -21,22 +21,34 @@ package db
 
 import (
 	"database/sql"
+	"embed"
+	"io/fs"
+	"net/http"
 
 	migrate "github.com/rubenv/sql-migrate"
 )
 
-//go:generate go-bindata -pkg=db ./sql/
 var (
-	// Migrations is the db asset migrations
-	Migrations = &migrate.AssetMigrationSource{
-		Asset:    Asset,
-		AssetDir: AssetDir,
-		Dir:      "sql",
-	}
+	//go:embed sql/*.sql
+	migrationFS embed.FS
+
+	// Hiro is the migrations for Hiro
+	Hiro migrate.MigrationSource
 )
 
+func init() {
+	rel, err := fs.Sub(migrationFS, "sql")
+	if err != nil {
+		panic(err)
+	}
+
+	Hiro = &migrate.HttpFileSystemMigrationSource{
+		FileSystem: http.FS(rel),
+	}
+}
+
 // Migrate processes the database migrations
-func Migrate(db *sql.DB, dialect string, schema string, source *migrate.AssetMigrationSource, dir migrate.MigrationDirection) (int, error) {
+func Migrate(db *sql.DB, dialect string, schema string, source migrate.MigrationSource, dir migrate.MigrationDirection) (int, error) {
 	migrate.SetTable("db_migrations")
 	migrate.SetSchema(schema)
 	return migrate.Exec(db, dialect, source, dir)

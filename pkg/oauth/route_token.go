@@ -283,7 +283,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				}
 			}
 
-			log.Debugf("identity token %s issued", id)
+			log.Debugf("identity token %s issued", id.ID)
 
 			tokens = append(tokens, id)
 		}

@@ -82,12 +82,12 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 	// ensure the request audience is valid
 	aud, err := ctrl.AudienceGet(ctx, req.Audience)
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 
 	user, err := ctrl.UserGet(ctx, safe.String(req.Subject))
 	if err != nil {
-		return api.Redirect(u, ErrAccessDenied.WithError(err))
+		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("user %s authenticated", user.Subject())
 
@@ -153,7 +153,7 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 		RedirectURI:         req.RedirectURI,
 	})
 	if err != nil {
-		api.Redirect(u, ErrAccessDenied.WithError(err))
+		api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
 	}
 	log.Debugf("auth code %s created", code)
 

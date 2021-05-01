@@ -20,8 +20,11 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/kr/pretty"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,6 +62,13 @@ var (
 )
 
 func serverMain(c *cli.Context) error {
+
+	e := hiro.ErrAuthFailed.WithMessage("wtf")
+
+	if errors.Is(e, api.ErrUnauthorized) {
+		pretty.Logf("%s", e)
+	}
+
 	h, err := hiro.New(
 		hiro.WithDBSource(c.String("db")),
 		hiro.Automigrate(),
