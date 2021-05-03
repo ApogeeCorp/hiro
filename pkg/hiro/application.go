@@ -50,6 +50,7 @@ type (
 	// Application is the database model for an application
 	Application struct {
 		ID          ID               `json:"id" db:"id"`
+		AudienceID  ID               `json:"audience_id" db:"audience_id"`
 		Name        string           `json:"name" db:"name"`
 		Slug        string           `json:"slug" db:"slug"`
 		Description *string          `json:"description,omitempty" db:"description"`
@@ -65,6 +66,7 @@ type (
 
 	// ApplicationCreateInput is the application create request
 	ApplicationCreateInput struct {
+		AudienceID  ID               `json:"audience_id" db:"audience_id"`
 		Name        string           `json:"name"`
 		Description *string          `json:"description,omitempty"`
 		Type        oauth.ClientType `json:"type" db:"type"`
@@ -124,6 +126,7 @@ type (
 // ValidateWithContext handles validation of the ApplicationCreateInput struct
 func (a ApplicationCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
+		validation.Field(&a.AudienceID, validation.Required),
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
 		validation.Field(&a.Type, validation.Required),
@@ -186,6 +189,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
 		stmt, args, err := sq.Insert("hiro.applications").
 			Columns(
+				"audience_id",
 				"name",
 				"description",
 				"type",
@@ -193,6 +197,7 @@ func (b *Backend) ApplicationCreate(ctx context.Context, params ApplicationCreat
 				"uris",
 				"metadata").
 			Values(
+				params.AudienceID,
 				params.Name,
 				null.String(params.Description),
 				params.Type,
