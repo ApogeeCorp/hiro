@@ -34,7 +34,7 @@ import (
 
 type (
 	sessionController struct {
-		*Backend
+		Controller
 	}
 
 	// Session is the backend store representation of session.Session
@@ -52,10 +52,9 @@ type (
 	SessionKey Secret
 )
 
-// SessionController returns an oauth controller from a hiro.Backend
-func (b *Backend) SessionController() session.Controller {
+func SessionController(c Controller) session.Controller {
 	return &sessionController{
-		Backend: b,
+		Controller: c,
 	}
 }
 
@@ -72,7 +71,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 		p.AudienceID = ID(sess.Audience)
 	}
 
-	aud, err := s.Backend.AudienceGet(ctx, p)
+	aud, err := s.Controller.AudienceGet(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -233,7 +232,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 }
 
 func (s *sessionController) SessionDestroy(ctx context.Context, id string) error {
-	db := s.Backend.DB(ctx)
+	db := s.Controller.DB(ctx)
 
 	if _, err := sq.Delete("hiro.sessions").
 		Where(sq.Eq{"id": ID(id)}).
@@ -254,7 +253,7 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 		p.AudienceID = ID(id)
 	}
 
-	aud, err := s.Backend.AudienceGet(ctx, p)
+	aud, err := s.Controller.AudienceGet(ctx, p)
 	if err != nil {
 		return session.Options{}, err
 	}

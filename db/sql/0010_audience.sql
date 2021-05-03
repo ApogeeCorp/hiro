@@ -31,7 +31,8 @@ CREATE TRIGGER update_slug
 
 CREATE TABLE IF NOT EXISTS hiro.audience_permissions(
   audience_id UUID NOT NULL REFERENCES hiro.audiences(id) ON DELETE CASCADE,
-  permission TEXT NOT NULL,
+  permission VARCHAR(256) NOT NULL,
+  description TEXT NULL,
   PRIMARY KEY(audience_id, permission)
 );
 

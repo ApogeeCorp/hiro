@@ -4,6 +4,7 @@ CREATE TYPE hiro.GRANT_TYPE AS ENUM ('authorization_code', 'client_credentials',
 
 CREATE TABLE IF NOT EXISTS hiro.applications(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    audience_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL UNIQUE,
@@ -12,7 +13,8 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     type TEXT NOT NULL DEFAULT 'web',
     secret_key TEXT,
     uris JSONB,
-    metadata JSONB
+    metadata JSONB,
+    FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS application_credentials ON hiro.applications(id, secret_key);

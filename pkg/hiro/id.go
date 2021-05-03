@@ -36,8 +36,8 @@ type (
 	ID string
 )
 
-// NullID will parse or generate a value to make a new ID
-func NullID(id ...interface{}) ID {
+// NewID will parse or generate a value to make a new ID
+func NewID(id ...interface{}) ID {
 	if len(id) > 0 {
 		switch t := id[0].(type) {
 		case ID:
@@ -98,7 +98,7 @@ func (id ID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(id.String())
 }
 
-// Hex encode the id as hex
+// Hex encodes the id as hex
 func (id ID) Hex() string {
 	b, _ := base58.Decode(id.String())
 	return hex.EncodeToString(b)

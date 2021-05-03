@@ -123,7 +123,7 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 	}
 
 	if d.oauthCtrl == nil {
-		d.oauthCtrl = d.ctrl.OAuthController()
+		d.oauthCtrl = OAuthController(d.ctrl)
 	}
 
 	// The oauth.Controller doesn't define how tokens are managed, hiro
@@ -135,7 +135,7 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		Do(d.oauthCtrl.TokenCleanup, context.Background())
 
 	if d.sessionCtrl == nil {
-		d.sessionCtrl = d.ctrl.SessionController()
+		d.sessionCtrl = SessionController(d.ctrl)
 	}
 
 	// start the session cleanup job, same purpose as the token cleanup

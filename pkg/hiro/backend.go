@@ -42,7 +42,7 @@ type (
 		assetVolume   string
 		automigrate   bool
 		initialize    bool
-		audiencces    []AudienceInitializeInput
+		audiences    []AudienceInitializeInput
 		timeout       time.Duration
 		retryInterval time.Duration
 		log           log.Interface
@@ -178,7 +178,7 @@ func New(opts ...BackendOption) (*Backend, error) {
 			return nil, err
 		}
 
-		for _, a := range b.audiencces {
+		for _, a := range b.audiences {
 			if _, err := b.AudienceInitialize(context.Background(), a); err != nil {
 				return nil, err
 			}
@@ -258,6 +258,6 @@ func Automigrate(m ...Migration) BackendOption {
 func Initialize(a ...AudienceInitializeInput) BackendOption {
 	return func(b *Backend) {
 		b.initialize = true
-		b.audiencces = a
+		b.audiences = a
 	}
 }

@@ -40,7 +40,7 @@ import (
 
 type (
 	oauthController struct {
-		*Backend
+		Controller
 	}
 
 	oauthAudience struct {
@@ -93,10 +93,9 @@ type (
 	}
 )
 
-// OAuthController returns an oauth controller from a hiro.Backend
-func (b *Backend) OAuthController() oauth.Controller {
+func OAuthController(c Controller) oauth.Controller {
 	return &oauthController{
-		Backend: b,
+		Controller: c,
 	}
 }
 
@@ -110,7 +109,7 @@ func (o *oauthController) AudienceGet(ctx context.Context, id string) (oauth.Aud
 		params.Name = &id
 	}
 
-	aud, err := o.Backend.AudienceGet(ctx, params)
+	aud, err := o.Controller.AudienceGet(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +148,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 		audID := ID(req.Audience)
 
 		if !audID.Valid() {
-			aud, err := o.Backend.AudienceGet(ctx, AudienceGetInput{
+			aud, err := o.Controller.AudienceGet(ctx, AudienceGetInput{
 				Name: &req.Audience,
 			})
 			if err != nil {
@@ -177,7 +176,7 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 				req.Type,
 				audID,
 				ID(req.ClientID),
-				NullID(req.Subject),
+				NewID(req.Subject),
 				req.Scope,
 				req.Passcode,
 				req.ExpiresAt.Time(),
@@ -250,7 +249,7 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 			return o.RequestTokenDelete(ctx, out.ID.String())
 		}
 
-		if safe.Int(out.LoginAttempts) >= o.passwords.MaxLoginAttempts() {
+		if safe.Int(out.LoginAttempts) >= o.Controller.PasswordManager().MaxLoginAttempts() {
 			err = o.RequestTokenDelete(ctx, out.ID.String())
 
 			return ErrTxCommit(
@@ -309,15 +308,15 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	if !ID(token.Audience).Valid() {
 		p.Name = &token.Audience
 	} else {
-		p.AudienceID = NullID(token.Audience)
+		p.AudienceID = NewID(token.Audience)
 	}
 
-	aud, err := o.Backend.AudienceGet(ctx, p)
+	aud, err := o.Controller.AudienceGet(ctx, p)
 	if err != nil {
 		return token, err
 	}
 
-	tokenID := NullID()
+	tokenID := NewID()
 	token.ID = tokenID.String()
 	token.Audience = aud.ID.String()
 	token.IssuedAt = oauth.Time(time.Now())
@@ -362,7 +361,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 				token.Issuer,
 				aud.ID,
 				ID(token.ClientID),
-				NullID(token.Subject),
+				NewID(token.Subject),
 				token.Use,
 				token.Scope,
 				token.Claims,
@@ -570,7 +569,7 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 		in.Login = &sub
 	}
 
-	user, err := o.Backend.UserGet(ctx, in)
+	user, err := o.Controller.UserGet(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -592,7 +591,7 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 			p.Login = &sub
 		}
 
-		o.Backend.UserUpdate(ctx, p)
+		o.Controller.UserUpdate(ctx, p)
 	}
 
 	return &oauthUser{user}, nil
@@ -600,7 +599,7 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 
 // UserAuthenticate authenticates a user
 func (o *oauthController) UserAuthenticate(ctx context.Context, login, password string) (oauth.User, error) {
-	user, err := o.Backend.UserGet(ctx, UserGetInput{
+	user, err := o.Controller.UserGet(ctx, UserGetInput{
 		Login: &login,
 	})
 	if err != nil {
@@ -621,13 +620,13 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 				WithDetail(user.LockedUntil.String())
 		}
 
-		o.Backend.UserUpdate(ctx, UserUpdateInput{
+		o.Controller.UserUpdate(ctx, UserUpdateInput{
 			Login:       &login,
 			LockedUntil: ptr.Time(time.Unix(0, 0)),
 		})
 	}
 
-	if !o.passwords.CheckPasswordHash(password, *user.PasswordHash) {
+	if !o.PasswordManager().CheckPasswordHash(password, *user.PasswordHash) {
 		return nil, oauth.ErrAccessDenied
 	}
 
@@ -636,7 +635,7 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 
 // UserLockout should lock a user for the specified time or default
 func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error) {
-	u := time.Now().Add(o.passwords.AccountLockoutPeriod())
+	u := time.Now().Add(o.PasswordManager().AccountLockoutPeriod())
 
 	if len(until) > 0 {
 		u = until[0]
@@ -652,7 +651,7 @@ func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...
 		p.Login = &sub
 	}
 
-	_, err := o.Backend.UserUpdate(ctx, p)
+	_, err := o.Controller.UserUpdate(ctx, p)
 
 	return u, err
 }
@@ -661,7 +660,7 @@ func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...
 func (o *oauthController) UserSetPassword(ctx context.Context, sub, password string) error {
 	p := UserUpdateInput{
 		Password:          &password,
-		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
+		PasswordExpiresAt: ptr.Time(time.Now().Add(o.PasswordManager().PasswordExpiry())),
 	}
 
 	if ID(sub).Valid() {
@@ -670,7 +669,7 @@ func (o *oauthController) UserSetPassword(ctx context.Context, sub, password str
 		p.Login = &sub
 	}
 
-	_, err := o.Backend.UserUpdate(ctx, p)
+	_, err := o.Controller.UserUpdate(ctx, p)
 
 	return err
 }
@@ -687,10 +686,10 @@ func (o *oauthController) UserCreate(ctx context.Context, login string, password
 		roles = req.Scope
 	}
 
-	user, err := o.Backend.UserCreate(ctx, UserCreateInput{
+	user, err := o.Controller.UserCreate(ctx, UserCreateInput{
 		Login:             login,
 		Password:          password,
-		PasswordExpiresAt: ptr.Time(time.Now().Add(o.passwords.PasswordExpiry())),
+		PasswordExpiresAt: ptr.Time(time.Now().Add(o.PasswordManager().PasswordExpiry())),
 		Roles:             roles,
 	})
 	if err != nil {
@@ -712,7 +711,7 @@ func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *o
 		p.Login = &sub
 	}
 
-	_, err := o.Backend.UserUpdate(ctx, p)
+	_, err := o.Controller.UserUpdate(ctx, p)
 
 	return err
 }

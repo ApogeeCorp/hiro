@@ -22,14 +22,13 @@ package hiro
 import (
 	"context"
 
-	"github.com/ModelRocket/hiro/pkg/api/session"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/apex/log"
 )
 
 type (
 	// Controller is the hiro API controller interface
 	Controller interface {
+		// API Controllers
 		AudienceController
 		SecretsController
 		ApplicationController
@@ -37,18 +36,13 @@ type (
 		UserController
 		AssetController
 
-		// Returns the log from the context
+		// Log returns the log from the context
 		Log(ctx context.Context) log.Interface
 
-		// Starts a database transaction
-		Transact(ctx context.Context, handler TxHandler, ignore ...error) error
+		// DBController provides db services
+		DBController
 
-		// Gets a handle to the database
-		DB(ctx context.Context) DB
-
-		oauth.ControllerProxy
-
-		// SessionController return the session controller
-		SessionController() session.Controller
+		// PasswordManager is the password manager interface
+		PasswordManager() PasswordManager
 	}
 )

@@ -38,6 +38,7 @@ type Value interface {
 	Bool() bool
 	Int() int
 	Int64() int64
+	Uint64() uint64
 	Float64() float64
 	Slice() []interface{}
 	Map() Map
@@ -109,6 +110,11 @@ func (v value) Int() int {
 // Int64 casts the value to an int64
 func (v value) Int64() int64 {
 	return cast.ToInt64(v.v)
+}
+
+// Uint64 casts the value to an uint64
+func (v value) Uint64() uint64 {
+	return cast.ToUint64(v.v)
 }
 
 // Float64 casts the value to a float64

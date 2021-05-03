@@ -32,6 +32,15 @@ import (
 )
 
 type (
+	// DBController is the db interface
+	DBController interface {
+		// Starts a database transaction
+		Transact(ctx context.Context, handler TxHandler, ignore ...error) error
+
+		// Gets a handle to the database
+		DB(ctx context.Context) DB
+	}
+
 	// DB is an aggregate interface for sqlx transactions
 	DB interface {
 		sqlx.Ext

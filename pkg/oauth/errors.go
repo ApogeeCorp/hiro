@@ -52,34 +52,34 @@ var (
 	ErrSessionNotFound = api.ErrNotFound.WithMessage("session not found")
 
 	// ErrUnsupportedAlogrithm is returned when the Authorizer gets a bad token
-	ErrUnsupportedAlogrithm = api.ErrBadRequest.WithDetail("unsupported signing algorithm")
+	ErrUnsupportedAlogrithm = api.ErrBadRequest.WithMessage("unsupported signing algorithm")
 
 	// ErrInvalidToken is returned when the token is not valid
-	ErrInvalidToken = ErrAccessDenied.WithDetail("invalid token")
+	ErrInvalidToken = ErrAccessDenied.WithMessage("invalid token")
 
 	// ErrKeyNotFound is returned when the authorizer can not find a good key
-	ErrKeyNotFound = ErrAccessDenied.WithDetail("suitable verification key not found")
+	ErrKeyNotFound = ErrAccessDenied.WithMessage("suitable verification key not found")
 
 	// ErrRevokedToken is returned when the token is revoked
-	ErrRevokedToken = ErrAccessDenied.WithDetail("revoked token")
+	ErrRevokedToken = ErrAccessDenied.WithMessage("revoked token")
 
 	// ErrExpiredToken is returned when the token is expired
-	ErrExpiredToken = ErrAccessDenied.WithDetail("expired token")
+	ErrExpiredToken = ErrAccessDenied.WithMessage("expired token")
 
 	// ErrPasswordLen is returned when a password does not meet length requirements
-	ErrPasswordLen = api.ErrBadRequest.WithDetail("invalid password length")
+	ErrPasswordLen = api.ErrBadRequest.WithMessage("invalid password length")
 
 	// ErrPasswordComplexity is returned if the password does not meet complexity requirements
-	ErrPasswordComplexity = api.ErrBadRequest.WithDetail("password does not meet complexity requirements")
+	ErrPasswordComplexity = api.ErrBadRequest.WithMessage("password does not meet complexity requirements")
 
 	// ErrPasswordResuse is returned if password does not meet the reuse constraints
-	ErrPasswordResuse = api.ErrBadRequest.WithDetail("password has been used before")
+	ErrPasswordResuse = api.ErrBadRequest.WithMessage("password has been used before")
 
 	// ErrPasswordExpired is returned when the password has expired
-	ErrPasswordExpired = api.ErrBadRequest.WithDetail("password has expired")
+	ErrPasswordExpired = api.ErrBadRequest.WithMessage("password has expired")
 
 	// ErrInvalidInviteCode is returned when an invitation code is bad
-	ErrInvalidInviteCode = api.ErrBadRequest.WithDetail("invite code is invalid")
+	ErrInvalidInviteCode = api.ErrBadRequest.WithMessage("invite code is invalid")
 )
 
 // NewErrTooManyLoginAttempts creates a new too many login attempts error
