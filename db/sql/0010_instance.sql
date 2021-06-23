@@ -1,49 +1,49 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
 
-CREATE TABLE IF NOT EXISTS hiro.audiences(
+CREATE TABLE IF NOT EXISTS hiro.instances(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL UNIQUE,
     slug VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
-    domain VARCHAR(1024) UNIQUE,
+    audience VARCHAR(1024) UNIQUE,
     token_algorithm VARCHAR(16) NOT NULL,
     token_lifetime BIGINT NOT NULL,
     session_lifetime BIGINT NOT NULL, 
     metadata JSONB
 );
 
-DROP TRIGGER IF EXISTS update_timestamp ON hiro.audiences;
+DROP TRIGGER IF EXISTS update_timestamp ON hiro.instances;
 
 CREATE TRIGGER update_timestamp
-  BEFORE UPDATE ON hiro.audiences
+  BEFORE UPDATE ON hiro.instances
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
 
-DROP TRIGGER IF EXISTS update_slug ON hiro.audiences;
+DROP TRIGGER IF EXISTS update_slug ON hiro.instances;
 
 CREATE TRIGGER update_slug
-  BEFORE INSERT OR UPDATE ON hiro.audiences
+  BEFORE INSERT OR UPDATE ON hiro.instances
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_slug("name", "slug");
 
-CREATE TABLE IF NOT EXISTS hiro.audience_permissions(
-  audience_id UUID NOT NULL REFERENCES hiro.audiences(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS hiro.instance_permissions(
+  instance_id UUID NOT NULL REFERENCES hiro.instances(id) ON DELETE CASCADE,
   permission VARCHAR(256) NOT NULL,
   description TEXT NULL,
-  PRIMARY KEY(audience_id, permission)
+  PRIMARY KEY(instance_id, permission)
 );
 
-DROP TRIGGER IF EXISTS update_slug  ON hiro.audience_permissions;
+DROP TRIGGER IF EXISTS update_slug  ON hiro.instance_permissions;
 
 CREATE TRIGGER update_slug
-  BEFORE INSERT OR UPDATE ON hiro.audience_permissions
+  BEFORE INSERT OR UPDATE ON hiro.instance_permissions
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_slug("permission", "permission", "\:");
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied
-DROP TABLE hiro.audiences;
-DROP TABLE hiro.audience_permissions;
+DROP TABLE hiro.instances;
+DROP TABLE hiro.instance_permissions;

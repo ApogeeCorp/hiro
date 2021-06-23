@@ -36,8 +36,11 @@ type (
 )
 
 var (
-	// ErrAccessDenied is returned when authentication has failed
-	ErrAccessDenied = api.ErrUnauthorized
+	// ErrUnauthorized is returned when authentication has failed
+	ErrUnauthorized = api.ErrUnauthorized.WithCode("access_denied")
+
+	// ErrForbidden is returned when authorization has failed
+	ErrForbidden = api.ErrForbidden.WithCode("access_denied")
 
 	// ErrClientNotFound is returned when the controller could not find the client
 	ErrClientNotFound = api.ErrNotFound.WithMessage("client not found")
@@ -55,16 +58,22 @@ var (
 	ErrUnsupportedAlogrithm = api.ErrBadRequest.WithMessage("unsupported signing algorithm")
 
 	// ErrInvalidToken is returned when the token is not valid
-	ErrInvalidToken = ErrAccessDenied.WithMessage("invalid token")
+	ErrInvalidToken = api.ErrBadRequest.WithCode("invalid_token")
+
+	// ErrInvalidGrant is returned when the grant is not valid for the client
+	ErrInvalidGrant = api.ErrBadRequest.WithCode("invalid_grant")
+
+	// ErrInvalidClient is returned when the client is not valid
+	ErrInvalidClient = ErrUnauthorized.WithCode("invalid_client")
 
 	// ErrKeyNotFound is returned when the authorizer can not find a good key
-	ErrKeyNotFound = ErrAccessDenied.WithMessage("suitable verification key not found")
+	ErrKeyNotFound = ErrUnauthorized.WithMessage("suitable verification key not found")
 
 	// ErrRevokedToken is returned when the token is revoked
-	ErrRevokedToken = ErrAccessDenied.WithMessage("revoked token")
+	ErrRevokedToken = ErrUnauthorized.WithCode("revoked_token")
 
 	// ErrExpiredToken is returned when the token is expired
-	ErrExpiredToken = ErrAccessDenied.WithMessage("expired token")
+	ErrExpiredToken = ErrUnauthorized.WithCode("expired_token")
 
 	// ErrPasswordLen is returned when a password does not meet length requirements
 	ErrPasswordLen = api.ErrBadRequest.WithMessage("invalid password length")
@@ -80,12 +89,21 @@ var (
 
 	// ErrInvalidInviteCode is returned when an invitation code is bad
 	ErrInvalidInviteCode = api.ErrBadRequest.WithMessage("invite code is invalid")
+
+	// ErrUnauthorizedClient is returned when a client is not allow access to a method
+	ErrUnauthorizedClient = api.ErrUnauthorized.WithCode("unauthorized_client")
+
+	// ErrInvalidScope is returned when a client requests an invalid scope
+	ErrInvalidScope = api.ErrBadRequest.WithCode("invalid_code")
+
+	// ErrInvalidRequest is returned when a client request is invalid
+	ErrInvalidRequest = api.ErrBadRequest.WithCode("invalid_request")
 )
 
 // NewErrTooManyLoginAttempts creates a new too many login attempts error
 func NewErrTooManyLoginAttempts(attempts int) *ErrTooManyLoginAttempts {
 	return &ErrTooManyLoginAttempts{
-		ErrorResponse: ErrAccessDenied.WithDetail("too many login attempts"),
+		ErrorResponse: ErrUnauthorized.WithDetail("too many login attempts"),
 		Attempts:      attempts,
 	}
 }

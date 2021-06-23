@@ -349,6 +349,7 @@ paths:
           in: "query"
           required: true
         - name: "audience"
+          description: "The audience id"
           in: "query"
           type: "string"
           required: true
@@ -435,6 +436,10 @@ paths:
           in: "formData"
           type: "string"
           required: true
+        - name: "profile"
+          description: "The user profile"
+          in: "formData"
+          type: "string"
       responses:
         302:
           $ref: "#/responses/Found"
@@ -538,10 +543,10 @@ paths:
         - name: "redirect_uri"
           in: "query"
           description: |
-            The URL to which the authentication server redirects the browser after authorization 
-            has been granted by the user, the default is to use the uri in the original request
+            The URL to which the authentication server redirects the browser after the password has been generated
+            and sent to the user.
           type: "string"
-          required: false
+          required: true
         - name: "request_token"
           type: "string"
           description: |
@@ -609,7 +614,7 @@ paths:
 
           Both `app_uri` and `redirect_uri` must be registered with the api client.
 
-        The form could post back to `/login` or `/signup` which will perform the final redirect to `redirect_api` with 
+        The form could post back to `/login` or `/signup` which will p1erform the final redirect to `redirect_api` with 
         the authorization code.
 
         Errors will be delivered to `app_uri` with two query parameters:
@@ -631,6 +636,7 @@ paths:
           type: "string"
           required: true
         - name: "audience"
+          description: "The audience id"
           in: "query"
           type: "string"
           required: true
@@ -638,12 +644,12 @@ paths:
           in: query
           description: "The URL to which the authentication server redirects the browser for action"
           type: "string"
-          required: false
+          required: true
         - name: "redirect_uri"
           in: "query"
-          description: "The URL to which the authentication server redirects the browser after authorization has been granted by the user"
+          description: "The URL to which the authentication server redirects the browser after authorization flow has succeeded or failed"
           type: "string"
-          required: false
+          required: true
         - name: "scope"
           in: "query"
           description: |
@@ -775,7 +781,7 @@ paths:
           required: false
         - name: "audience"
           type: "string"
-          description: "The reqest audience for client_credentials flows"
+          description: "The reqest audience"
           in: "formData"
           required: true
         - name: "scope"
@@ -811,9 +817,9 @@ paths:
         500:
           $ref: "#/responses/ServerError"
 
-  /openid/{audience_id}/.well-known/openid-configuration:
+  /openid/{audience}/.well-known/openid-configuration:
     parameters:
-      - name: "audience_id"
+      - name: "audience"
         description: "The audience identifier"
         in: path
         type: string
@@ -831,9 +837,9 @@ paths:
         500:
           $ref: "#/responses/ServerError"
 
-  /openid/{audience_id}/.well-known/jwks.json:
+  /openid/{audience}/.well-known/jwks.json:
     parameters:
-      - name: "audience_id"
+      - name: "audience"
         description: "The audience identifier"
         in: path
         type: string

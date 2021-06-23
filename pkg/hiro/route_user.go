@@ -51,23 +51,23 @@ type (
 func userCreate(ctx context.Context, params *UserCreateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.UserCreate(ctx, *params)
+	inst, err := ctrl.UserCreate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud).WithStatus(http.StatusCreated)
+	return api.NewResponse(inst).WithStatus(http.StatusCreated)
 }
 
 func userGet(ctx context.Context, params *UserGetInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.UserGet(ctx, *params)
+	inst, err := ctrl.UserGet(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 func userCount(ctx context.Context, params *UserListInput) api.Responder {
@@ -100,12 +100,12 @@ func userList(ctx context.Context, params *UserListInput) api.Responder {
 func userUpdate(ctx context.Context, params *UserUpdateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.UserUpdate(ctx, *params)
+	inst, err := ctrl.UserUpdate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 func userDelete(ctx context.Context, params *UserDeleteInput) api.Responder {

@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	h   *hiro.Backend
+	h   *hiro.Hiro
 	app = cli.NewApp()
 )
 

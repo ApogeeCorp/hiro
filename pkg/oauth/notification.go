@@ -26,10 +26,11 @@ package oauth
 type (
 	// Notification is a simply a notification interface
 	Notification interface {
+		Audience() string
 		Type() NotificationType
 		Subject() string
 		Channels() []NotificationChannel
-		URI() *URI
+		Context() map[string]interface{}
 	}
 
 	// NotificationType is a notification type

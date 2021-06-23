@@ -28,11 +28,8 @@ import "time"
 type (
 	// Audience is the common oauth audience interface
 	Audience interface {
-		// ID returns the audience id as a string
+		// ID returns the audience identifier
 		ID() string
-
-		// Name returns the audience name
-		Name() string
 
 		// Secret returns a token secret from the audience, implementations should rotate the secrets
 		Secrets() []TokenSecret

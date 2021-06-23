@@ -39,8 +39,8 @@ type (
 	LogoutParams struct {
 		Audience              string  `json:"audience"`
 		ClientID              string  `json:"client_id"`
-		RedirectURI           *URI    `json:"redirect_uri"`
-		PostLogoutRedirectURI *URI    `json:"post_logout_redirect_uri,omitempty"`
+		RedirectURI           *string `json:"redirect_uri"`
+		PostLogoutRedirectURI *string `json:"post_logout_redirect_uri,omitempty"`
 		State                 *string `json:"state"`
 	}
 
@@ -61,53 +61,35 @@ func (p LogoutParams) Validate() error {
 func logout(ctx context.Context, params *LogoutParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "logout")
-
+	// this is to support openid connect wonky params
 	if params.RedirectURI == nil {
 		params.RedirectURI = params.PostLogoutRedirectURI
 	}
 
-	// parse the redirect uri
-	u, err := params.RedirectURI.Parse()
+	client, err := ctrl.ClientGet(ctx, ClientGetInput{
+		Audience: params.Audience,
+		ClientID: params.ClientID,
+	})
 	if err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	aud, err := ctrl.AudienceGet(ctx, params.Audience)
+	// validate the redirect uri
+	u, err := EnsureURI(ctx, *params.RedirectURI, client.RedirectEndpoints())
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	client, err := ctrl.ClientGet(ctx, params.ClientID)
+	store, err := api.SessionManager(ctx).GetStore(ctx, params.Audience)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
-	}
-
-	// authorize this client for the grant, uris
-	if err := client.Authorize(
-		ctx,
-		aud,
-		GrantTypeAuthCode,
-		[]URI{*params.RedirectURI},
-		Scope{},
-	); err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
-	}
-
-	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID())
-	if err != nil {
-		return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
+		return api.Redirect(u).WithError(err)
 	}
 
 	// check for a session
 	r, w := api.Request(ctx)
-	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	session, err := store.Get(r, fmt.Sprintf("%s%s", SessionPrefix, params.Audience))
 	if err != nil {
-		return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
+		return api.Redirect(u).WithError(err)
 	}
 
 	if !session.IsNew {
@@ -116,7 +98,7 @@ func logout(ctx context.Context, params *LogoutParams) api.Responder {
 		api.SessionManager(ctx).SessionDestroy(ctx, string(session.ID))
 
 		if err := sessions.Save(r, w); err != nil {
-			return api.Redirect(u).WithError(api.ErrServerError.WithError(err))
+			return api.Redirect(u).WithError(err)
 		}
 	}
 

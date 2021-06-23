@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    audience_id UUID NOT NULL,
+    instance_id UUID NOT NULL,
     application_id UUID NOT NULL,
     user_id UUID,
     type VARCHAR(32) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     redirect_uri TEXT,
     login_attempts INT,
     state TEXT,
-    FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE,
+    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
     FOREIGN KEY (application_id) REFERENCES hiro.applications(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES hiro.users(id) ON DELETE CASCADE
 );

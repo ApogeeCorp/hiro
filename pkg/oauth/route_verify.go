@@ -27,8 +27,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
@@ -40,7 +40,7 @@ import (
 type (
 	// VerifyParams are the params for user verify
 	VerifyParams struct {
-		RedirectURI *URI    `json:"redirect_uri"`
+		RedirectURI string  `json:"redirect_uri"`
 		State       *string `json:"state,omitempty"`
 	}
 
@@ -56,9 +56,10 @@ type (
 	VerifySendRoute func(ctx context.Context, params *VerifySendParams) api.Responder
 
 	verifyNotification struct {
-		sub     string
-		uri     URI
-		channel NotificationChannel
+		audience string
+		sub      string
+		link     *string
+		channel  NotificationChannel
 	}
 
 	// VerificationNotification is a user verification notification
@@ -70,7 +71,7 @@ type (
 // Validate validates the params
 func (p VerifyParams) Validate() error {
 	return validation.ValidateStruct(&p,
-		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI))
+		validation.Field(&p.RedirectURI, validation.Required, is.RequestURI))
 }
 
 // Validate validates the params
@@ -86,30 +87,42 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 
 	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
 
-	if token.Use != TokenUseVerify {
-		return api.ErrForbidden
-	}
-
 	// we revoke verify tokens once they have been used
-	ctrl.TokenRevoke(ctx, token.ID)
+	ctrl.TokenRevoke(ctx, TokenRevokeInput{
+		TokenID: &token.ID,
+	})
 
-	if params.RedirectURI != nil {
-		aud, err := ctrl.AudienceGet(ctx, token.Audience)
-		if err != nil {
-			return api.ErrForbidden.WithError(err)
-		}
-
-		client, err := ctrl.ClientGet(ctx, token.ClientID)
-		if err != nil {
-			return api.ErrForbidden.WithError(err)
-		}
-
-		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
-			return api.ErrForbidden.WithError(err)
-		}
+	client, err := ctrl.ClientGet(ctx, ClientGetInput{
+		Audience: token.Audience,
+		ClientID: token.ClientID,
+	})
+	if err != nil {
+		return api.ErrForbidden.WithError(err)
 	}
 
-	var profile openid.Profile
+	// validate the redirect uri
+	rdrURI, err := EnsureURI(ctx, params.RedirectURI, client.RedirectEndpoints())
+	if err != nil {
+		return ErrUnauthorized.WithError(err)
+	}
+
+	if token.Use != TokenUseVerify {
+		return api.Redirect(rdrURI).WithError(ErrInvalidToken)
+	}
+
+	user, err := ctrl.UserGet(ctx, UserGetInput{
+		Audience: token.Audience,
+		Subject:  token.Subject,
+	})
+	if err != nil {
+		return api.Redirect(rdrURI).WithError(err)
+	}
+
+	profile := user.Profile()
+
+	if profile == nil {
+		profile = &openid.Profile{}
+	}
 
 	if token.Scope.Contains(ScopeEmailVerify) {
 		profile.EmailClaim = new(openid.EmailClaim)
@@ -121,27 +134,21 @@ func verify(ctx context.Context, params *VerifyParams) api.Responder {
 		profile.PhoneNumberVerified = ptr.True
 	}
 
-	err := ctrl.UserUpdate(ctx, *token.Subject, &profile)
-
-	if params.RedirectURI == nil {
-		if err != nil {
-			return api.Error(err)
-		}
-		return api.NewResponse().WithStatus(http.StatusNoContent)
-	}
-
-	u, err := params.RedirectURI.Parse()
-	if err != nil {
-		return api.ErrBadRequest.WithError(err)
+	if _, err := ctrl.UserUpdate(ctx, UserUpdateInput{
+		Audience: token.Audience,
+		Subject:  token.Subject,
+		Profile:  profile,
+	}); err != nil {
+		return api.Redirect(rdrURI).WithError(err)
 	}
 
 	if params.State != nil {
-		q := u.Query()
+		q := rdrURI.Query()
 		q.Set("state", *params.State)
-		u.RawQuery = q.Encode()
+		rdrURI.RawQuery = q.Encode()
 	}
 
-	return api.Redirect(u).WithError(err)
+	return api.Redirect(rdrURI).WithError(err)
 }
 
 // Name implements api.Route
@@ -189,7 +196,12 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	}
 
 	// revoke any existing verify tokens
-	ctrl.TokenRevokeAll(ctx, *token.Subject, TokenUseVerify)
+	if err := ctrl.TokenRevoke(ctx, TokenRevokeInput{
+		Subject:  token.Subject,
+		TokenUse: TokenUseVerify.Ptr(),
+	}); err != nil {
+		return api.Error(err)
+	}
 
 	v, err := ctrl.TokenCreate(ctx, Token{
 		Issuer:    issuer(ctx, token.Audience),
@@ -198,17 +210,15 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 		ClientID:  token.ClientID,
 		Use:       TokenUseVerify,
 		Revokable: true,
-		ExpiresAt: Time(time.Now().Add(time.Hour * 24)).Ptr(),
 		Scope:     scope,
 	})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	link, err := URI(
-		fmt.Sprintf("https://%s%s",
-			r.Host,
-			path.Clean(r.URL.Path))).Parse()
+	link, err := url.Parse(fmt.Sprintf("https://%s%s",
+		r.Host,
+		path.Clean(r.URL.Path)))
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}
@@ -217,9 +227,10 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	link.RawQuery = q.Encode()
 
 	if err := ctrl.UserNotify(ctx, &verifyNotification{
-		sub:     *token.Subject,
-		channel: params.Method,
-		uri:     URI(link.String()),
+		audience: token.Audience,
+		sub:      *token.Subject,
+		channel:  params.Method,
+		link:     ptr.String((link.String())),
 	}); err != nil {
 		return api.ErrServerError.WithError(err)
 	}
@@ -256,12 +267,22 @@ func (n verifyNotification) Type() NotificationType {
 	return NotificationTypeVerify
 }
 
+func (n verifyNotification) Audience() string {
+	return n.audience
+}
+
 func (n verifyNotification) Subject() string {
 	return n.sub
 }
 
-func (n verifyNotification) URI() *URI {
-	return &n.uri
+func (n verifyNotification) Context() map[string]interface{} {
+	rval := make(map[string]interface{})
+
+	if n.link != nil {
+		rval["link"] = *n.link
+	}
+
+	return rval
 }
 
 func (n verifyNotification) Channels() []NotificationChannel {

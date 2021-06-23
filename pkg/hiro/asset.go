@@ -54,7 +54,7 @@ type (
 	// Asset objects are application assets that are stored in the asset volume
 	Asset struct {
 		ID          ID          `json:"id" db:"id"`
-		AudienceID  ID          `json:"audience_id" db:"audience_id"`
+		InstanceID  ID          `json:"instance_id" db:"instance_id"`
 		OwnerID     *ID         `json:"owner_id,omitempty" db:"owner_id"`
 		Title       string      `json:"title" db:"title"`
 		Description *string     `json:"description,omitempty" db:"description"`
@@ -71,7 +71,7 @@ type (
 
 	// AssetCreateInput is the input to AssetCreate
 	AssetCreateInput struct {
-		AudienceID  ID         `json:"audience_id"`
+		InstanceID  ID         `json:"instance_id"`
 		OwnerID     *ID        `json:"owner_id,omitempty"`
 		Title       string     `json:"title"`
 		Description *string    `json:"description,omitempty"`
@@ -83,7 +83,7 @@ type (
 
 	// AssetUpdateInput is the input to AssetUpdate
 	AssetUpdateInput struct {
-		AudienceID  ID         `json:"audience_id" structs:"audience_id"`
+		InstanceID  ID         `json:"instance_id" structs:"instance_id"`
 		AssetID     ID         `json:"asset_id" structs:"asset_id"`
 		Title       *string    `json:"title" structs:"title,omitempty"`
 		Description *string    `json:"description,omitempty" structs:"description,omitempty"`
@@ -95,7 +95,7 @@ type (
 
 	// AssetGetInput is the input to AssetGet
 	AssetGetInput struct {
-		AudienceID  ID      `json:"audience_id"`
+		InstanceID  ID      `json:"instance_id"`
 		AssetID     *ID     `json:"asset_id"`
 		Filename    *string `json:"filename"`
 		WithPayload bool    `json:"-"`
@@ -103,7 +103,7 @@ type (
 
 	// AssetListInput is the input to AssetList
 	AssetListInput struct {
-		AudienceID ID      `json:"audience_id"`
+		InstanceID ID      `json:"instance_id"`
 		Offset     *uint64 `json:"offset,omitempty"`
 		Limit      *uint64 `json:"limit,omitempty"`
 		Count      *uint64 `json:"count,omitempty"`
@@ -112,7 +112,7 @@ type (
 
 	// AssetDeleteInput is the input to AssetDelete
 	AssetDeleteInput struct {
-		AudienceID ID `json:"audience_id"`
+		InstanceID ID `json:"instance_id"`
 		AssetID    ID `json:"asset_id"`
 	}
 
@@ -151,7 +151,7 @@ func (a *AssetCreateInput) ValidateWithContext(ctx context.Context) error {
 	}
 
 	return validation.ValidateStructWithContext(ctx, a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Filename, validation.Required),
 		validation.Field(&a.Title, validation.Required),
 	)
@@ -180,7 +180,7 @@ func (a *AssetUpdateInput) ValidateWithContext(ctx context.Context) error {
 	}
 
 	return validation.ValidateStructWithContext(ctx, a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.AssetID, validation.Required),
 	)
 }
@@ -188,7 +188,7 @@ func (a *AssetUpdateInput) ValidateWithContext(ctx context.Context) error {
 // Validate handles validation for AssetGetInput
 func (a AssetGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.AssetID, validation.When(a.Filename == nil, validation.Required)),
 		validation.Field(&a.Filename, validation.When(a.AssetID == nil, validation.Required)),
 	)
@@ -197,7 +197,7 @@ func (a AssetGetInput) ValidateWithContext(ctx context.Context) error {
 // Validate handles validation for AssetGetInput
 func (a AssetListInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Limit, validation.NilOrNotEmpty),
 	)
 }
@@ -205,21 +205,21 @@ func (a AssetListInput) ValidateWithContext(ctx context.Context) error {
 // Validate handles validation for AssetGetInput
 func (a AssetDeleteInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStructWithContext(ctx, &a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.AssetID, validation.Required),
 	)
 }
 
-// AssetCreate creates a new asset for the audience
-func (b *Backend) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset, error) {
+// AssetCreate creates a new asset for the instance
+func (b *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset, error) {
 	if b.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
 	var asset Asset
 
-	log := b.Log(ctx).WithField("operation", "AssetCreate").
-		WithField("audience", params.AudienceID).
+	log := Log(ctx).WithField("operation", "AssetCreate").
+		WithField("instance", params.InstanceID).
 		WithField("filename", params.Filename)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -231,7 +231,7 @@ func (b *Backend) AssetCreate(ctx context.Context, params AssetCreateInput) (*As
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
 		stmt, args, err := sq.Insert("hiro.assets").
 			Columns(
-				"audience_id",
+				"instance_id",
 				"owner_id",
 				"title",
 				"filename",
@@ -239,7 +239,7 @@ func (b *Backend) AssetCreate(ctx context.Context, params AssetCreateInput) (*As
 				"public",
 				"metadata").
 			Values(
-				params.AudienceID,
+				params.InstanceID,
 				params.OwnerID,
 				params.Title,
 				params.Filename,
@@ -292,16 +292,16 @@ func (b *Backend) AssetCreate(ctx context.Context, params AssetCreateInput) (*As
 	return &asset, nil
 }
 
-// AssetGet returns the asset in the audience
-func (b *Backend) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, error) {
+// AssetGet returns the asset in the instance
+func (b *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, error) {
 	var suffix string
 
 	if b.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
-	log := b.Log(ctx).WithField("operation", "AssetGet").
-		WithField("audience", params.AudienceID).
+	log := Log(ctx).WithField("operation", "AssetGet").
+		WithField("instance", params.InstanceID).
 		WithField("id", params.AssetID).
 		WithField("filename", params.Filename)
 
@@ -320,7 +320,7 @@ func (b *Backend) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, e
 	query := sq.Select("*").
 		From("hiro.assets").
 		PlaceholderFormat(sq.Dollar).
-		Where(sq.Eq{"audience_id": params.AudienceID})
+		Where(sq.Eq{"instance_id": params.InstanceID})
 
 	if params.AssetID.Valid() {
 		query = query.Where(sq.Eq{"id": params.AssetID})
@@ -351,7 +351,7 @@ func (b *Backend) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, e
 	}
 
 	if params.WithPayload {
-		p := filepath.Join(b.assetVolume, asset.AudienceID.String(), asset.ID.String())
+		p := filepath.Join(b.assetVolume, asset.InstanceID.String(), asset.ID.String())
 
 		fd, err := os.Open(p)
 		if err != nil {
@@ -364,13 +364,13 @@ func (b *Backend) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, e
 	return &asset, nil
 }
 
-// AssetList lists the assets in the audience
-func (b *Backend) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, error) {
+// AssetList lists the assets in the instance
+func (b *Hiro) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, error) {
 	if b.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
-	log := b.Log(ctx).WithField("operation", "AssetList")
+	log := Log(ctx).WithField("operation", "AssetList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -422,12 +422,12 @@ func (b *Backend) AssetList(ctx context.Context, params AssetListInput) ([]*Asse
 }
 
 // AssetUpdate updates an asset
-func (b *Backend) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset, error) {
+func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset, error) {
 	if b.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
-	log := b.Log(ctx).WithField("operation", "AssetUpdate").WithField("id", params.AssetID)
+	log := Log(ctx).WithField("operation", "AssetUpdate").WithField("id", params.AssetID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -452,7 +452,7 @@ func (b *Backend) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*As
 		}
 
 		asset, err = b.AssetGet(ctx, AssetGetInput{
-			AudienceID: params.AudienceID,
+			InstanceID: params.InstanceID,
 			AssetID:    &params.AssetID,
 		})
 		if err != nil {
@@ -472,7 +472,7 @@ func (b *Backend) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*As
 		if len(updates) > 0 {
 			stmt, args, err := q.
 				Where(sq.Eq{
-					"audience_id": params.AudienceID,
+					"instance_id": params.InstanceID,
 					"id":          params.AssetID,
 				}).
 				SetMap(updates).
@@ -504,12 +504,12 @@ func (b *Backend) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*As
 }
 
 // AssetDelete deletes an asset
-func (b *Backend) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
+func (b *Hiro) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
 	if b.assetVolume == "" {
 		return api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
-	log := b.Log(ctx).WithField("operation", "AssetDelete").WithField("application", params.AssetID)
+	log := Log(ctx).WithField("operation", "AssetDelete").WithField("application", params.AssetID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -520,7 +520,7 @@ func (b *Backend) AssetDelete(ctx context.Context, params AssetDeleteInput) erro
 	if _, err := sq.Delete("hiro.assets").
 		Where(
 			sq.Eq{"id": params.AssetID},
-			sq.Eq{"audience_id": params.AudienceID},
+			sq.Eq{"instance_id": params.InstanceID},
 		).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
@@ -532,10 +532,10 @@ func (b *Backend) AssetDelete(ctx context.Context, params AssetDeleteInput) erro
 	return nil
 }
 
-func (b *Backend) assetWrite(ctx context.Context, asset *Asset, payload io.Reader) error {
-	log := b.Log(ctx).WithField("operation", "assetWrite").WithField("asset", asset.ID)
+func (b *Hiro) assetWrite(ctx context.Context, asset *Asset, payload io.Reader) error {
+	log := Log(ctx).WithField("operation", "assetWrite").WithField("asset", asset.ID)
 
-	p := filepath.Join(b.assetVolume, asset.AudienceID.String())
+	p := filepath.Join(b.assetVolume, asset.InstanceID.String())
 
 	if err := os.MkdirAll(p, 0755); err != nil && !os.IsExist(err) {
 		return err

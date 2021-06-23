@@ -172,7 +172,7 @@ func (Application_ClientType) EnumDescriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{11, 0}
 }
 
-type AudienceCreateRequest struct {
+type InstanceCreateRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -186,8 +186,8 @@ type AudienceCreateRequest struct {
 	Metadata        *_struct.Struct       `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
 }
 
-func (x *AudienceCreateRequest) Reset() {
-	*x = AudienceCreateRequest{}
+func (x *InstanceCreateRequest) Reset() {
+	*x = InstanceCreateRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -195,13 +195,13 @@ func (x *AudienceCreateRequest) Reset() {
 	}
 }
 
-func (x *AudienceCreateRequest) String() string {
+func (x *InstanceCreateRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceCreateRequest) ProtoMessage() {}
+func (*InstanceCreateRequest) ProtoMessage() {}
 
-func (x *AudienceCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *InstanceCreateRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -213,61 +213,61 @@ func (x *AudienceCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceCreateRequest.ProtoReflect.Descriptor instead.
-func (*AudienceCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceCreateRequest.ProtoReflect.Descriptor instead.
+func (*InstanceCreateRequest) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AudienceCreateRequest) GetName() string {
+func (x *InstanceCreateRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *AudienceCreateRequest) GetDescription() string {
+func (x *InstanceCreateRequest) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
 	return ""
 }
 
-func (x *AudienceCreateRequest) GetTokenLifetime() uint64 {
+func (x *InstanceCreateRequest) GetTokenLifetime() uint64 {
 	if x != nil {
 		return x.TokenLifetime
 	}
 	return 0
 }
 
-func (x *AudienceCreateRequest) GetTokenAlgorithm() Secret_TokenAlgorithm {
+func (x *InstanceCreateRequest) GetTokenAlgorithm() Secret_TokenAlgorithm {
 	if x != nil {
 		return x.TokenAlgorithm
 	}
 	return Secret_None
 }
 
-func (x *AudienceCreateRequest) GetSessionLifetime() uint64 {
+func (x *InstanceCreateRequest) GetSessionLifetime() uint64 {
 	if x != nil {
 		return x.SessionLifetime
 	}
 	return 0
 }
 
-func (x *AudienceCreateRequest) GetPermissions() []string {
+func (x *InstanceCreateRequest) GetPermissions() []string {
 	if x != nil {
 		return x.Permissions
 	}
 	return nil
 }
 
-func (x *AudienceCreateRequest) GetMetadata() *_struct.Struct {
+func (x *InstanceCreateRequest) GetMetadata() *_struct.Struct {
 	if x != nil {
 		return x.Metadata
 	}
 	return nil
 }
 
-type AudienceUpdateRequest struct {
+type InstanceUpdateRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -278,12 +278,12 @@ type AudienceUpdateRequest struct {
 	TokenLifetime   *uint64                                  `protobuf:"varint,4,opt,name=token_lifetime,json=tokenLifetime,proto3,oneof" json:"token_lifetime,omitempty"`
 	TokenAlgorithm  *Secret_TokenAlgorithm                   `protobuf:"varint,5,opt,name=token_algorithm,json=tokenAlgorithm,proto3,enum=hiro.Secret_TokenAlgorithm,oneof" json:"token_algorithm,omitempty"`
 	SessionLifetime *uint64                                  `protobuf:"varint,6,opt,name=session_lifetime,json=sessionLifetime,proto3,oneof" json:"session_lifetime,omitempty"`
-	Permissions     *AudienceUpdateRequest_PermissionsUpdate `protobuf:"bytes,7,opt,name=permissions,proto3,oneof" json:"permissions,omitempty"`
+	Permissions     *InstanceUpdateRequest_PermissionsUpdate `protobuf:"bytes,7,opt,name=permissions,proto3,oneof" json:"permissions,omitempty"`
 	Metadata        *_struct.Struct                          `protobuf:"bytes,8,opt,name=metadata,proto3" json:"metadata,omitempty"`
 }
 
-func (x *AudienceUpdateRequest) Reset() {
-	*x = AudienceUpdateRequest{}
+func (x *InstanceUpdateRequest) Reset() {
+	*x = InstanceUpdateRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -291,13 +291,13 @@ func (x *AudienceUpdateRequest) Reset() {
 	}
 }
 
-func (x *AudienceUpdateRequest) String() string {
+func (x *InstanceUpdateRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceUpdateRequest) ProtoMessage() {}
+func (*InstanceUpdateRequest) ProtoMessage() {}
 
-func (x *AudienceUpdateRequest) ProtoReflect() protoreflect.Message {
+func (x *InstanceUpdateRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -309,80 +309,80 @@ func (x *AudienceUpdateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceUpdateRequest.ProtoReflect.Descriptor instead.
-func (*AudienceUpdateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceUpdateRequest.ProtoReflect.Descriptor instead.
+func (*InstanceUpdateRequest) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *AudienceUpdateRequest) GetId() string {
+func (x *InstanceUpdateRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *AudienceUpdateRequest) GetName() string {
+func (x *InstanceUpdateRequest) GetName() string {
 	if x != nil && x.Name != nil {
 		return *x.Name
 	}
 	return ""
 }
 
-func (x *AudienceUpdateRequest) GetDescription() string {
+func (x *InstanceUpdateRequest) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
 	return ""
 }
 
-func (x *AudienceUpdateRequest) GetTokenLifetime() uint64 {
+func (x *InstanceUpdateRequest) GetTokenLifetime() uint64 {
 	if x != nil && x.TokenLifetime != nil {
 		return *x.TokenLifetime
 	}
 	return 0
 }
 
-func (x *AudienceUpdateRequest) GetTokenAlgorithm() Secret_TokenAlgorithm {
+func (x *InstanceUpdateRequest) GetTokenAlgorithm() Secret_TokenAlgorithm {
 	if x != nil && x.TokenAlgorithm != nil {
 		return *x.TokenAlgorithm
 	}
 	return Secret_None
 }
 
-func (x *AudienceUpdateRequest) GetSessionLifetime() uint64 {
+func (x *InstanceUpdateRequest) GetSessionLifetime() uint64 {
 	if x != nil && x.SessionLifetime != nil {
 		return *x.SessionLifetime
 	}
 	return 0
 }
 
-func (x *AudienceUpdateRequest) GetPermissions() *AudienceUpdateRequest_PermissionsUpdate {
+func (x *InstanceUpdateRequest) GetPermissions() *InstanceUpdateRequest_PermissionsUpdate {
 	if x != nil {
 		return x.Permissions
 	}
 	return nil
 }
 
-func (x *AudienceUpdateRequest) GetMetadata() *_struct.Struct {
+func (x *InstanceUpdateRequest) GetMetadata() *_struct.Struct {
 	if x != nil {
 		return x.Metadata
 	}
 	return nil
 }
 
-type AudienceGetRequest struct {
+type InstanceGetRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to GetBy:
-	//	*AudienceGetRequest_Id
-	//	*AudienceGetRequest_Name
-	GetBy isAudienceGetRequest_GetBy `protobuf_oneof:"get_by"`
+	//	*InstanceGetRequest_Id
+	//	*InstanceGetRequest_Name
+	GetBy isInstanceGetRequest_GetBy `protobuf_oneof:"get_by"`
 }
 
-func (x *AudienceGetRequest) Reset() {
-	*x = AudienceGetRequest{}
+func (x *InstanceGetRequest) Reset() {
+	*x = InstanceGetRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -390,13 +390,13 @@ func (x *AudienceGetRequest) Reset() {
 	}
 }
 
-func (x *AudienceGetRequest) String() string {
+func (x *InstanceGetRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceGetRequest) ProtoMessage() {}
+func (*InstanceGetRequest) ProtoMessage() {}
 
-func (x *AudienceGetRequest) ProtoReflect() protoreflect.Message {
+func (x *InstanceGetRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -408,49 +408,49 @@ func (x *AudienceGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceGetRequest.ProtoReflect.Descriptor instead.
-func (*AudienceGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceGetRequest.ProtoReflect.Descriptor instead.
+func (*InstanceGetRequest) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{2}
 }
 
-func (m *AudienceGetRequest) GetGetBy() isAudienceGetRequest_GetBy {
+func (m *InstanceGetRequest) GetGetBy() isInstanceGetRequest_GetBy {
 	if m != nil {
 		return m.GetBy
 	}
 	return nil
 }
 
-func (x *AudienceGetRequest) GetId() string {
-	if x, ok := x.GetGetBy().(*AudienceGetRequest_Id); ok {
+func (x *InstanceGetRequest) GetId() string {
+	if x, ok := x.GetGetBy().(*InstanceGetRequest_Id); ok {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *AudienceGetRequest) GetName() string {
-	if x, ok := x.GetGetBy().(*AudienceGetRequest_Name); ok {
+func (x *InstanceGetRequest) GetName() string {
+	if x, ok := x.GetGetBy().(*InstanceGetRequest_Name); ok {
 		return x.Name
 	}
 	return ""
 }
 
-type isAudienceGetRequest_GetBy interface {
-	isAudienceGetRequest_GetBy()
+type isInstanceGetRequest_GetBy interface {
+	isInstanceGetRequest_GetBy()
 }
 
-type AudienceGetRequest_Id struct {
+type InstanceGetRequest_Id struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3,oneof"`
 }
 
-type AudienceGetRequest_Name struct {
+type InstanceGetRequest_Name struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3,oneof"`
 }
 
-func (*AudienceGetRequest_Id) isAudienceGetRequest_GetBy() {}
+func (*InstanceGetRequest_Id) isInstanceGetRequest_GetBy() {}
 
-func (*AudienceGetRequest_Name) isAudienceGetRequest_GetBy() {}
+func (*InstanceGetRequest_Name) isInstanceGetRequest_GetBy() {}
 
-type AudienceListRequest struct {
+type InstanceListRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -459,8 +459,8 @@ type AudienceListRequest struct {
 	Offset uint64 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
 }
 
-func (x *AudienceListRequest) Reset() {
-	*x = AudienceListRequest{}
+func (x *InstanceListRequest) Reset() {
+	*x = InstanceListRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -468,13 +468,13 @@ func (x *AudienceListRequest) Reset() {
 	}
 }
 
-func (x *AudienceListRequest) String() string {
+func (x *InstanceListRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceListRequest) ProtoMessage() {}
+func (*InstanceListRequest) ProtoMessage() {}
 
-func (x *AudienceListRequest) ProtoReflect() protoreflect.Message {
+func (x *InstanceListRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -486,26 +486,26 @@ func (x *AudienceListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceListRequest.ProtoReflect.Descriptor instead.
-func (*AudienceListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceListRequest.ProtoReflect.Descriptor instead.
+func (*InstanceListRequest) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *AudienceListRequest) GetLimit() uint64 {
+func (x *InstanceListRequest) GetLimit() uint64 {
 	if x != nil {
 		return x.Limit
 	}
 	return 0
 }
 
-func (x *AudienceListRequest) GetOffset() uint64 {
+func (x *InstanceListRequest) GetOffset() uint64 {
 	if x != nil {
 		return x.Offset
 	}
 	return 0
 }
 
-type AudienceDeleteRequest struct {
+type InstanceDeleteRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -513,8 +513,8 @@ type AudienceDeleteRequest struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
-func (x *AudienceDeleteRequest) Reset() {
-	*x = AudienceDeleteRequest{}
+func (x *InstanceDeleteRequest) Reset() {
+	*x = InstanceDeleteRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -522,13 +522,13 @@ func (x *AudienceDeleteRequest) Reset() {
 	}
 }
 
-func (x *AudienceDeleteRequest) String() string {
+func (x *InstanceDeleteRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceDeleteRequest) ProtoMessage() {}
+func (*InstanceDeleteRequest) ProtoMessage() {}
 
-func (x *AudienceDeleteRequest) ProtoReflect() protoreflect.Message {
+func (x *InstanceDeleteRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -540,19 +540,19 @@ func (x *AudienceDeleteRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceDeleteRequest.ProtoReflect.Descriptor instead.
-func (*AudienceDeleteRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceDeleteRequest.ProtoReflect.Descriptor instead.
+func (*InstanceDeleteRequest) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *AudienceDeleteRequest) GetId() string {
+func (x *InstanceDeleteRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-type Audience struct {
+type Instance struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -571,8 +571,8 @@ type Audience struct {
 	Metadata        *_struct.Struct       `protobuf:"bytes,12,opt,name=metadata,proto3" json:"metadata,omitempty"`
 }
 
-func (x *Audience) Reset() {
-	*x = Audience{}
+func (x *Instance) Reset() {
+	*x = Instance{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -580,13 +580,13 @@ func (x *Audience) Reset() {
 	}
 }
 
-func (x *Audience) String() string {
+func (x *Instance) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Audience) ProtoMessage() {}
+func (*Instance) ProtoMessage() {}
 
-func (x *Audience) ProtoReflect() protoreflect.Message {
+func (x *Instance) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -598,89 +598,89 @@ func (x *Audience) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Audience.ProtoReflect.Descriptor instead.
-func (*Audience) Descriptor() ([]byte, []int) {
+// Deprecated: Use Instance.ProtoReflect.Descriptor instead.
+func (*Instance) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *Audience) GetId() string {
+func (x *Instance) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *Audience) GetName() string {
+func (x *Instance) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *Audience) GetSlug() string {
+func (x *Instance) GetSlug() string {
 	if x != nil {
 		return x.Slug
 	}
 	return ""
 }
 
-func (x *Audience) GetDescription() string {
+func (x *Instance) GetDescription() string {
 	if x != nil && x.Description != nil {
 		return *x.Description
 	}
 	return ""
 }
 
-func (x *Audience) GetSecrets() []*Secret {
+func (x *Instance) GetSecrets() []*Secret {
 	if x != nil {
 		return x.Secrets
 	}
 	return nil
 }
 
-func (x *Audience) GetTokenAlgorithm() Secret_TokenAlgorithm {
+func (x *Instance) GetTokenAlgorithm() Secret_TokenAlgorithm {
 	if x != nil {
 		return x.TokenAlgorithm
 	}
 	return Secret_None
 }
 
-func (x *Audience) GetTokenLifetime() uint64 {
+func (x *Instance) GetTokenLifetime() uint64 {
 	if x != nil {
 		return x.TokenLifetime
 	}
 	return 0
 }
 
-func (x *Audience) GetSessionLifetime() uint64 {
+func (x *Instance) GetSessionLifetime() uint64 {
 	if x != nil {
 		return x.SessionLifetime
 	}
 	return 0
 }
 
-func (x *Audience) GetCreatedAt() *timestamp.Timestamp {
+func (x *Instance) GetCreatedAt() *timestamp.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return nil
 }
 
-func (x *Audience) GetUpdatedAt() *timestamp.Timestamp {
+func (x *Instance) GetUpdatedAt() *timestamp.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
 	return nil
 }
 
-func (x *Audience) GetPermissions() []string {
+func (x *Instance) GetPermissions() []string {
 	if x != nil {
 		return x.Permissions
 	}
 	return nil
 }
 
-func (x *Audience) GetMetadata() *_struct.Struct {
+func (x *Instance) GetMetadata() *_struct.Struct {
 	if x != nil {
 		return x.Metadata
 	}
@@ -693,7 +693,7 @@ type SecretCreateRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	Type       Secret_SecretType     `protobuf:"varint,1,opt,name=type,proto3,enum=hiro.Secret_SecretType" json:"type,omitempty"`
-	AudienceId string                `protobuf:"bytes,2,opt,name=audience_id,json=audienceId,proto3" json:"audience_id,omitempty"`
+	InstanceId string                `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
 	Algorithm  Secret_TokenAlgorithm `protobuf:"varint,3,opt,name=algorithm,proto3,enum=hiro.Secret_TokenAlgorithm" json:"algorithm,omitempty"`
 	Key        *string               `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
 	ExpiresAt  *timestamp.Timestamp  `protobuf:"bytes,5,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
@@ -738,9 +738,9 @@ func (x *SecretCreateRequest) GetType() Secret_SecretType {
 	return Secret_Token
 }
 
-func (x *SecretCreateRequest) GetAudienceId() string {
+func (x *SecretCreateRequest) GetInstanceId() string {
 	if x != nil {
-		return x.AudienceId
+		return x.InstanceId
 	}
 	return ""
 }
@@ -820,7 +820,7 @@ type Secret struct {
 
 	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Type       Secret_SecretType      `protobuf:"varint,2,opt,name=type,proto3,enum=hiro.Secret_SecretType" json:"type,omitempty"`
-	AudienceId string                 `protobuf:"bytes,3,opt,name=audience_id,json=audienceId,proto3" json:"audience_id,omitempty"`
+	InstanceId string                 `protobuf:"bytes,3,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
 	Algorithm  *Secret_TokenAlgorithm `protobuf:"varint,4,opt,name=algorithm,proto3,enum=hiro.Secret_TokenAlgorithm,oneof" json:"algorithm,omitempty"`
 	Key        string                 `protobuf:"bytes,5,opt,name=key,proto3" json:"key,omitempty"`
 	CreatedAt  *timestamp.Timestamp   `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -873,9 +873,9 @@ func (x *Secret) GetType() Secret_SecretType {
 	return Secret_Token
 }
 
-func (x *Secret) GetAudienceId() string {
+func (x *Secret) GetInstanceId() string {
 	if x != nil {
-		return x.AudienceId
+		return x.InstanceId
 	}
 	return ""
 }
@@ -1517,7 +1517,7 @@ func (x *ApplicationDeleteRequest) GetId() string {
 	return ""
 }
 
-type AudienceUpdateRequest_PermissionsUpdate struct {
+type InstanceUpdateRequest_PermissionsUpdate struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -1527,8 +1527,8 @@ type AudienceUpdateRequest_PermissionsUpdate struct {
 	Overwrite bool     `protobuf:"varint,3,opt,name=overwrite,proto3" json:"overwrite,omitempty"`
 }
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) Reset() {
-	*x = AudienceUpdateRequest_PermissionsUpdate{}
+func (x *InstanceUpdateRequest_PermissionsUpdate) Reset() {
+	*x = InstanceUpdateRequest_PermissionsUpdate{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_hiro_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1536,13 +1536,13 @@ func (x *AudienceUpdateRequest_PermissionsUpdate) Reset() {
 	}
 }
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) String() string {
+func (x *InstanceUpdateRequest_PermissionsUpdate) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AudienceUpdateRequest_PermissionsUpdate) ProtoMessage() {}
+func (*InstanceUpdateRequest_PermissionsUpdate) ProtoMessage() {}
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) ProtoReflect() protoreflect.Message {
+func (x *InstanceUpdateRequest_PermissionsUpdate) ProtoReflect() protoreflect.Message {
 	mi := &file_hiro_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1554,26 +1554,26 @@ func (x *AudienceUpdateRequest_PermissionsUpdate) ProtoReflect() protoreflect.Me
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AudienceUpdateRequest_PermissionsUpdate.ProtoReflect.Descriptor instead.
-func (*AudienceUpdateRequest_PermissionsUpdate) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstanceUpdateRequest_PermissionsUpdate.ProtoReflect.Descriptor instead.
+func (*InstanceUpdateRequest_PermissionsUpdate) Descriptor() ([]byte, []int) {
 	return file_hiro_proto_rawDescGZIP(), []int{1, 0}
 }
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) GetAdd() []string {
+func (x *InstanceUpdateRequest_PermissionsUpdate) GetAdd() []string {
 	if x != nil {
 		return x.Add
 	}
 	return nil
 }
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) GetRemove() []string {
+func (x *InstanceUpdateRequest_PermissionsUpdate) GetRemove() []string {
 	if x != nil {
 		return x.Remove
 	}
 	return nil
 }
 
-func (x *AudienceUpdateRequest_PermissionsUpdate) GetOverwrite() bool {
+func (x *InstanceUpdateRequest_PermissionsUpdate) GetOverwrite() bool {
 	if x != nil {
 		return x.Overwrite
 	}
@@ -1930,12 +1930,12 @@ var file_hiro_proto_goTypes = []interface{}{
 	(Secret_SecretType)(0),                          // 0: hiro.Secret.SecretType
 	(Secret_TokenAlgorithm)(0),                      // 1: hiro.Secret.TokenAlgorithm
 	(Application_ClientType)(0),                     // 2: hiro.Application.ClientType
-	(*AudienceCreateRequest)(nil),                   // 3: hiro.AudienceCreateRequest
-	(*AudienceUpdateRequest)(nil),                   // 4: hiro.AudienceUpdateRequest
-	(*AudienceGetRequest)(nil),                      // 5: hiro.AudienceGetRequest
-	(*AudienceListRequest)(nil),                     // 6: hiro.AudienceListRequest
-	(*AudienceDeleteRequest)(nil),                   // 7: hiro.AudienceDeleteRequest
-	(*Audience)(nil),                                // 8: hiro.Audience
+	(*InstanceCreateRequest)(nil),                   // 3: hiro.InstanceCreateRequest
+	(*InstanceUpdateRequest)(nil),                   // 4: hiro.InstanceUpdateRequest
+	(*InstanceGetRequest)(nil),                      // 5: hiro.InstanceGetRequest
+	(*InstanceListRequest)(nil),                     // 6: hiro.InstanceListRequest
+	(*InstanceDeleteRequest)(nil),                   // 7: hiro.InstanceDeleteRequest
+	(*Instance)(nil),                                // 8: hiro.Instance
 	(*SecretCreateRequest)(nil),                     // 9: hiro.SecretCreateRequest
 	(*SecretDeleteRequest)(nil),                     // 10: hiro.SecretDeleteRequest
 	(*Secret)(nil),                                  // 11: hiro.Secret
@@ -1947,7 +1947,7 @@ var file_hiro_proto_goTypes = []interface{}{
 	(*ApplicationGetRequest)(nil),                   // 17: hiro.ApplicationGetRequest
 	(*ApplicationListRequest)(nil),                  // 18: hiro.ApplicationListRequest
 	(*ApplicationDeleteRequest)(nil),                // 19: hiro.ApplicationDeleteRequest
-	(*AudienceUpdateRequest_PermissionsUpdate)(nil), // 20: hiro.AudienceUpdateRequest.PermissionsUpdate
+	(*InstanceUpdateRequest_PermissionsUpdate)(nil), // 20: hiro.InstanceUpdateRequest.PermissionsUpdate
 	nil,                         // 21: hiro.PermissionsUpdate.AddEntry
 	nil,                         // 22: hiro.PermissionsUpdate.RemoveEntry
 	nil,                         // 23: hiro.Application.PermissionsEntry
@@ -1957,16 +1957,16 @@ var file_hiro_proto_goTypes = []interface{}{
 	(*empty.Empty)(nil),         // 27: google.protobuf.Empty
 }
 var file_hiro_proto_depIdxs = []int32{
-	1,  // 0: hiro.AudienceCreateRequest.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
-	25, // 1: hiro.AudienceCreateRequest.metadata:type_name -> google.protobuf.Struct
-	1,  // 2: hiro.AudienceUpdateRequest.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
-	20, // 3: hiro.AudienceUpdateRequest.permissions:type_name -> hiro.AudienceUpdateRequest.PermissionsUpdate
-	25, // 4: hiro.AudienceUpdateRequest.metadata:type_name -> google.protobuf.Struct
-	11, // 5: hiro.Audience.secrets:type_name -> hiro.Secret
-	1,  // 6: hiro.Audience.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
-	26, // 7: hiro.Audience.created_at:type_name -> google.protobuf.Timestamp
-	26, // 8: hiro.Audience.updated_at:type_name -> google.protobuf.Timestamp
-	25, // 9: hiro.Audience.metadata:type_name -> google.protobuf.Struct
+	1,  // 0: hiro.InstanceCreateRequest.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
+	25, // 1: hiro.InstanceCreateRequest.metadata:type_name -> google.protobuf.Struct
+	1,  // 2: hiro.InstanceUpdateRequest.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
+	20, // 3: hiro.InstanceUpdateRequest.permissions:type_name -> hiro.InstanceUpdateRequest.PermissionsUpdate
+	25, // 4: hiro.InstanceUpdateRequest.metadata:type_name -> google.protobuf.Struct
+	11, // 5: hiro.Instance.secrets:type_name -> hiro.Secret
+	1,  // 6: hiro.Instance.token_algorithm:type_name -> hiro.Secret.TokenAlgorithm
+	26, // 7: hiro.Instance.created_at:type_name -> google.protobuf.Timestamp
+	26, // 8: hiro.Instance.updated_at:type_name -> google.protobuf.Timestamp
+	25, // 9: hiro.Instance.metadata:type_name -> google.protobuf.Struct
 	0,  // 10: hiro.SecretCreateRequest.type:type_name -> hiro.Secret.SecretType
 	1,  // 11: hiro.SecretCreateRequest.algorithm:type_name -> hiro.Secret.TokenAlgorithm
 	26, // 12: hiro.SecretCreateRequest.expires_at:type_name -> google.protobuf.Timestamp
@@ -1991,11 +1991,11 @@ var file_hiro_proto_depIdxs = []int32{
 	12, // 31: hiro.PermissionsUpdate.RemoveEntry.value:type_name -> hiro.Permissions
 	12, // 32: hiro.Application.PermissionsEntry.value:type_name -> hiro.Permissions
 	12, // 33: hiro.ApplicationCreateRequest.PermissionsEntry.value:type_name -> hiro.Permissions
-	3,  // 34: hiro.Hiro.AudienceCreate:input_type -> hiro.AudienceCreateRequest
-	4,  // 35: hiro.Hiro.AudienceUpdate:input_type -> hiro.AudienceUpdateRequest
-	5,  // 36: hiro.Hiro.AudienceGet:input_type -> hiro.AudienceGetRequest
-	6,  // 37: hiro.Hiro.AudienceList:input_type -> hiro.AudienceListRequest
-	7,  // 38: hiro.Hiro.AudienceDelete:input_type -> hiro.AudienceDeleteRequest
+	3,  // 34: hiro.Hiro.InstanceCreate:input_type -> hiro.InstanceCreateRequest
+	4,  // 35: hiro.Hiro.InstanceUpdate:input_type -> hiro.InstanceUpdateRequest
+	5,  // 36: hiro.Hiro.InstanceGet:input_type -> hiro.InstanceGetRequest
+	6,  // 37: hiro.Hiro.InstanceList:input_type -> hiro.InstanceListRequest
+	7,  // 38: hiro.Hiro.InstanceDelete:input_type -> hiro.InstanceDeleteRequest
 	15, // 39: hiro.Hiro.ApplicationCreate:input_type -> hiro.ApplicationCreateRequest
 	16, // 40: hiro.Hiro.ApplicationUpdate:input_type -> hiro.ApplicationUpdateRequest
 	17, // 41: hiro.Hiro.ApplicationGet:input_type -> hiro.ApplicationGetRequest
@@ -2003,11 +2003,11 @@ var file_hiro_proto_depIdxs = []int32{
 	19, // 43: hiro.Hiro.ApplicationDelete:input_type -> hiro.ApplicationDeleteRequest
 	9,  // 44: hiro.Hiro.SecretCreate:input_type -> hiro.SecretCreateRequest
 	10, // 45: hiro.Hiro.SecreteDelete:input_type -> hiro.SecretDeleteRequest
-	8,  // 46: hiro.Hiro.AudienceCreate:output_type -> hiro.Audience
-	8,  // 47: hiro.Hiro.AudienceUpdate:output_type -> hiro.Audience
-	8,  // 48: hiro.Hiro.AudienceGet:output_type -> hiro.Audience
-	8,  // 49: hiro.Hiro.AudienceList:output_type -> hiro.Audience
-	27, // 50: hiro.Hiro.AudienceDelete:output_type -> google.protobuf.Empty
+	8,  // 46: hiro.Hiro.InstanceCreate:output_type -> hiro.Instance
+	8,  // 47: hiro.Hiro.InstanceUpdate:output_type -> hiro.Instance
+	8,  // 48: hiro.Hiro.InstanceGet:output_type -> hiro.Instance
+	8,  // 49: hiro.Hiro.InstanceList:output_type -> hiro.Instance
+	27, // 50: hiro.Hiro.InstanceDelete:output_type -> google.protobuf.Empty
 	14, // 51: hiro.Hiro.ApplicationCreate:output_type -> hiro.Application
 	14, // 52: hiro.Hiro.ApplicationUpdate:output_type -> hiro.Application
 	14, // 53: hiro.Hiro.ApplicationGet:output_type -> hiro.Application
@@ -2029,7 +2029,7 @@ func file_hiro_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_hiro_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceCreateRequest); i {
+			switch v := v.(*InstanceCreateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2041,7 +2041,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceUpdateRequest); i {
+			switch v := v.(*InstanceUpdateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2053,7 +2053,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceGetRequest); i {
+			switch v := v.(*InstanceGetRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2065,7 +2065,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceListRequest); i {
+			switch v := v.(*InstanceListRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2077,7 +2077,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceDeleteRequest); i {
+			switch v := v.(*InstanceDeleteRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2089,7 +2089,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Audience); i {
+			switch v := v.(*Instance); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2233,7 +2233,7 @@ func file_hiro_proto_init() {
 			}
 		}
 		file_hiro_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudienceUpdateRequest_PermissionsUpdate); i {
+			switch v := v.(*InstanceUpdateRequest_PermissionsUpdate); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2248,8 +2248,8 @@ func file_hiro_proto_init() {
 	file_hiro_proto_msgTypes[0].OneofWrappers = []interface{}{}
 	file_hiro_proto_msgTypes[1].OneofWrappers = []interface{}{}
 	file_hiro_proto_msgTypes[2].OneofWrappers = []interface{}{
-		(*AudienceGetRequest_Id)(nil),
-		(*AudienceGetRequest_Name)(nil),
+		(*InstanceGetRequest_Id)(nil),
+		(*InstanceGetRequest_Name)(nil),
 	}
 	file_hiro_proto_msgTypes[5].OneofWrappers = []interface{}{}
 	file_hiro_proto_msgTypes[6].OneofWrappers = []interface{}{}

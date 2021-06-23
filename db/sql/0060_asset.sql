@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS hiro.assets(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    audience_id UUID NOT NULL,
+    instance_id UUID NOT NULL,
     owner_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -15,11 +15,11 @@ CREATE TABLE IF NOT EXISTS hiro.assets(
     public BOOLEAN DEFAULT FALSE NOT NULL,
     sha256 CHAR(64),
     metadata JSONB,
-    FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE,
+    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
     FOREIGN KEY (owner_id) REFERENCES hiro.users(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS asset_path ON hiro.assets(audience_id, filename);
+CREATE UNIQUE INDEX IF NOT EXISTS asset_path ON hiro.assets(instance_id, filename);
 CREATE INDEX IF NOT EXISTS asset_meta ON hiro.assets(metadata);
 
 DROP TRIGGER IF EXISTS update_timestamp ON hiro.assets;

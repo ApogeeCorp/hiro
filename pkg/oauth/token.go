@@ -24,7 +24,6 @@
 package oauth
 
 import (
-	"reflect"
 	"strings"
 	"time"
 
@@ -42,17 +41,17 @@ type (
 	// Token represents a revokable set of claims
 	Token struct {
 		ID        string   `json:"jti,omitempty"`
-		Issuer    *URI     `json:"iss,omitempty"`
+		Issuer    *string  `json:"iss,omitempty"`
 		Subject   *string  `json:"sub,omitempty"`
 		Audience  string   `json:"aud,omitempty"`
 		ClientID  string   `json:"azp,omitempty"`
 		Use       TokenUse `json:"use,omitempty"`
-		AuthTime  *Time    `json:"auth_time,omitempty"`
+		AuthTime  int64    `json:"auth_time,omitempty"`
 		Scope     Scope    `json:"scope,omitempty"`
-		IssuedAt  Time     `json:"iat,omitempty"`
-		ExpiresAt *Time    `json:"exp,omitempty"`
+		IssuedAt  int64    `json:"iat,omitempty"`
+		ExpiresAt *int64   `json:"exp,omitempty"`
 		Revokable bool     `json:"-"`
-		RevokedAt *Time    `json:"-"`
+		RevokedAt *int64   `json:"-"`
 		Claims    Claims   `json:"-"`
 		Bearer    *string  `json:"-"`
 	}
@@ -92,21 +91,7 @@ func TokenFromClaims(c Claims) (Token, error) {
 	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:   &t,
 		Metadata: &meta,
-		TagName:  "json",
-		DecodeHook: func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-			if t == reflect.TypeOf(Time{}) && f.Kind() == reflect.Float64 {
-				return Time(time.Unix(int64(data.(float64)), 0)), nil
-			}
-			if t.Kind() == reflect.Slice && f.Kind() == reflect.String {
-				raw := data.(string)
-				if raw == "" {
-					return []string{}, nil
-				}
-				return strings.Split(raw, " "), nil
-			}
-			return data, nil
-		},
-	})
+		TagName:  "json"})
 	if err != nil {
 		return t, err
 	}
@@ -172,6 +157,15 @@ func (t Token) AuthClaims() api.Claims {
 	return t.Claims
 }
 
+// Expired returns true of the token expires and is expired
+func (t Token) Expired() bool {
+	if t.ExpiresAt == nil {
+		return false
+	}
+
+	return time.Unix(*t.ExpiresAt, 0).Before(time.Now())
+}
+
 // ParseBearer parses the jwt token into claims
 func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, error)) (Token, error) {
 	var c Claims
@@ -210,4 +204,14 @@ func ParseBearer(bearer string, keyFn func(kid string, c Claims) (TokenSecret, e
 	tokenCache.Set(rval.ID, rval, cache.DefaultExpiration)
 
 	return rval, nil
+}
+
+// Validate implements validation.Validatable interface
+func (u TokenUse) Validate() error {
+	return validation.Validate(string(u), validation.In("access", "identity", "verify"))
+}
+
+// Ptr returns a pointer to the use
+func (u TokenUse) Ptr() *TokenUse {
+	return &u
 }

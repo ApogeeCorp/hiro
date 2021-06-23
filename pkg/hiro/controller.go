@@ -19,30 +19,15 @@
 
 package hiro
 
-import (
-	"context"
-
-	"github.com/apex/log"
-)
-
 type (
 	// Controller is the hiro API controller interface
 	Controller interface {
 		// API Controllers
-		AudienceController
+		InstanceController
 		SecretsController
 		ApplicationController
 		RoleController
 		UserController
 		AssetController
-
-		// Log returns the log from the context
-		Log(ctx context.Context) log.Interface
-
-		// DBController provides db services
-		DBController
-
-		// PasswordManager is the password manager interface
-		PasswordManager() PasswordManager
 	}
 )

@@ -9,11 +9,11 @@ import "google/protobuf/empty.proto";
 package hiro;
 
 service Hiro {
-    rpc AudienceCreate(AudienceCreateRequest) returns (Audience);
-    rpc AudienceUpdate(AudienceUpdateRequest) returns (Audience);
-    rpc AudienceGet(AudienceGetRequest) returns (Audience);
-    rpc AudienceList(AudienceListRequest) returns (stream Audience);
-    rpc AudienceDelete(AudienceDeleteRequest) returns (google.protobuf.Empty);
+    rpc InstanceCreate(InstanceCreateRequest) returns (Instance);
+    rpc InstanceUpdate(InstanceUpdateRequest) returns (Instance);
+    rpc InstanceGet(InstanceGetRequest) returns (Instance);
+    rpc InstanceList(InstanceListRequest) returns (stream Instance);
+    rpc InstanceDelete(InstanceDeleteRequest) returns (google.protobuf.Empty);
 
     rpc ApplicationCreate(ApplicationCreateRequest) returns (Application);
     rpc ApplicationUpdate(ApplicationUpdateRequest) returns (Application);
@@ -25,7 +25,7 @@ service Hiro {
     rpc SecreteDelete(SecretDeleteRequest) returns (google.protobuf.Empty);
 }
 
-message AudienceCreateRequest {
+message InstanceCreateRequest {
     string name = 1;
     optional string description = 2;
     uint64 token_lifetime = 3;
@@ -35,7 +35,7 @@ message AudienceCreateRequest {
     google.protobuf.Struct metadata = 7;
 }
 
-message AudienceUpdateRequest {
+message InstanceUpdateRequest {
     message PermissionsUpdate {
         repeated string add = 1;
         repeated string remove = 2;
@@ -52,23 +52,23 @@ message AudienceUpdateRequest {
     google.protobuf.Struct metadata = 8;
 }
 
-message AudienceGetRequest {
+message InstanceGetRequest {
     oneof get_by {
         string id = 1;
         string name = 2;
     }
 }
 
-message AudienceListRequest{
+message InstanceListRequest{
     uint64 limit = 1;
     uint64 offset = 2;
 }
 
-message AudienceDeleteRequest {
+message InstanceDeleteRequest {
     string id = 1;
 }
 
-message Audience {
+message Instance {
     string id = 1;
     string name = 2;
     string slug = 3;
@@ -85,7 +85,7 @@ message Audience {
 
 message SecretCreateRequest {
     Secret.SecretType type = 1;
-    string audience_id = 2;
+    string instance_id = 2;
     Secret.TokenAlgorithm algorithm = 3;
     optional string key = 4;
     google.protobuf.Timestamp expires_at = 5;
@@ -109,7 +109,7 @@ message Secret {
 
     string id = 1;
     SecretType type = 2;
-    string audience_id = 3;
+    string instance_id = 3;
     optional TokenAlgorithm algorithm = 4;
     string key = 5;
     google.protobuf.Timestamp created_at = 6;

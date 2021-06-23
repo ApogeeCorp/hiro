@@ -38,12 +38,12 @@ type (
 func secretCreate(ctx context.Context, params *SecretCreateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.SecretCreate(ctx, *params)
+	inst, err := ctrl.SecretCreate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud).WithStatus(http.StatusCreated)
+	return api.NewResponse(inst).WithStatus(http.StatusCreated)
 }
 
 func secretDelete(ctx context.Context, params *SecretDeleteInput) api.Responder {
@@ -68,7 +68,7 @@ func (SecretCreateRoute) Methods() []string {
 
 // Path implements api.Route
 func (SecretCreateRoute) Path() string {
-	return "/audiences/{audience_id}/secrets"
+	return "/instances/{instance_id}/secrets"
 }
 
 // RequireAuth implements the api.AuthorizedRoute
@@ -78,7 +78,7 @@ func (SecretCreateRoute) RequireAuth() []api.CredentialType {
 
 // Scopes implements oauth.Route
 func (SecretCreateRoute) Scopes() oauth.ScopeList {
-	return oauth.BuildScope(ScopeAudienceWrite)
+	return oauth.BuildScope(ScopeInstanceWrite)
 }
 
 // Name implements api.Route
@@ -93,7 +93,7 @@ func (SecretDeleteRoute) Methods() []string {
 
 // Path implements api.Route
 func (SecretDeleteRoute) Path() string {
-	return "/audiences/{audience_id}/secrets/{secret_id}"
+	return "/instances/{instance_id}/secrets/{secret_id}"
 }
 
 // RequireAuth implements the api.AuthorizedRoute
@@ -103,5 +103,5 @@ func (SecretDeleteRoute) RequireAuth() []api.CredentialType {
 
 // Scopes implements oauth.Route
 func (SecretDeleteRoute) Scopes() oauth.ScopeList {
-	return oauth.BuildScope(ScopeAudienceWrite)
+	return oauth.BuildScope(ScopeInstanceWrite)
 }

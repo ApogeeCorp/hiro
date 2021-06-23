@@ -33,24 +33,25 @@ import (
 	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type (
-	// AudienceController is the audience API interface
-	AudienceController interface {
-		AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error)
-		AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error)
-		AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error)
-		AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error)
-		AudienceDelete(ctx context.Context, params AudienceDeleteInput) error
+	// InstanceController is the instance API interface
+	InstanceController interface {
+		InstanceCreate(ctx context.Context, params InstanceCreateInput) (*Instance, error)
+		InstanceGet(ctx context.Context, params InstanceGetInput) (*Instance, error)
+		InstanceList(ctx context.Context, params InstanceListInput) ([]*Instance, error)
+		InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (*Instance, error)
+		InstanceDelete(ctx context.Context, params InstanceDeleteInput) error
 	}
 
-	// Audience is the database model for an audience
-	Audience struct {
+	// Instance is the database model for an instance
+	Instance struct {
 		ID              ID                   `json:"id" db:"id"`
 		Name            string               `json:"name" db:"name"`
 		Slug            string               `json:"slug" db:"slug"`
-		Domain          *string              `json:"domain" db:"domain"`
+		Audience        *string              `json:"audience,omitempty" db:"audience"`
 		Description     *string              `json:"description,omitempty" db:"description"`
 		TokenSecrets    []oauth.TokenSecret  `json:"-" db:"-"`
 		SessionKeys     []SessionKey         `json:"-" db:"-"`
@@ -64,11 +65,11 @@ type (
 		Metadata        common.Map           `json:"metadata,omitempty" db:"metadata"`
 	}
 
-	// AudienceInitializeInput is the input to the audience initialization
-	AudienceInitializeInput struct {
+	// InstanceInitializeInput is the input to the instance initialization
+	InstanceInitializeInput struct {
 		Name            string                `json:"name"`
 		Description     *string               `json:"description,omitempty"`
-		Domain          *string               `json:"domain" db:"domain"`
+		Audience        *string               `json:"audience,omitempty" db:"audience"`
 		TokenLifetime   *time.Duration        `json:"token_lifetime"`
 		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty"`
@@ -77,11 +78,11 @@ type (
 		Roles           oauth.ScopeSet        `json:"roles,omitempty"`
 	}
 
-	// AudienceCreateInput is the audience create request
-	AudienceCreateInput struct {
+	// InstanceCreateInput is the instance create request
+	InstanceCreateInput struct {
 		Name            string               `json:"name"`
 		Description     *string              `json:"description,omitempty"`
-		Domain          *string              `json:"domain" db:"domain"`
+		Audience        *string              `json:"audience,omitempty" db:"audience"`
 		TokenLifetime   time.Duration        `json:"token_lifetime"`
 		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm"`
 		SessionLifetime time.Duration        `json:"session_lifetime,omitempty"`
@@ -89,58 +90,59 @@ type (
 		Metadata        common.Map           `json:"metadata,omitempty"`
 	}
 
-	// AudienceUpdateInput is the audience update request
-	AudienceUpdateInput struct {
-		AudienceID      ID                         `json:"audience_id" structs:"-"`
+	// InstanceUpdateInput is the instance update request
+	InstanceUpdateInput struct {
+		InstanceID      ID                         `json:"instance_id" structs:"-"`
 		Name            *string                    `json:"name" structs:"name,omitempty"`
 		Description     *string                    `json:"description,omitempty" structs:"description,omitempty"`
-		Domain          *string                    `json:"domain" structs:"domain,omitempty"`
+		Audience        *string                    `json:"audience,omitempty" structs:"audience,omitempty"`
 		TokenAlgorithm  *oauth.TokenAlgorithm      `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
 		TokenLifetime   *time.Duration             `json:"token_lifetime" structs:"token_lifetime,omitempty"`
 		SessionLifetime *time.Duration             `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
-		Permissions     *AudiencePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
+		Permissions     *InstancePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
 		Metadata        common.Map                 `json:"metadata,omitempty" structs:"-"`
 	}
 
-	// AudiencePermissionsUpdate is used to update audience permissions
-	AudiencePermissionsUpdate struct {
+	// InstancePermissionsUpdate is used to update instance permissions
+	InstancePermissionsUpdate struct {
 		Add       oauth.Scope `json:"add,omitempty"`
 		Remove    oauth.Scope `json:"remove,omitempty"`
 		Overwrite bool        `json:"overrite"`
 	}
 
-	// AudienceGetInput is used to get an audience for the id
-	AudienceGetInput struct {
-		AudienceID ID      `json:"audience_id,omitempty"`
+	// InstanceGetInput is used to get an instance for the id
+	InstanceGetInput struct {
+		InstanceID *ID     `json:"instance_id,omitempty"`
 		Name       *string `json:"name,omitempty"`
 		Domain     *string `json:"domain,omitempty"`
 	}
 
-	// AudienceListInput is the audience list request
-	AudienceListInput struct {
+	// InstanceListInput is the instance list request
+	InstanceListInput struct {
 		Limit  *uint64 `json:"limit,omitempty"`
 		Offset *uint64 `json:"offset,omitempty"`
 		Count  *uint64 `json:"count,omitempty"`
 	}
 
-	// AudienceDeleteInput is the audience delete request input
-	AudienceDeleteInput struct {
-		AudienceID ID `json:"audience_id"`
+	// InstanceDeleteInput is the instance delete request input
+	InstanceDeleteInput struct {
+		InstanceID ID `json:"instance_id"`
 	}
 )
 
-// ValidateWithContext handles validation of the AudienceInitializeInput struct
-func (a AudienceInitializeInput) ValidateWithContext(ctx context.Context) error {
+// ValidateWithContext handles validation of the InstanceInitializeInput struct
+func (a InstanceInitializeInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 	)
 }
 
-// ValidateWithContext handles validation of the AudienceCreateInput struct
-func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
+// ValidateWithContext handles validation of the InstanceCreateInput struct
+func (a InstanceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
+		validation.Field(&a.Audience, validation.Required, is.Domain),
 		validation.Field(&a.Permissions, validation.Required),
 		validation.Field(&a.TokenAlgorithm, validation.Required),
 		validation.Field(&a.TokenLifetime, validation.Required),
@@ -148,39 +150,40 @@ func (a AudienceCreateInput) ValidateWithContext(ctx context.Context) error {
 	)
 }
 
-// ValidateWithContext handles validation of the AudienceUpdateInput struct
-func (a AudienceUpdateInput) ValidateWithContext(ctx context.Context) error {
+// ValidateWithContext handles validation of the InstanceUpdateInput struct
+func (a InstanceUpdateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Name, validation.NilOrNotEmpty, validation.Length(3, 64)),
+		validation.Field(&a.Audience, validation.NilOrNotEmpty, is.Domain),
 		validation.Field(&a.TokenAlgorithm, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 	)
 }
 
-// ValidateWithContext handles validation of the AudienceGetInput struct
-func (a AudienceGetInput) ValidateWithContext(ctx context.Context) error {
+// ValidateWithContext handles validation of the InstanceGetInput struct
+func (a InstanceGetInput) ValidateWithContext(ctx context.Context) error {
 	return nil
 }
 
-// ValidateWithContext handles validation of the AudienceListInput struct
-func (a AudienceListInput) ValidateWithContext(context.Context) error {
+// ValidateWithContext handles validation of the InstanceListInput struct
+func (a InstanceListInput) ValidateWithContext(context.Context) error {
 	return nil
 }
 
 // ValidateWithContext handles validation of the ApplicationDeleteInput
-func (a AudienceDeleteInput) ValidateWithContext(ctx context.Context) error {
+func (a InstanceDeleteInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 	)
 }
 
-// AudienceInitialize will create or update and audience, intialize a default application and secrets
-func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitializeInput) (*Audience, error) {
-	var aud *Audience
+// InstanceInitialize will create or update and instance, intialize a default application and secrets
+func (b *Hiro) InstanceInitialize(ctx context.Context, params InstanceInitializeInput) (*Instance, error) {
+	var inst *Instance
 	var err error
 
-	log := b.Log(ctx).WithField("operation", "AudienceInitialize").WithField("name", params.Name)
+	log := Log(ctx).WithField("operation", "InstanceInitialize").WithField("name", params.Name)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -211,11 +214,11 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 
 	// do the initialization in a single transaction
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
-		aud, err = b.AudienceCreate(ctx, AudienceCreateInput{
+		inst, err = b.InstanceCreate(ctx, InstanceCreateInput{
 			Name:            params.Name,
 			Description:     params.Description,
-			Domain:          params.Domain,
-			TokenLifetime:   *params.TokenLifetime,
+			Audience:        params.Audience,
+			TokenLifetime:   params.TokenLifetime.Round(time.Second),
 			TokenAlgorithm:  *params.TokenAlgorithm,
 			SessionLifetime: *params.SessionLifetime,
 			Metadata:        params.Metadata,
@@ -226,49 +229,49 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		}
 
 		// ensure the permissions are consistent
-		if _, err := b.AudienceUpdate(ctx, AudienceUpdateInput{
-			AudienceID: aud.ID,
-			Permissions: &AudiencePermissionsUpdate{
+		if _, err := b.InstanceUpdate(ctx, InstanceUpdateInput{
+			InstanceID: inst.ID,
+			Permissions: &InstancePermissionsUpdate{
 				Add: params.Permissions,
 			},
 		}); err != nil {
 			return err
 		}
 
-		log.Infof("audience %s [%s] initialized", aud.Name, aud.ID)
+		log.Infof("instance %s [%s] initialized", inst.Name, inst.ID)
 
 		// generate secrets is none exist
-		if len(aud.TokenSecrets) == 0 {
+		if len(inst.TokenSecrets) == 0 {
 			if _, err := b.SecretCreate(ctx, SecretCreateInput{
-				AudienceID: aud.ID,
+				InstanceID: inst.ID,
 				Type:       SecretTypeToken,
-				Algorithm:  &aud.TokenAlgorithm,
+				Algorithm:  &inst.TokenAlgorithm,
 			}); err != nil {
-				return fmt.Errorf("%w: failed to create audience token secret", err)
+				return fmt.Errorf("%w: failed to create instance token secret", err)
 			}
 		}
 
 		// generate a session key if none exists
-		if len(aud.SessionKeys) == 0 {
+		if len(inst.SessionKeys) == 0 {
 			if _, err := b.SecretCreate(ctx, SecretCreateInput{
-				AudienceID: aud.ID,
+				InstanceID: inst.ID,
 				Type:       SecretTypeSession,
 			}); err != nil {
-				return fmt.Errorf("%w: failed to create audience session key", err)
+				return fmt.Errorf("%w: failed to create instance session key", err)
 			}
 		}
 
-		// create a new application for the audience
+		// create a new application for the instance
 		app, err := b.ApplicationCreate(ctx, ApplicationCreateInput{
-			Name: aud.Name,
+			Name: inst.Name,
 			Type: oauth.ClientTypeMachine,
 			Permissions: oauth.ScopeSet{
-				aud.Name: aud.Permissions,
-				"hiro":   append(Scopes, oauth.Scopes...),
+				inst.Name: inst.Permissions,
+				"hiro":    append(Scopes, oauth.Scopes...),
 			},
 			Grants: oauth.Grants{
-				aud.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-				"hiro":   {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				inst.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				"hiro":    {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
 			},
 		})
 		if err != nil && !errors.Is(err, ErrDuplicateObject) {
@@ -277,13 +280,13 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		if _, err := b.ApplicationUpdate(ctx, ApplicationUpdateInput{
 			ApplicationID: app.ID,
 			Grants: oauth.Grants{
-				aud.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-				"hiro":   {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				inst.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
+				"hiro":    {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
 			},
-			Permissions: &PermissionsUpdate{
+			Permissions: &PermissionUpdate{
 				Add: oauth.ScopeSet{
-					aud.Name: aud.Permissions,
-					"hiro":   append(Scopes, oauth.Scopes...),
+					inst.Name: inst.Permissions,
+					"hiro":    append(Scopes, oauth.Scopes...),
 				},
 			},
 		}); err != nil {
@@ -292,10 +295,10 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 
 		for r, p := range params.Roles {
 			role, err := b.RoleCreate(ctx, RoleCreateInput{
-				AudienceID: aud.ID,
+				InstanceID: inst.ID,
 				Name:       r,
 				Permissions: oauth.ScopeSet{
-					aud.Slug: p,
+					inst.Slug: p,
 				},
 			})
 			if err != nil && !errors.Is(err, ErrDuplicateObject) {
@@ -304,9 +307,9 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 
 			if _, err := b.RoleUpdate(ctx, RoleUpdateInput{
 				RoleID: role.ID,
-				Permissions: &PermissionsUpdate{
+				Permissions: &PermissionUpdate{
 					Add: oauth.ScopeSet{
-						aud.Slug: p,
+						inst.Slug: p,
 					},
 				},
 			}); err != nil {
@@ -322,14 +325,14 @@ func (b *Backend) AudienceInitialize(ctx context.Context, params AudienceInitial
 		return nil, err
 	}
 
-	return aud, nil
+	return inst, nil
 }
 
-// AudienceCreate create a new permission object
-func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput) (*Audience, error) {
-	var aud Audience
+// InstanceCreate create a new permission object
+func (b *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (*Instance, error) {
+	var inst Instance
 
-	log := b.Log(ctx).WithField("operation", "AudienceCreate").WithField("name", params.Name)
+	log := Log(ctx).WithField("operation", "InstanceCreate").WithField("name", params.Name)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -338,9 +341,9 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 	}
 
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
-		log.Debugf("creating new audience")
+		log.Debugf("creating new instance")
 
-		stmt, args, err := sq.Insert("hiro.audiences").
+		stmt, args, err := sq.Insert("hiro.instances").
 			Columns(
 				"name",
 				"description",
@@ -352,9 +355,9 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			Values(
 				params.Name,
 				null.String(params.Description),
-				null.String(params.Domain),
+				null.String(params.Audience),
 				params.TokenAlgorithm,
-				params.TokenLifetime,
+				params.TokenLifetime.Round(time.Second),
 				params.SessionLifetime,
 				null.JSON(params.Metadata),
 			).
@@ -365,14 +368,14 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
 
-		if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
+		if err := tx.GetContext(ctx, &inst, stmt, args...); err != nil {
 			return ParseSQLError(err)
 		}
 
-		return b.audienceUpdatePermissions(ctx, &aud, &AudiencePermissionsUpdate{Add: params.Permissions})
+		return b.instanceUpdatePermissions(ctx, &inst, &InstancePermissionsUpdate{Add: params.Permissions})
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
-			return b.AudienceGet(ctx, AudienceGetInput{
+			return b.InstanceGet(ctx, InstanceGetInput{
 				Name: &params.Name,
 			})
 		}
@@ -382,16 +385,16 @@ func (b *Backend) AudienceCreate(ctx context.Context, params AudienceCreateInput
 		return nil, err
 	}
 
-	log.Debugf("audience %s created", aud.ID)
+	log.Debugf("instance %s created", inst.ID)
 
-	return &aud, nil
+	return &inst, nil
 }
 
-// AudienceUpdate updates an application by id, including child objects
-func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput) (*Audience, error) {
-	var aud Audience
+// InstanceUpdate updates an application by id, including child objects
+func (b *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (*Instance, error) {
+	var inst Instance
 
-	log := b.Log(ctx).WithField("operation", "AudienceUpdate").WithField("id", params.AudienceID)
+	log := Log(ctx).WithField("operation", "InstanceUpdate").WithField("id", params.InstanceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -400,10 +403,14 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 	}
 
 	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
-		log.Debugf("updating audience")
+		log.Debugf("updating instance")
 
-		q := sq.Update("hiro.audiences").
+		q := sq.Update("hiro.instances").
 			PlaceholderFormat(sq.Dollar)
+
+		if params.TokenLifetime != nil {
+			*params.TokenLifetime = params.TokenLifetime.Round(time.Second)
+		}
 
 		updates := structs.Map(params)
 
@@ -412,7 +419,7 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 		}
 
 		if len(updates) > 0 {
-			stmt, args, err := q.Where(sq.Eq{"id": params.AudienceID}).
+			stmt, args, err := q.Where(sq.Eq{"id": params.InstanceID}).
 				SetMap(updates).
 				Suffix("RETURNING *").
 				ToSql()
@@ -422,39 +429,36 @@ func (b *Backend) AudienceUpdate(ctx context.Context, params AudienceUpdateInput
 				return fmt.Errorf("%w: failed to build query statement", err)
 			}
 
-			if err := tx.GetContext(ctx, &aud, stmt, args...); err != nil {
+			if err := tx.GetContext(ctx, &inst, stmt, args...); err != nil {
 				log.Error(err.Error())
 
 				return ParseSQLError(err)
 			}
 		} else {
-			a, err := b.AudienceGet(ctx, AudienceGetInput{
-				AudienceID: params.AudienceID,
+			a, err := b.InstanceGet(ctx, InstanceGetInput{
+				InstanceID: &params.InstanceID,
 			})
 			if err != nil {
 				return err
 			}
-			aud = *a
+			inst = *a
 		}
 
-		return b.audienceUpdatePermissions(ctx, &aud, params.Permissions)
+		return b.instanceUpdatePermissions(ctx, &inst, params.Permissions)
 	}); err != nil {
 		return nil, err
 	}
 
-	log.Debugf("audience %s updated", aud.Name)
+	log.Debugf("instance %s updated", inst.Name)
 
-	return &aud, b.audiencePreload(ctx, &aud)
+	return &inst, b.instancePreload(ctx, &inst)
 }
 
-// AudienceGet gets an audience by id and optionally preloads child objects
-func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Audience, error) {
+// InstanceGet gets an instance by id and optionally preloads child objects
+func (b *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Instance, error) {
 	var suffix string
 
-	log := b.Log(ctx).WithField("operation", "AudienceGet").
-		WithField("id", params.AudienceID).
-		WithField("name", safe.String(params.Name)).
-		WithField("domain", safe.String(params.Domain))
+	log := Log(ctx).WithField("operation", "InstanceGet").WithField("params", params)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -469,11 +473,11 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 	}
 
 	query := sq.Select("*").
-		From("hiro.audiences").
+		From("hiro.instances").
 		PlaceholderFormat(sq.Dollar)
 
-	if params.AudienceID.Valid() {
-		query = query.Where(sq.Eq{"id": params.AudienceID})
+	if params.InstanceID != nil {
+		query = query.Where(sq.Eq{"id": params.InstanceID})
 	} else if params.Name != nil {
 		query = query.Where(sq.Or{
 			sq.Eq{"name": *params.Name},
@@ -485,7 +489,7 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 			sq.Expr("? ~ domain", *params.Domain),
 		})
 	} else {
-		return nil, fmt.Errorf("%w: audience id, name, or domain required", ErrInputValidation)
+		return nil, fmt.Errorf("%w: instance id, name, or domain required", ErrInputValidation)
 	}
 
 	stmt, args, err := query.
@@ -497,21 +501,21 @@ func (b *Backend) AudienceGet(ctx context.Context, params AudienceGetInput) (*Au
 		return nil, ParseSQLError(err)
 	}
 
-	aud := &Audience{}
+	inst := &Instance{}
 
 	row := db.QueryRowxContext(ctx, stmt, args...)
-	if err := row.StructScan(aud); err != nil {
+	if err := row.StructScan(inst); err != nil {
 		log.Error(err.Error())
 
 		return nil, ParseSQLError(err)
 	}
 
-	return aud, b.audiencePreload(ctx, aud)
+	return inst, b.instancePreload(ctx, inst)
 }
 
-// AudienceList returns a listing of audiences
-func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([]*Audience, error) {
-	log := b.Log(ctx).WithField("operation", "AudienceList")
+// InstanceList returns a listing of instances
+func (b *Hiro) InstanceList(ctx context.Context, params InstanceListInput) ([]*Instance, error) {
+	log := Log(ctx).WithField("operation", "InstanceList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -526,7 +530,7 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 	}
 
 	query := sq.Select(target).
-		From("hiro.audiences")
+		From("hiro.instances")
 
 	if safe.Uint64(params.Limit) > 0 {
 		query = query.Limit(*params.Limit)
@@ -549,13 +553,13 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 		return nil, nil
 	}
 
-	auds := make([]*Audience, 0)
+	auds := make([]*Instance, 0)
 	if err := db.SelectContext(ctx, &auds, stmt, args...); err != nil {
 		return nil, ParseSQLError(err)
 	}
 
-	for _, aud := range auds {
-		if err := b.audiencePreload(ctx, aud); err != nil {
+	for _, inst := range auds {
+		if err := b.instancePreload(ctx, inst); err != nil {
 			return nil, err
 		}
 	}
@@ -563,9 +567,9 @@ func (b *Backend) AudienceList(ctx context.Context, params AudienceListInput) ([
 	return auds, nil
 }
 
-// AudienceDelete deletes an audience by id
-func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput) error {
-	log := b.Log(ctx).WithField("operation", "AudienceDelete").WithField("audience", params.AudienceID)
+// InstanceDelete deletes an instance by id
+func (b *Hiro) InstanceDelete(ctx context.Context, params InstanceDeleteInput) error {
+	log := Log(ctx).WithField("operation", "InstanceDelete").WithField("instance", params.InstanceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -573,22 +577,22 @@ func (b *Backend) AudienceDelete(ctx context.Context, params AudienceDeleteInput
 	}
 
 	db := b.DB(ctx)
-	if _, err := sq.Delete("hiro.audiences").
+	if _, err := sq.Delete("hiro.instances").
 		Where(
-			sq.Eq{"id": params.AudienceID},
+			sq.Eq{"id": params.InstanceID},
 		).
 		PlaceholderFormat(sq.Dollar).
 		RunWith(db).
 		ExecContext(ctx); err != nil {
-		log.Errorf("failed to delete audience %s: %s", params.AudienceID, err)
+		log.Errorf("failed to delete instance %s: %s", params.InstanceID, err)
 		return ParseSQLError(err)
 	}
 
 	return nil
 }
 
-func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, perms *AudiencePermissionsUpdate) error {
-	log := b.Log(ctx).WithField("operation", "audienceUpdatePermissions").WithField("audience", aud.ID)
+func (b *Hiro) instanceUpdatePermissions(ctx context.Context, inst *Instance, perms *InstancePermissionsUpdate) error {
+	log := Log(ctx).WithField("operation", "instanceUpdatePermissions").WithField("instance", inst.ID)
 
 	if perms == nil {
 		return nil
@@ -601,24 +605,24 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 	db := b.DB(ctx)
 
 	if perms.Overwrite {
-		if _, err := sq.Delete("hiro.audience_permissions").
+		if _, err := sq.Delete("hiro.instance_permissions").
 			Where(
-				sq.Eq{"audience_id": aud.ID},
+				sq.Eq{"instance_id": inst.ID},
 			).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
+			log.Errorf("failed to delete instance permissions %s: %s", inst.ID, err)
 
 			return ParseSQLError(err)
 		}
 	}
 
 	for _, p := range perms.Add.Unique() {
-		_, err := sq.Insert("hiro.audience_permissions").
-			Columns("audience_id", "permission").
+		_, err := sq.Insert("hiro.instance_permissions").
+			Columns("instance_id", "permission").
 			Values(
-				aud.ID,
+				inst.ID,
 				p,
 			).
 			Suffix("ON CONFLICT DO NOTHING").
@@ -626,22 +630,22 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 			PlaceholderFormat(sq.Dollar).
 			ExecContext(ctx)
 		if err != nil {
-			log.Errorf("failed to update audience permissions %s: %s", aud.ID, err)
+			log.Errorf("failed to update instance permissions %s: %s", inst.ID, err)
 
 			return ParseSQLError(err)
 		}
 	}
 
 	for _, p := range perms.Remove.Unique() {
-		if _, err := sq.Delete("hiro.audience_permissions").
+		if _, err := sq.Delete("hiro.instance_permissions").
 			Where(
-				sq.Eq{"audience_id": aud.ID},
+				sq.Eq{"instance_id": inst.ID},
 				sq.Eq{"permission": p},
 			).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete audience permissions %s: %s", aud.ID, err)
+			log.Errorf("failed to delete instance permissions %s: %s", inst.ID, err)
 
 			return ParseSQLError(err)
 		}
@@ -650,50 +654,50 @@ func (b *Backend) audienceUpdatePermissions(ctx context.Context, aud *Audience, 
 	return nil
 }
 
-func (b *Backend) audiencePreload(ctx context.Context, aud *Audience) error {
-	log := b.Log(ctx).WithField("operation", "audiencePreload").WithField("audience", aud.ID)
+func (b *Hiro) instancePreload(ctx context.Context, inst *Instance) error {
+	log := Log(ctx).WithField("operation", "instancePreload").WithField("instance", inst.ID)
 
 	db := b.DB(ctx)
 
 	if err := db.SelectContext(
 		ctx,
-		&aud.Permissions,
+		&inst.Permissions,
 		`SELECT permission 
-		 FROM hiro.audience_permissions 
-		 WHERE audience_id=$1`,
-		aud.ID); err != nil {
-		log.Errorf("failed to load audience permissions %s: %s", aud.ID, err)
+		 FROM hiro.instance_permissions 
+		 WHERE instance_id=$1`,
+		inst.ID); err != nil {
+		log.Errorf("failed to load instance permissions %s: %s", inst.ID, err)
 
 		return ParseSQLError(err)
 	}
 
 	if err := db.SelectContext(
 		ctx,
-		&aud.Secrets,
+		&inst.Secrets,
 		`SELECT * 
 		 FROM hiro.secrets 
-		 WHERE audience_id=$1`,
-		aud.ID); err != nil {
-		log.Errorf("failed to load audience secrets %s: %s", aud.ID, err)
+		 WHERE instance_id=$1`,
+		inst.ID); err != nil {
+		log.Errorf("failed to load instance secrets %s: %s", inst.ID, err)
 
 		return ParseSQLError(err)
 	}
 
-	aud.TokenSecrets = make([]oauth.TokenSecret, 0)
-	aud.SessionKeys = make([]SessionKey, 0)
+	inst.TokenSecrets = make([]oauth.TokenSecret, 0)
+	inst.SessionKeys = make([]SessionKey, 0)
 
-	for _, s := range aud.Secrets {
+	for _, s := range inst.Secrets {
 		if s.Type == SecretTypeToken {
-			if *s.Algorithm == aud.TokenAlgorithm {
+			if *s.Algorithm == inst.TokenAlgorithm {
 				k, err := TokenSecret(s)
 				if err != nil {
 					return err
 				}
 
-				aud.TokenSecrets = append(aud.TokenSecrets, k)
+				inst.TokenSecrets = append(inst.TokenSecrets, k)
 			}
 		} else {
-			aud.SessionKeys = append(aud.SessionKeys, SessionKey(*s))
+			inst.SessionKeys = append(inst.SessionKeys, SessionKey(*s))
 		}
 	}
 

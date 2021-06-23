@@ -76,12 +76,12 @@ func (AssetCreateRoute) Scopes() oauth.ScopeList {
 func assetCreate(ctx context.Context, params *AssetCreateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.AssetCreate(ctx, *params)
+	inst, err := ctrl.AssetCreate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud).WithStatus(http.StatusCreated)
+	return api.NewResponse(inst).WithStatus(http.StatusCreated)
 }
 
 // Name implements api.Route
@@ -112,12 +112,12 @@ func (AssetGetRoute) Scopes() oauth.ScopeList {
 func assetGet(ctx context.Context, params *AssetGetInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.AssetGet(ctx, *params)
+	inst, err := ctrl.AssetGet(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 // Name implements api.Route
@@ -225,12 +225,12 @@ func (AssetUpdateRoute) Scopes() oauth.ScopeList {
 func assetUpdate(ctx context.Context, params *AssetUpdateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.AssetUpdate(ctx, *params)
+	inst, err := ctrl.AssetUpdate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 // Name implements api.Route

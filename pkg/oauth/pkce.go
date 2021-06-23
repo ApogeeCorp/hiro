@@ -61,7 +61,7 @@ func (c PKCEChallenge) Verify(v string) error {
 	check := base64.RawURLEncoding.EncodeToString(sum[:])
 
 	if string(c) != check {
-		return ErrAccessDenied.WithDetail("code verification failed")
+		return ErrUnauthorized.WithDetail("code verification failed")
 	}
 
 	return nil

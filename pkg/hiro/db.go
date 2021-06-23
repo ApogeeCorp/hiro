@@ -85,13 +85,13 @@ func (e txCommitErr) Error() string {
 }
 
 // Transact starts a db transaction, adds it to the context and calls the handler
-func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...error) (err error) {
+func (b *Hiro) Transact(ctx context.Context, handler TxHandler, ignore ...error) (err error) {
 	ctx, ref, err := b.txRef(ctx, ignore...)
 	if err != nil {
 		return
 	}
 
-	log := b.Log(ctx)
+	log := Log(ctx)
 
 	if ref.count == 1 {
 		log.Debugf("database tx %s begin", ref.id)
@@ -154,7 +154,7 @@ func (b *Backend) Transact(ctx context.Context, handler TxHandler, ignore ...err
 	return
 }
 
-func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, *txRef, error) {
+func (b *Hiro) txRef(ctx context.Context, ignore ...error) (context.Context, *txRef, error) {
 	tmp := ctx.Value(contextKeyTx)
 	if ref, ok := tmp.(*txRef); ok {
 		atomic.AddInt64(&ref.count, 1)
@@ -191,7 +191,7 @@ func (b *Backend) txRef(ctx context.Context, ignore ...error) (context.Context, 
 }
 
 // DB returns a transaction from the context if it exists or the db
-func (b *Backend) DB(ctx context.Context) DB {
+func (b *Hiro) DB(ctx context.Context) DB {
 	tx := ctx.Value(contextKeyTx)
 	if ref, ok := tx.(*txRef); ok {
 		return ref

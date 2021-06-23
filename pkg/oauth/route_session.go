@@ -27,11 +27,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
+	"net/url"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/ptr"
-	"github.com/ModelRocket/hiro/pkg/safe"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -40,7 +39,7 @@ type (
 	// SessionParams is the session request parameters
 	SessionParams struct {
 		RequestToken string  `json:"request_token"`
-		RedirectURI  *URI    `json:"redirect_ur"`
+		RedirectURI  *string `json:"redirect_uri,omitempty"`
 		State        *string `json:"state,omitempty"`
 	}
 
@@ -58,86 +57,84 @@ func (p SessionParams) Validate() error {
 func session(ctx context.Context, params *SessionParams) api.Responder {
 	var token Token
 
-	log := api.Log(ctx).WithField("operation", "session").WithField("token", params.RequestToken)
-
 	ctrl := api.Context(ctx).(Controller)
 
 	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
 
-	if err := ctrl.TokenRevoke(ctx, token.ID); err != nil {
+	if err := ctrl.TokenRevoke(ctx, TokenRevokeInput{TokenID: &token.ID}); err != nil {
 		return api.Error(err)
 	}
 
-	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
+	req, err := ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+		TokenID:   params.RequestToken,
+		TokenType: RequestTokenTypePtr(RequestTokenTypeLogin),
+	})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	// parse the app uri
-	u, err := req.AppURI.Parse()
+	// parse the original app uri
+	u, err := url.Parse(*req.AppURI)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	// ensure the request audience is valid
-	aud, err := ctrl.AudienceGet(ctx, req.Audience)
-	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+	if req.Expired() {
+		api.Redirect(u).WithError(ErrExpiredToken)
 	}
 
-	user, err := ctrl.UserGet(ctx, safe.String(req.Subject))
+	user, err := ctrl.UserGet(ctx, UserGetInput{
+		Audience: req.Audience,
+		Subject:  req.Subject,
+	})
 	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-	}
-	log.Debugf("user %s authenticated", user.Subject())
-
-	perms := user.Permissions(aud)
-	if len(perms) == 0 {
-		return ErrAccessDenied.WithMessage("user is not authorized for audience %s", aud.ID())
+		return api.Redirect(u).WithError(ErrUnauthorized.WithError(err))
 	}
 
 	if len(req.Scope) == 0 {
-		req.Scope = perms
+		req.Scope = user.Permissions()
 	}
 
 	// we ignore some special scopes that are granted to the user on the fly
 	checkScope := req.Scope.Without(ScopePassword, ScopeSession, ScopeEmailVerify, ScopePhoneVerify)
 
-	if !perms.Every(checkScope...) {
-		return ErrAccessDenied.WithMessage("user has insufficient access for request")
+	if !user.Permissions().Every(checkScope...) {
+		api.Redirect(u).WithError(ErrForbidden)
 	}
 
-	log.Debugf("user %s authorized %s", user.Subject(), req.Scope)
-
-	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID(), user.Subject())
+	store, err := api.SessionManager(ctx).GetStore(ctx, req.Audience, user.ID())
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		api.Redirect(u).WithError(err)
 	}
 
 	// create the session
 	r, w := api.Request(ctx)
-	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	session, err := store.Get(r, fmt.Sprintf("%s%s", SessionPrefix, req.Audience))
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		api.Redirect(u).WithError(err)
 	}
 
-	session.Values["sub"] = user.Subject()
+	session.Values["sub"] = user.ID()
 
 	if err := session.Save(r, w); err != nil {
-		return api.ErrServerError.WithError(err)
+		api.Redirect(u).WithError(err)
 	}
 
 	if params.RedirectURI != nil {
-		client, err := ctrl.ClientGet(ctx, req.ClientID)
+		client, err := ctrl.ClientGet(ctx, ClientGetInput{
+			Audience: req.Audience,
+			ClientID: req.ClientID,
+		})
 		if err != nil {
-			return api.ErrServerError.WithError(err)
+			api.Redirect(u).WithError(err)
 		}
 
-		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
-			return ErrAccessDenied.WithError(err)
+		u, err := EnsureURI(ctx, *params.RedirectURI, client.RedirectEndpoints())
+		if err != nil {
+			api.Redirect(u).WithError(err)
 		}
 
-		req.RedirectURI = params.RedirectURI
+		req.RedirectURI = ptr.String(u.String())
 	}
 
 	// create a new auth code
@@ -145,26 +142,24 @@ func session(ctx context.Context, params *SessionParams) api.Responder {
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
-		Subject:             ptr.String(user.Subject()),
-		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
+		Subject:             ptr.String(user.ID()),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,
 		CodeChallengeMethod: req.CodeChallengeMethod,
 		RedirectURI:         req.RedirectURI,
 	})
 	if err != nil {
-		api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		api.Redirect(u).WithError(err)
 	}
-	log.Debugf("auth code %s created", code)
 
 	if req.RedirectURI == nil {
 		return api.NewResponse().WithStatus(http.StatusNoContent)
 	}
 
 	// parse the redirect uri
-	u, err = req.RedirectURI.Parse()
+	u, err = url.Parse(*req.RedirectURI)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 	q := u.Query()
 	q.Set("code", code)

@@ -27,8 +27,6 @@ import (
 	"github.com/ModelRocket/hiro/api/swagger"
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ghodss/yaml"
-
-	_ "embed"
 )
 
 type (

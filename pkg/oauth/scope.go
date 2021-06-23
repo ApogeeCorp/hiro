@@ -27,16 +27,12 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 )
 
 type (
 	// Scope is an oauth scope
 	Scope []string
-
-	// ScopeSet represents a map between an audiece and a scope
-	ScopeSet map[string]Scope
 
 	// ScopeList is used to build scopes
 	ScopeList struct {
@@ -279,58 +275,4 @@ func (s *Scope) String() string {
 		return ""
 	}
 	return strings.Join([]string(*s), " ")
-}
-
-// Get returns the scope for the audience
-func (p ScopeSet) Get(a string) Scope {
-	if s, ok := p[a]; ok {
-		return s
-	}
-	return Scope{}
-}
-
-// Set sets a value in scope set
-func (p ScopeSet) Set(a string, s ...string) {
-	p[a] = s
-}
-
-// Append appends to the scope set
-func (p ScopeSet) Append(a string, s ...string) {
-	if p[a] == nil {
-		p[a] = make(Scope, 0)
-	}
-	p[a] = append(p[a], s...)
-}
-
-// Value returns PermissionSet as a value that can be stored as json in the database
-func (p ScopeSet) Value() (driver.Value, error) {
-	perms := make(ScopeSet)
-	for k, v := range p {
-		perms[k] = v.Unique()
-	}
-
-	return json.Marshal(perms)
-}
-
-// Scan reads a json value from the database into a PermissionSet
-func (p ScopeSet) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if err := json.Unmarshal(b, &p); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p ScopeSet) String() string {
-	parts := make([]string, 0)
-	for k, v := range p {
-		parts = append(parts, fmt.Sprintf("%s=%s", k, strings.Join(v, ",")))
-	}
-
-	return strings.Join(parts, ", ")
 }

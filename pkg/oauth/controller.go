@@ -28,65 +28,190 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
-	// Controller defines an oauth server controller interface
-	Controller interface {
-		// AudienceGet returns an audience by id or name
-		AudienceGet(ctx context.Context, id string) (Audience, error)
+	// AudienceGetInput is the input for AudienceGet
+	AudienceGetInput struct {
+		Audience string `json:"audience"`
+	}
 
-		// ClientGet gets the client from the controller and optionally verfies the secret
-		ClientGet(ctx context.Context, id string, secret ...string) (Client, error)
+	// ClientGetInput is the input for ClientGet
+	ClientGetInput struct {
+		Audience     string  `json:"audience"`
+		ClientID     string  `json:"client_id"`
+		ClientSecret *string `json:"client_secret,omitempty"`
+	}
+
+	// RequestTokenGetInput is the input for RequestTokenGet
+	RequestTokenGetInput struct {
+		TokenID   string            `json:"token_id"`
+		TokenType *RequestTokenType `json:"token_type"`
+	}
+
+	// RequestTokenDeleteInput is the input for RequestTokenDelete
+	RequestTokenDeleteInput struct {
+		TokenID string `json:"token_id"`
+	}
+
+	// UserCreateInput is the input to UserCreate
+	UserCreateInput struct {
+		Audience string          `json:"audience"`
+		Login    string          `json:"login"`
+		Password *string         `json:"password,omitempty"`
+		Profile  *openid.Profile `json:"profile,omitempty"`
+		Invite   *RequestToken   `json:"invite,omitempty"`
+	}
+
+	// UserGetInput is the input for UserGet
+	UserGetInput struct {
+		Audience string  `json:"audience"`
+		Login    *string `json:"login,omitempty"`
+		Subject  *string `json:"subject,omitempty"`
+		Password *string `json:"password,omitempty"`
+	}
+
+	// UserUpdateInput is the input to UserUpdate
+	UserUpdateInput struct {
+		Audience  string          `json:"audience"`
+		Login     *string         `json:"login,omitempty"`
+		Subject   *string         `json:"subject,omitempty"`
+		Password  *string         `json:"password,omitempty"`
+		Profile   *openid.Profile `json:"profile,omitempty"`
+		Lockout   *bool           `json:"lockout,omitempty"`
+		LockUntil *time.Time      `json:"lock_until,omitempty"`
+	}
+
+	// TokenGetInput is the input to TokenGet
+	TokenGetInput struct {
+		TokenID  string    `json:"token_id"`
+		TokenUse *TokenUse `json:"token_use,omitempty"`
+	}
+
+	// TokenRevokeInput is the input to TokenRevoke
+	TokenRevokeInput struct {
+		TokenID  *string   `json:"token_id,omitempty"`
+		Subject  *string   `json:"subject,omitempty"`
+		TokenUse *TokenUse `json:"token_use,omitempty"`
+	}
+
+	// Controller defines an oauth controller interface
+	Controller interface {
+		// AudienceGet returns an audience
+		AudienceGet(context.Context, AudienceGetInput) (Audience, error)
+
+		// ClientGet returns a client principal object
+		ClientGet(context.Context, ClientGetInput) (Client, error)
 
 		// RequestTokenCreate creates a new authentication request token using the controller
-		RequestTokenCreate(ctx context.Context, req RequestToken) (string, error)
+		RequestTokenCreate(context.Context, RequestToken) (string, error)
 
-		// RequestTokenGet looks up a request by id from the controller
-		RequestTokenGet(ctx context.Context, id string, t ...RequestTokenType) (RequestToken, error)
+		// RequestTokenGet looks up a request from the controller
+		RequestTokenGet(context.Context, RequestTokenGetInput) (RequestToken, error)
 
-		// RequestTokenDelete deletes a request token by id
-		RequestTokenDelete(ctx context.Context, id string) error
+		// RequestTokenDelete deletes a request token
+		RequestTokenDelete(context.Context, RequestTokenDeleteInput) error
 
-		// UserGet gets a user object by subject identifier or login
-		UserGet(ctx context.Context, sub string) (User, error)
+		// UserCreate creates a user with the audience
+		UserCreate(context.Context, UserCreateInput) (User, error)
 
-		// UserAuthenticate authenticates a user and returns a principal object
-		UserAuthenticate(ctx context.Context, login, password string) (User, error)
+		// UserGet gets a user principal object
+		UserGet(context.Context, UserGetInput) (User, error)
 
-		// UserSetPassword sets the users password
-		UserSetPassword(ctx context.Context, sub, password string) error
-
-		// UserCreate creates a user using the request which can either be the authorize or an invite token
-		UserCreate(ctx context.Context, login string, password *string, req RequestToken) (User, error)
-
-		// UserUpdate updates a user's profile
-		UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error
+		// UserUpdate updates a user
+		UserUpdate(context.Context, UserUpdateInput) (User, error)
 
 		// UserNotify should create an email or sms with the verification link or code for the user
-		UserNotify(ctx context.Context, note Notification) error
-
-		// UserLockout should lock a user for the specified time or default
-		UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error)
+		UserNotify(context.Context, Notification) error
 
 		// TokenCreate creates a new token and allows the controller to add custom claims
-		TokenCreate(ctx context.Context, token Token) (Token, error)
+		TokenCreate(context.Context, Token) (Token, error)
 
-		// TokenGet gets a token by id
-		TokenGet(ctx context.Context, id string, use ...TokenUse) (Token, error)
+		// TokenGet gets a token
+		TokenGet(context.Context, TokenGetInput) (Token, error)
 
-		// TokenRevoke revokes a token by id
-		TokenRevoke(ctx context.Context, id string) error
-
-		// TokenRevokeAll will remove all tokens for a subject
-		TokenRevokeAll(ctx context.Context, sub string, uses ...TokenUse) error
-
-		// TokenCleanup should remove any expired or revoked tokens from the store
-		TokenCleanup(ctx context.Context) error
-	}
-
-	// ControllerProxy returns an oauth controller
-	ControllerProxy interface {
-		OAuthController() Controller
+		// TokenRevoke revokes a token
+		TokenRevoke(context.Context, TokenRevokeInput) error
 	}
 )
+
+// Validate implements the validation.Validatable interface
+func (i AudienceGetInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.Audience, validation.Required),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i ClientGetInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.Audience, validation.Required),
+		validation.Field(&i.ClientID, validation.Required),
+		validation.Field(&i.ClientSecret, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i RequestTokenGetInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.TokenID, validation.Required),
+		validation.Field(&i.TokenType, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i RequestTokenDeleteInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.TokenID, validation.Required),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i UserCreateInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.Audience, validation.Required),
+		validation.Field(&i.Login, validation.Required),
+		validation.Field(&i.Password, validation.NilOrNotEmpty),
+		validation.Field(&i.Profile, validation.NilOrNotEmpty),
+		validation.Field(&i.Invite, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i UserGetInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.Audience, validation.Required),
+		validation.Field(&i.Login, validation.When(i.Subject == nil, validation.Required)),
+		validation.Field(&i.Subject, validation.When(i.Login == nil, validation.Required)),
+		validation.Field(&i.Password, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i UserUpdateInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.Audience, validation.Required),
+		validation.Field(&i.Login, validation.When(i.Subject == nil, validation.Required)),
+		validation.Field(&i.Subject, validation.When(i.Login == nil, validation.Required)),
+		validation.Field(&i.Password, validation.NilOrNotEmpty),
+		validation.Field(&i.Profile, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i TokenGetInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.TokenID, validation.Required),
+		validation.Field(&i.TokenUse, validation.NilOrNotEmpty),
+	)
+}
+
+// Validate implements the validation.Validatable interface
+func (i TokenRevokeInput) Validate() error {
+	return validation.ValidateStruct(&i,
+		validation.Field(&i.TokenID, validation.When(i.Subject == nil, validation.Required)),
+		validation.Field(&i.Subject, validation.When(i.TokenID == nil, validation.Required)),
+		validation.Field(&i.TokenUse, validation.NilOrNotEmpty),
+	)
+}

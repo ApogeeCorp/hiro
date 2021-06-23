@@ -27,9 +27,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
+	"net/url"
 
 	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/ModelRocket/hiro/pkg/oauth/openid"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -37,11 +38,12 @@ import (
 type (
 	// SignupParams are used in the signup route
 	SignupParams struct {
-		Login        string  `json:"login"`
-		Password     *string `json:"password,omitempty"`
-		InviteToken  *string `json:"invite_token,omitempty"`
-		RequestToken string  `json:"request_token"`
-		CodeVerifier string  `json:"code_verifier"`
+		Login        string          `json:"login"`
+		Password     *string         `json:"password,omitempty"`
+		InviteToken  *string         `json:"invite_token,omitempty"`
+		RequestToken string          `json:"request_token"`
+		CodeVerifier string          `json:"code_verifier"`
+		Profile      *openid.Profile `json:"profile,omitempty"`
 	}
 
 	// SignupRoute is the signup handler
@@ -62,79 +64,77 @@ func (p SignupParams) Validate() error {
 func signup(ctx context.Context, params *SignupParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "signup").WithField("login", params.Login)
-
-	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
+	req, err := ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+		TokenID:   params.RequestToken,
+		TokenType: RequestTokenTypePtr(RequestTokenTypeLogin),
+	})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
 	// parse the app uri
-	u, err := req.AppURI.Parse()
+	appURI, err := url.Parse(*req.AppURI)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u).WithError(err)
+	if req.Expired() {
+		return api.Redirect(appURI).WithError(ErrExpiredToken)
 	}
 
 	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 	}
 
-	// ensure the request audience is valid
-	aud, err := ctrl.AudienceGet(ctx, req.Audience)
-	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-	}
-
-	invite := req
+	var invite *RequestToken
 
 	if params.InviteToken != nil {
-		invite, err = ctrl.RequestTokenGet(ctx, *params.InviteToken, RequestTokenTypeInvite)
+		inv, err := ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+			TokenID:   *params.InviteToken,
+			TokenType: RequestTokenTypePtr(RequestTokenTypeInvite),
+		})
 		if err != nil {
-			return ErrAccessDenied.WithError(err)
+			return api.Redirect(appURI).WithError(err)
 		}
+
+		invite = &inv
 	}
 
-	user, err := ctrl.UserCreate(ctx, params.Login, params.Password, invite)
+	user, err := ctrl.UserCreate(ctx, UserCreateInput{
+		Audience: req.Audience,
+		Login:    params.Login,
+		Password: params.Password,
+		Profile:  params.Profile,
+		Invite:   invite,
+	})
 	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-	}
-	log.Debugf("user %s created", user.Subject())
-
-	perms := user.Permissions(aud)
-	if len(perms) == 0 {
-		return ErrAccessDenied.WithMessage("user is not authorized for audience %s", aud.ID())
+		return api.Redirect(appURI).WithError(err)
 	}
 
 	if len(req.Scope) == 0 {
-		req.Scope = perms
+		req.Scope = user.Permissions()
 	}
 
-	if !perms.Every(req.Scope...) {
-		return ErrAccessDenied.WithMessage("user has insufficient access for request")
+	if !user.Permissions().Every(req.Scope...) {
+		return api.Redirect(appURI).WithError(ErrForbidden)
 	}
 
-	log.Debugf("user %s authorized %s", user.Subject(), req.Scope)
-
-	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID(), user.Subject())
+	store, err := api.SessionManager(ctx).GetStore(ctx, req.Audience, user.ID())
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		return api.Redirect(appURI).WithError(err)
 	}
 
 	// create the session
 	r, w := api.Request(ctx)
-	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	session, err := store.Get(r, fmt.Sprintf("%s%s", SessionPrefix, req.Audience))
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		return api.Redirect(appURI).WithError(err)
 	}
 
-	session.Values["sub"] = user.Subject()
+	session.Values["sub"] = user.ID()
 
 	if err := session.Save(r, w); err != nil {
-		return api.ErrServerError.WithError(err)
+		return api.Redirect(appURI).WithError(err)
 	}
 
 	// create a new auth code
@@ -142,36 +142,30 @@ func signup(ctx context.Context, params *SignupParams) api.Responder {
 		Type:                RequestTokenTypeAuthCode,
 		Audience:            req.Audience,
 		ClientID:            req.ClientID,
-		Subject:             ptr.String(user.Subject()),
-		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
+		Subject:             ptr.String(user.ID()),
 		Scope:               req.Scope,
 		CodeChallenge:       req.CodeChallenge,
 		CodeChallengeMethod: req.CodeChallengeMethod,
 		RedirectURI:         req.RedirectURI,
 	})
 	if err != nil {
-		api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-	}
-	log.Debugf("auth code %s created", code)
-
-	if req.RedirectURI == nil {
-		return api.NewResponse()
+		api.Redirect(appURI).WithError(err)
 	}
 
 	// parse the redirect uri
-	u, err = req.RedirectURI.Parse()
+	rdrURI, err := url.Parse(*req.RedirectURI)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return api.Redirect(appURI).WithError(err)
 	}
-	q := u.Query()
+	q := rdrURI.Query()
 	q.Set("code", code)
 
 	if req.State != nil {
 		q.Set("state", *req.State)
 	}
-	u.RawQuery = q.Encode()
+	rdrURI.RawQuery = q.Encode()
 
-	return api.Redirect(u)
+	return api.Redirect(rdrURI)
 }
 
 // Name implements api.Route

@@ -49,18 +49,23 @@ type (
 
 	// User is a hiro user
 	User struct {
-		ID                ID              `json:"id" db:"id"`
-		CreatedAt         time.Time       `json:"created_at" db:"created_at"`
-		UpdatedAt         *time.Time      `json:"updated_at,omitempty" db:"updated_at"`
-		Login             string          `json:"login" db:"login"`
-		Password          *string         `json:"-" db:"-"`
-		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
-		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
-		LockedUntil       *time.Time      `json:"locked_until,omitempty" db:"locked_until,omitempty"`
-		Roles             []string        `json:"roles,omitempty"`
-		Permissions       oauth.ScopeSet  `json:"permissions,omitempty" db:"-"`
-		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
-		Metadata          common.Map      `json:"metadata,omitempty" db:"metadata"`
+		ID                ID                `json:"id" db:"id"`
+		CreatedAt         time.Time         `json:"created_at" db:"created_at"`
+		UpdatedAt         *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
+		Login             string            `json:"login" db:"login"`
+		PasswordHash      *string           `json:"-" db:"password_hash,omitempty"`
+		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		LockedUntil       *time.Time        `json:"locked_until,omitempty" db:"locked_until,omitempty"`
+		Roles             []string          `json:"roles,omitempty"`
+		Permissions       []*UserPermission `json:"permissions,omitempty" db:"-"`
+		Profile           *openid.Profile   `json:"profile,omitempty" db:"profile"`
+		Metadata          common.Map        `json:"metadata,omitempty" db:"metadata"`
+	}
+
+	// UserPermission is a user permission entry
+	UserPermission struct {
+		InstanceID ID     `json:"instance_id"`
+		Permission string `json:"permission"`
 	}
 
 	// UserCreateInput is the user create request input
@@ -146,10 +151,10 @@ func (u UserDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // UserCreate create a new permission object
-func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User, error) {
+func (b *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, error) {
 	var user User
 
-	log := b.Log(ctx).WithField("operation", "UserCreate").WithField("login", params.Login)
+	log := Log(ctx).WithField("operation", "UserCreate").WithField("login", params.Login)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -212,10 +217,10 @@ func (b *Backend) UserCreate(ctx context.Context, params UserCreateInput) (*User
 }
 
 // UserUpdate updates an user by id, including child objects
-func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error) {
+func (b *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error) {
 	var user User
 
-	log := b.Log(ctx).WithField("operation", "UserUpdate").WithField("id", params.UserID)
+	log := Log(ctx).WithField("operation", "UserUpdate").WithField("id", params.UserID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -289,10 +294,10 @@ func (b *Backend) UserUpdate(ctx context.Context, params UserUpdateInput) (*User
 }
 
 // UserGet gets an user by id and optionally preloads child objects
-func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, error) {
+func (b *Hiro) UserGet(ctx context.Context, params UserGetInput) (*User, error) {
 	var suffix string
 
-	log := b.Log(ctx).WithField("operation", "UserGet").
+	log := Log(ctx).WithField("operation", "UserGet").
 		WithField("id", params.UserID).
 		WithField("login", params.Login)
 
@@ -342,8 +347,8 @@ func (b *Backend) UserGet(ctx context.Context, params UserGetInput) (*User, erro
 }
 
 // UserList returns a listing of users
-func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, error) {
-	log := b.Log(ctx).WithField("operation", "UserList")
+func (b *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, error) {
+	log := Log(ctx).WithField("operation", "UserList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -396,8 +401,8 @@ func (b *Backend) UserList(ctx context.Context, params UserListInput) ([]*User, 
 }
 
 // UserDelete deletes an user by id
-func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error {
-	log := b.Log(ctx).WithField("operation", "UserDelete").WithField("user", params.UserID)
+func (b *Hiro) UserDelete(ctx context.Context, params UserDeleteInput) error {
+	log := Log(ctx).WithField("operation", "UserDelete").WithField("user", params.UserID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -419,12 +424,12 @@ func (b *Backend) UserDelete(ctx context.Context, params UserDeleteInput) error 
 	return nil
 }
 
-func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
+func (b *Hiro) userPatch(ctx context.Context, params userPatchInput) error {
 	if len(params.Roles) == 0 {
 		return nil
 	}
 
-	log := b.Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
+	log := Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
 
 	db := b.DB(ctx)
 
@@ -480,13 +485,13 @@ func (b *Backend) userPatch(ctx context.Context, params userPatchInput) error {
 	return nil
 }
 
-func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
-	log := b.Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
+func (b *Hiro) userPreload(ctx context.Context, user *User) (*User, error) {
+	log := Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
 
 	db := b.DB(ctx)
 
 	perms := []struct {
-		Audience   string `db:"audience"`
+		Instance   string `db:"instance"`
 		Permission string `db:"permission"`
 	}{}
 
@@ -507,12 +512,12 @@ func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
 	if err := db.SelectContext(
 		ctx,
 		&perms,
-		`SELECT a.name as audience, p.permission
+		`SELECT a.name as instance, p.permission
 		 FROM hiro.user_roles r 
 		 LEFT JOIN hiro.role_permissions p
 		 	ON p.role_id = r.role_id
-		 LEFT JOIN hiro.audiences a
-			 ON  a.id = p.audience_id
+		 LEFT JOIN hiro.instances a
+			 ON  a.id = p.instance_id
 		 WHERE r.user_id=$1`,
 		user.ID); err != nil {
 		log.Errorf("failed to load user permissions %s: %s", user.ID, err)
@@ -522,7 +527,7 @@ func (b *Backend) userPreload(ctx context.Context, user *User) (*User, error) {
 
 	user.Permissions = make(oauth.ScopeSet)
 	for _, p := range perms {
-		user.Permissions.Append(p.Audience, p.Permission)
+		user.Permissions.Append(p.Instance, p.Permission)
 	}
 
 	return user, nil

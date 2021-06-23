@@ -7,6 +7,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef // indirect
 	github.com/blang/semver/v4 v4.0.0
+	github.com/bmatcuk/doublestar v1.3.4
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dgrijalva/jwt-go v3.2.1-0.20200107013213-dc14462fd587+incompatible
 	github.com/dustin/go-humanize v1.0.0

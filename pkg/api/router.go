@@ -54,7 +54,7 @@ type (
 		version     string
 		versioning  bool
 		name        string
-		context     interface{}
+		context     func(context.Context) interface{}
 		authorizers []Authorizer
 		hooks       []RouteHook
 		sessions    *session.Manager
@@ -112,7 +112,7 @@ func WithSessionManager(store *session.Manager) RouterOption {
 }
 
 // WithContext adds context to the router
-func WithContext(ctx interface{}) RouterOption {
+func WithContext(ctx func(context.Context) interface{}) RouterOption {
 	return func(r *Router) {
 		r.context = ctx
 	}
@@ -247,7 +247,7 @@ func (r *Router) handler(rt Route) http.HandlerFunc {
 		}()
 
 		if r.context != nil {
-			req = req.WithContext(context.WithValue(req.Context(), contextKeyContext, r.context))
+			req = req.WithContext(context.WithValue(req.Context(), contextKeyContext, r.context(req.Context())))
 		}
 
 		if r.sessions != nil {

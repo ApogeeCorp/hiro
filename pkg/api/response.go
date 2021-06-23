@@ -156,6 +156,30 @@ func (r *Response) Write(w http.ResponseWriter) error {
 	return r.writer(w, r.status, r.payload)
 }
 
+// RedirectIf does a conditional redirect
+func RedirectIf(cond bool, u *url.URL, val ...interface{}) Responder {
+	if cond {
+		return Redirect(u)
+	}
+
+	status := http.StatusOK
+
+	if len(val) < 0 {
+		status = http.StatusNoContent
+	}
+
+	return NewResponse(val...).WithStatus(status)
+}
+
+// RedirectErrIf does a conditional redirect with the error
+func RedirectErrIf(cond bool, u *url.URL, err error) Responder {
+	if cond {
+		return Redirect(u).WithError(err)
+	}
+
+	return Error(err)
+}
+
 // Redirect will set the proper redirect headers and http.StatusFound
 func Redirect(u *url.URL) *Redirector {
 	r := &Redirector{

@@ -2,18 +2,18 @@
 -- SQL in section 'Up' is executed when this migration is applied
 CREATE TABLE IF NOT EXISTS hiro.roles(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    audience_id UUID NOT NULL,
+    instance_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL,
     slug VARCHAR(64) NOT NULL,
     description VARCHAR(1024),
     metadata JSONB,
-    FOREIGN KEY (audience_id) REFERENCES hiro.audiences(id) ON DELETE CASCADE
+    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS role_name ON hiro.roles(audience_id, name);
-CREATE UNIQUE INDEX IF NOT EXISTS role_slug ON hiro.roles(audience_id, slug);
+CREATE UNIQUE INDEX IF NOT EXISTS role_name ON hiro.roles(instance_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS role_slug ON hiro.roles(instance_id, slug);
 
 DROP TRIGGER IF EXISTS update_timestamp on hiro.roles CASCADE;
 
@@ -31,13 +31,13 @@ CREATE TRIGGER update_slug
 
 CREATE TABLE IF NOT EXISTS hiro.role_permissions(
   role_id UUID NOT NULL REFERENCES hiro.roles(id) ON DELETE CASCADE,
-  audience_id UUID NOT NULL,
+  instance_id UUID NOT NULL,
   permission TEXT NOT NULL,
-  FOREIGN KEY(audience_id, permission) 
-    REFERENCES hiro.audience_permissions(audience_id, permission) 
+  FOREIGN KEY(instance_id, permission) 
+    REFERENCES hiro.instance_permissions(instance_id, permission) 
     ON DELETE CASCADE
     ON UPDATE CASCADE,
-  PRIMARY KEY(role_id, audience_id, permission)
+  PRIMARY KEY(role_id, instance_id, permission)
 );
 
 -- +migrate Down

@@ -20,11 +20,11 @@
 package hiro
 
 const (
-	// ScopeAudienceRead is used to read audience properties
-	ScopeAudienceRead = "audience:read"
+	// ScopeInstanceRead is used to read instance properties
+	ScopeInstanceRead = "instance:read"
 
-	// ScopeAudienceWrite is used to create or modify audiences
-	ScopeAudienceWrite = "audience:write"
+	// ScopeInstanceWrite is used to create or modify instances
+	ScopeInstanceWrite = "instance:write"
 
 	// ScopeApplicationRead is used to read application properties
 	ScopeApplicationRead = "application:read"

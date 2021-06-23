@@ -21,7 +21,61 @@
  * SOFTWARE.
  */
 
-//go:generate go-bindata -pkg oauth -o ./assets.go ../../api/swagger/v1/oauth.swagger.yaml
-
 // Package oauth provides the base auth interfaces
 package oauth
+
+import (
+	"context"
+	"errors"
+	"net/url"
+
+	"github.com/ModelRocket/hiro/pkg/api"
+	"github.com/bmatcuk/doublestar"
+)
+
+var (
+	// PasscodeLength is the length of random passcodes to generate for OTPs
+	PasscodeLength = 6
+
+	// SessionPrefix is the prefix used for session names
+	SessionPrefix = "hiro-session#"
+)
+
+// EnsureURI checks that a uri matches within a list
+func EnsureURI(ctx context.Context, uri string, search []string) (*url.URL, error) {
+	if search == nil || len(search) == 0 {
+		return nil, errors.New("unauthorized uri")
+	}
+
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	r, _ := api.Request(ctx)
+	if r != nil && u.Host == r.Host {
+		u.Host = ""
+		u.Scheme = ""
+	}
+
+	for _, a := range search {
+		if a == u.String() {
+			return u, nil
+		}
+
+		uu, _ := url.Parse(a)
+
+		if r != nil && uu.Host == r.Host {
+			uu.Host = ""
+			uu.Scheme = ""
+		}
+
+		if uu.Scheme == u.Scheme && u.Host == uu.Host {
+			if ok, _ := doublestar.Match(uu.Path, u.Path); ok {
+				return u, nil
+			}
+		}
+	}
+
+	return nil, errors.New("unauthorized redirect endpoint")
+}

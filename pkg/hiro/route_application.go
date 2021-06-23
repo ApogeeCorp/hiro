@@ -76,12 +76,12 @@ func (ApplicationCreateRoute) Scopes() oauth.ScopeList {
 func applicationCreate(ctx context.Context, params *ApplicationCreateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.ApplicationCreate(ctx, *params)
+	inst, err := ctrl.ApplicationCreate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud).WithStatus(http.StatusCreated)
+	return api.NewResponse(inst).WithStatus(http.StatusCreated)
 }
 
 // Name implements api.Route
@@ -112,12 +112,12 @@ func (ApplicationGetRoute) Scopes() oauth.ScopeList {
 func applicationGet(ctx context.Context, params *ApplicationGetInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.ApplicationGet(ctx, *params)
+	inst, err := ctrl.ApplicationGet(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 // Name implements api.Route
@@ -225,12 +225,12 @@ func (ApplicationUpdateRoute) Scopes() oauth.ScopeList {
 func applicationUpdate(ctx context.Context, params *ApplicationUpdateInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.ApplicationUpdate(ctx, *params)
+	inst, err := ctrl.ApplicationUpdate(ctx, *params)
 	if err != nil {
 		return api.Error(err)
 	}
 
-	return api.NewResponse(aud)
+	return api.NewResponse(inst)
 }
 
 // Name implements api.Route

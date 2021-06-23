@@ -66,7 +66,10 @@ func userinfo(ctx context.Context, params *UserInfoParams) api.Responder {
 
 	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
 
-	user, err := ctrl.UserGet(ctx, *token.Subject)
+	user, err := ctrl.UserGet(ctx, UserGetInput{
+		Audience: token.Audience,
+		Subject:  token.Subject,
+	})
 	if err != nil {
 		return api.ErrServerError.WithError(err)
 	}
@@ -141,7 +144,11 @@ func userinfoUpdate(ctx context.Context, params *UserInfoUpdateParams) api.Respo
 		return api.ErrForbidden
 	}
 
-	if err := ctrl.UserUpdate(ctx, *token.Subject, params.Profile); err != nil {
+	if _, err := ctrl.UserUpdate(ctx, UserUpdateInput{
+		Audience: token.Audience,
+		Subject:  token.Subject,
+		Profile:  params.Profile,
+	}); err != nil {
 		return api.ErrServerError.WithError(err)
 	}
 

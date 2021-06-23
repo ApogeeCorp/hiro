@@ -45,18 +45,18 @@ info:
     ```
 
 tags:
-  - name: "Audience"
-    description: "Audience operations"
+  - name: "Instance"
+    description: "Instance operations"
   - name: "Application"
     description: "Application operations"
   - name: "User"
     description: "User operations"
   - name: "Option"
-    description: "Option operations for simple kv store of audience specific configiration data"   
+    description: "Option operations for simple kv store of instance specific configiration data"   
   - name: "Asset"
     description: "Asset operations provide for the management of assets"
   - name: "Secret"
-    description: "Secret options provide for the management of audience secrets"   
+    description: "Secret options provide for the management of instance secrets"   
   - name: "Token"
     description: "Token operations"
   - name: "Session"
@@ -69,8 +69,8 @@ securityDefinitions:
     authorizationUrl: "https://auth.server.local/oauth/authorize"
     tokenUrl: "https://auth.server.local/api/token"
     scopes:
-      audience:read: "Read audiences"
-      audience:write: "Create or modify audiences"
+      instance:read: "Read instances"
+      instance:write: "Create or modify instances"
       application:read: "Read applications"
       application:write: "Create or modify applications"
       role:read: "Read user roles"
@@ -86,28 +86,27 @@ securityDefinitions:
       asset:write: "Write assets"
 
 definitions:
-  Audience:
+  Instance:
     description: |
-      An audience is essentially an API that applications and users can access. Audiences define permissions that
-      are used to restrict applications and users (via roles) to resources provided to that audience.
+      Instances define a set of application, users, and other objects that are part of the same security domain.
     type: "object"
     properties: 
       id:
-        description: "The audience id"
+        description: "The instance id"
         type: "string"
         readOnly: true
       name:
-        description: "The audience name"
+        description: "The instance name"
         type: "string"
       slug:
-        description: "The url friend audience name"
+        description: "The url friendly instance name"
         type: "string"
         readOnly: true
       description:
-        description: "The audience description"
+        description: "The instance description"
         type: "string"
       secrets:
-        description: "The audience secrets"
+        description: "The instance secrets"
         type: "array"
         items:
           $ref: "#/definitions/Secret"
@@ -120,10 +119,10 @@ definitions:
         description: "The access token lifetime in nanoseconds"
         type: "integer"
       session_lifetime:
-        description: "The access token lifetime in nanoseconds"
+        description: "The session lifetime in nanoseconds"
         type: "integer"
       permissions:
-        description: "The audience permissions as scope"
+        description: "The instance permissions as scope"
         type: "array"
         items:
           type: "string"
@@ -151,7 +150,7 @@ definitions:
     }
 
   Application:
-    description: "Applications are api clients that have access to various audiences"
+    description: "Applications are api clients that have access to various instances"
     type: "object"
     properties: 
       id:
@@ -196,14 +195,14 @@ definitions:
         $ref: "#/definitions/Map"
 
   Role:
-    description: "Roles define resource access to audiences by users"
+    description: "Roles define resource access to instances by users"
     type: "object"
     properties: 
       id:
         description: "The role id"
         type: "string"
-      audience_id:
-        description: "The role audience_id"
+      instance_id:
+        description: "The role instance_id"
         type: "string"
       name:
         description: "The role name"
@@ -229,14 +228,14 @@ definitions:
         $ref: "#/definitions/Map"
 
   Asset:
-    description: "Assets are audience objects stored in the hiro instance"
+    description: "Assets are instance objects stored in the hiro instance"
     type: "object"
     properties:
       id:
         description: "The asset id"
         type: "string"
-      audience_id:
-        description: "The asset audience_id"
+      instance_id:
+        description: "The asset instance_id"
         type: "string"
       title:
         description: "The asset title"
@@ -314,8 +313,8 @@ definitions:
         description: "The request token type"
         type: "string"
         enum: ["login", "session", "verify", "invite", "auth_code", "refresh_token"]
-      audience_id:
-        description: "The audience the token belongs to"
+      instance_id:
+        description: "The instance the token belongs to"
         type: "string"
       application_id:
         description: "The application the token belongs to"
@@ -372,8 +371,8 @@ definitions:
         description: "The uri of the host that issued the token"
         type: "string"
         format: "uri"
-      audience_id:
-        description: "The audience the token belongs to"
+      instance_id:
+        description: "The instance the token belongs to"
         type: "string"
       application_id:
         description: "The application the token belongs to"
@@ -412,8 +411,8 @@ definitions:
       id:
         description: "The session id"
         type: "string"
-      audience_id:
-        description: "The audience the token belongs to"
+      instance_id:
+        description: "The instance the token belongs to"
         type: "string"
       user_id:
         description: "The user the token was issued to"
@@ -441,8 +440,8 @@ definitions:
       id:
         description: "The secret it"
         type: "string"
-      audience_id:
-        description: "The audience id"
+      instance_id:
+        description: "The instance id"
         type: "string"
       type:
         description: "The secret type"
@@ -471,7 +470,7 @@ definitions:
       type: "object"
 
   Permissions:
-    description: "Set is a map of string arrays representing scopes per audience"
+    description: "Set is a map of string arrays representing scopes per instance"
     type: "object"
     additionalProperties:
       type: "array"
@@ -479,7 +478,7 @@ definitions:
         type: "string"
   
   Grants:
-    description: "Set is a map of string arrays representing grants per audience"
+    description: "Set is a map of string arrays representing grants per instance"
     type: "object"
     additionalProperties:
       type: "array"
@@ -503,11 +502,11 @@ definitions:
           type: "string"
           
 paths:
-  /audiences:
+  /instances:
     head:
-      description: "Return a count of audiences"
-      operationId: "AudienceCount"
-      tags: ["Audience"]
+      description: "Return a count of instances"
+      operationId: "InstanceCount"
+      tags: ["Instance"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -518,11 +517,11 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:read"]
+        - oauth: ["instance:read"]
     get:
-      description: "Query for audiences"
-      operationId: "AudienceList"
-      tags: ["Audience"]
+      description: "Query for instances"
+      operationId: "InstanceList"
+      tags: ["Instance"]
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
@@ -532,7 +531,7 @@ paths:
           schema:
             type: "array"
             items:
-              $ref: "#/definitions/Audience"
+              $ref: "#/definitions/Instance"
         400:
           $ref: "#/responses/BadRequest"
         401:
@@ -542,25 +541,25 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:read"]
+        - oauth: ["instance:read"]
     post:
-      description: "Createn a new audience"
-      operationId: "AudienceCreate"
-      tags: ["Audience"]
+      description: "Createn a new instance"
+      operationId: "InstanceCreate"
+      tags: ["Instance"]
       consumes: ["application/json"]
       parameters:
-        - name: "audience"
+        - name: "instance"
           in: "body"
           required: true
           schema:
-            title: "AudienceCreateInput"
+            title: "InstanceCreateInput"
             type: "object"
             properties:
               name:
-                description: "The audience name"
+                description: "The instance name"
                 type: "string"
               description:
-                description: "The audience description"
+                description: "The instance description"
                 type: "string"
               token_algorithm:
                 description: "The the signing token algorithm"
@@ -576,7 +575,7 @@ paths:
                 type: "integer"
                 default: 2592000000000000
               permissions:
-                description: "The audience permissions as scope"
+                description: "The instance permissions as scope"
                 type: "array"
                 items:
                   type: "string"
@@ -593,7 +592,7 @@ paths:
         201:
           description: "created"
           schema:
-            $ref: "#/definitions/Audience"
+            $ref: "#/definitions/Instance"
         400:
           $ref: "#/responses/BadRequest"
         401:
@@ -603,24 +602,24 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
       
-  /audiences/{audience_id}:
+  /instances/{instance_id}:
     parameters: 
-      - name: "audience_id"
+      - name: "instance_id"
         in: "path"
-        description: "The audience id"
+        description: "The instance id"
         type: "string"
         required: true
     get:
-      description: "Get an audience by id"
-      operationId: "AudienceGet"
-      tags: ["Audience"]
+      description: "Get an instance by id"
+      operationId: "InstanceGet"
+      tags: ["Instance"]
       responses:
         200:
           description: "ok"
           schema:
-            $ref: "#/definitions/Audience"
+            $ref: "#/definitions/Instance"
         400:
           $ref: "#/responses/BadRequest"
         401:
@@ -632,24 +631,24 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:read"]
+        - oauth: ["instance:read"]
     patch:
-      description: "Update audience by id"
-      operationId: "AudienceUpdate"
-      tags: ["Audience"]
+      description: "Update instance by id"
+      operationId: "InstanceUpdate"
+      tags: ["Instance"]
       parameters:
-        - name: "audience"
+        - name: "instance"
           in: "body"
           required: true
           schema: 
-            title: "AudienceUpdateInput"
+            title: "InstanceUpdateInput"
             type: "object"
             properties:
               name:
-                description: "The audience name"
+                description: "The instance name"
                 type: "string"
               description:
-                description: "The audience description"
+                description: "The instance description"
                 type: "string"
               token_algorithm:
                 description: "The the signing token algorithm"
@@ -665,7 +664,7 @@ paths:
                 type: "integer"
                 default: 2592000000000000
               permissions:
-                description: "The audience update permissions"
+                description: "The instance update permissions"
                 type: "object"
                 properties: 
                   add:
@@ -692,7 +691,7 @@ paths:
         200:
           description: "ok"
           schema:
-            $ref: "#/definitions/Audience"
+            $ref: "#/definitions/Instance"
         400:
           $ref: "#/responses/BadRequest"
         401:
@@ -704,11 +703,11 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
     delete:
       description: "Delete by id"
-      operationId: "AudienceDelete"
-      tags: ["Audience"]
+      operationId: "InstanceDelete"
+      tags: ["Instance"]
       responses:
         204:
           $ref: "#/responses/NoContent"
@@ -723,7 +722,7 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
 
   /options/{option_id}:
     parameters: 
@@ -733,7 +732,7 @@ paths:
         type: "string"
         required: true
     get:
-      description: "Get an audience option by id"
+      description: "Get an instance option by id"
       operationId: "OptionGet"
       tags: ["Option"]
       responses:
@@ -752,9 +751,9 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:read"]
+        - oauth: ["instance:read"]
     put:
-      description: "Update audience option by id"
+      description: "Update instance option by id"
       operationId: "OptionPut"
       tags: ["Option"]
       parameters:
@@ -779,7 +778,7 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
     delete:
       description: "Delete option by id"
       operationId: "OptionDelete"
@@ -798,11 +797,11 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
 
   /secrets:
     post:
-      description: "Create a new secret for the audience"
+      description: "Create a new secret for the instance"
       operationId: "SecretCreate"
       tags: ["Secret"]
       parameters:
@@ -813,8 +812,8 @@ paths:
             title: "SecretCreateInput"
             type: "object"
             properties:
-              audience_id:
-                description: "The audience id for the secret"
+              instance_id:
+                description: "The instance id for the secret"
                 type: "string"
               type:
                 description: "The secret type"
@@ -849,7 +848,7 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
 
   /secrets/{secret_id}:
     parameters: 
@@ -859,7 +858,7 @@ paths:
         type: "string"
         required: true
     delete:
-      description: "Delete a secret from the audience by id"
+      description: "Delete a secret from the instance by id"
       operationId: "SecretDelete"
       tags: ["Secret"]
       responses:
@@ -876,13 +875,13 @@ paths:
         500:
           $ref: "#/responses/ServerError"
       security:
-        - oauth: ["audience:write"]
+        - oauth: ["instance:write"]
 
-  /audiences/{audience_id}/roles:
+  /instances/{instance_id}/roles:
     parameters: 
-      - name: "audience_id"
+      - name: "instance_id"
         in: "path"
-        description: "The audience id"
+        description: "The instance id"
         type: "string"
         required: true
     head:
@@ -970,11 +969,11 @@ paths:
       security:
         - oauth: ["role:write"]
       
-  /audiences/{audience_id}/roles/{role_id}:
+  /instances/{instance_id}/roles/{role_id}:
     parameters:
-      - name: "audience_id"
+      - name: "instance_id"
         in: "path"
-        description: "The audience id"
+        description: "The instance id"
         type: "string"
         required: true
       - name: "role_id"
@@ -1123,8 +1122,8 @@ paths:
       tags: ["Asset"]
       consumes: ["multipart/form-data"]
       parameters:
-        - name: "audience_id"
-          description: "The audience id"
+        - name: "instance_id"
+          description: "The instance id"
           in: "formData"
           type: "string"
         - name: "title"
@@ -1711,8 +1710,8 @@ paths:
           items:
             type: "string"
           collectionFormat: "csv"
-        - name: "audience"
-          description: "filter on access token audience"
+        - name: "instance"
+          description: "filter on access token instance"
           in: "query"
           type: "array"
           items:
@@ -1800,8 +1799,8 @@ paths:
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
-        - name: "audience"
-          description: "filter on access token audience"
+        - name: "instance"
+          description: "filter on access token instance"
           in: "query"
           type: "array"
           items:
@@ -1865,10 +1864,10 @@ paths:
               revokable:
                 description: "if true a persisten store token will be created, otherwise a stateless beartoken will be returned"
                 type: "boolean"
-            required: ["audience_id", "application_id"]
+            required: ["instance_id", "application_id"]
             example: {
               "subject": "yt",
-              "audience_id": "hiro",
+              "instance_id": "hiro",
               "application_id": "HZUKGUv3ajmKEbKDCXQW2g"
             }
       responses:
@@ -1954,8 +1953,8 @@ paths:
       parameters:
         - $ref: '#/parameters/OffsetParam'
         - $ref: '#/parameters/LimitParam'
-        - name: "audience"
-          description: "filter on session audience"
+        - name: "instance"
+          description: "filter on session instance"
           in: "query"
           type: "array"
           items:

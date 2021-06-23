@@ -23,28 +23,16 @@
 
 package oauth
 
-import (
-	"encoding/json"
-	"time"
-)
-
 type (
+	// Principal is the oauth principal
+	Principal interface {
+		// ID returns the principal identifier
+		ID() string
 
-	// Time is a time structure used for tokens
-	Time time.Time
+		//  Audience is the audience for the principal
+		Audience() string
+
+		// Scope returns the scope for the oauth Principal
+		Permissions() Scope
+	}
 )
-
-// MarshalJSON markshals the time to an epoch
-func (t Time) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Time(t).UTC().Unix())
-}
-
-// Time casts the oauth time back to a time.Time
-func (t Time) Time() time.Time {
-	return time.Time(t)
-}
-
-// Ptr returns a pointer to this time
-func (t Time) Ptr() *Time {
-	return &t
-}

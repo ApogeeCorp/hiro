@@ -73,7 +73,10 @@ func NewBearer(secret TokenSecret, tokens ...Token) (*BearerToken, error) {
 				return nil, err
 			}
 			bearer.AccessToken = a
-			bearer.ExpiresIn = int64(t.ExpiresAt.Time().Sub(time.Now()).Seconds())
+
+			if t.ExpiresAt != nil {
+				bearer.ExpiresIn = int64(time.Unix(*t.ExpiresAt, 0).Sub(time.Now()).Seconds())
+			}
 
 		case TokenUseIdentity:
 			if bearer.IdentityToken != "" {

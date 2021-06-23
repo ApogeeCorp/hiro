@@ -24,12 +24,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 
-	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/null"
 	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
@@ -40,18 +38,20 @@ import (
 
 type (
 	oauthController struct {
-		Controller
+		*Hiro
 	}
 
 	oauthAudience struct {
-		*Audience
+		*Instance
 	}
 
 	oauthClient struct {
 		*Application
+		aud oauth.Audience
 	}
 
 	oauthUser struct {
+		inst *Instance
 		*User
 	}
 
@@ -60,7 +60,7 @@ type (
 		ID                  ID                        `json:"id" db:"id"`
 		Type                oauth.RequestTokenType    `json:"type" db:"type"`
 		CreatedAt           oauth.Time                `json:"created_at" db:"created_at"`
-		Audience            ID                        `json:"audience_id" db:"audience_id"`
+		Audience            ID                        `json:"instance_id" db:"instance_id"`
 		ApplicationID       ID                        `json:"application_id" db:"application_id"`
 		UserID              ID                        `json:"user_id,omitempty" db:"user_id"`
 		Scope               oauth.Scope               `json:"scope,omitempty" db:"scope"`
@@ -78,7 +78,7 @@ type (
 	AccessToken struct {
 		ID            ID             `json:"id" db:"id"`
 		Issuer        *oauth.URI     `json:"issuer,omitempty" db:"issuer"`
-		Audience      ID             `json:"audience_id" db:"audience_id"`
+		Audience      ID             `json:"instance_id" db:"instance_id"`
 		ApplicationID ID             `json:"application_id" db:"application_id"`
 		UserID        ID             `json:"user_id,omitempty" db:"user_id,omitempty"`
 		Use           oauth.TokenUse `json:"token_use" db:"token_use"`
@@ -93,75 +93,72 @@ type (
 	}
 )
 
-func OAuthController(c Controller) oauth.Controller {
-	return &oauthController{
-		Controller: c,
-	}
+func (h *Hiro) OAuthController() oauth.Controller {
+	return oauthController{Hiro: h}
 }
 
-// AudienceGet returns an audience by id
-func (o *oauthController) AudienceGet(ctx context.Context, id string) (oauth.Audience, error) {
-	var params AudienceGetInput
-
-	if ID(id).Valid() {
-		params.AudienceID = ID(id)
-	} else {
-		params.Name = &id
-	}
-
-	aud, err := o.Controller.AudienceGet(ctx, params)
+// AudienceGet returns an instance by id
+func (c *oauthController) AudienceGet(ctx context.Context, params oauth.AudienceGetInput) (oauth.Audience, error) {
+	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+		Domain: &params.Audience,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &oauthAudience{aud}, nil
+	return &oauthAudience{inst}, nil
 }
 
 // ClientGet gets the client from the controller
-func (o *oauthController) ClientGet(ctx context.Context, id string, secret ...string) (oauth.Client, error) {
-	app, err := o.ApplicationGet(ctx, ApplicationGetInput{
+func (h *oauthController) ClientGet(ctx context.Context, params oauth.ClientGetInput) (oauth.Client, error) {
+	aud, err := h.AudienceGet(ctx, oauth.AudienceGetInput{Audience: params.Audience})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", oauth.ErrAudienceNotFound, err)
+	}
+
+	app, err := h.ApplicationGet(ctx, ApplicationGetInput{
 		ApplicationID: ID(id),
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, ErrNotFound) {
 			return nil, oauth.ErrClientNotFound
 		}
 		return nil, err
 	}
 
-	if len(secret) > 0 && secret[0] != "" && app.SecretKey != nil && *app.SecretKey != secret[0] {
-		return nil, oauth.ErrAccessDenied
+	if params.ClientSecret != nil && app.SecretKey != nil && *app.SecretKey != *params.ClientSecret {
+		return nil, oauth.ErrUnauthorized
 	}
 
-	return &oauthClient{app}, nil
+	return &oauthClient{Application: app, aud: aud}, nil
 }
 
 // RequestTokenCreate creates a new authentication request
-func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.RequestToken) (string, error) {
+func (h *oauthController) RequestTokenCreate(ctx context.Context, req oauth.RequestToken) (string, error) {
 	var out RequestToken
 
-	log := o.Log(ctx).WithField("operation", "RequestCreate").WithField("application", req.ClientID)
+	log := Log(ctx).WithField("operation", "RequestCreate").WithField("application", req.ClientID)
 
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new request token")
 
 		audID := ID(req.Audience)
 
 		if !audID.Valid() {
-			aud, err := o.Controller.AudienceGet(ctx, AudienceGetInput{
+			inst, err := h.InstanceGet(ctx, InstanceGetInput{
 				Name: &req.Audience,
 			})
 			if err != nil {
 				return err
 			}
 
-			audID = aud.ID
+			audID = inst.ID
 		}
 
 		stmt, args, err := sq.Insert("hiro.request_tokens").
 			Columns(
 				"type",
-				"audience_id",
+				"instance_id",
 				"application_id",
 				"user_id",
 				"scope",
@@ -210,13 +207,13 @@ func (o *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 }
 
 // RequestTokenGet looks up a request by id
-func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...oauth.RequestTokenType) (oauth.RequestToken, error) {
+func (h *oauthController) RequestTokenGet(ctx context.Context, id string, t ...oauth.RequestTokenType) (oauth.RequestToken, error) {
 	var out RequestToken
 
-	log := o.Log(ctx).WithField("operation", "RequestGet").
+	log := Log(ctx).WithField("operation", "RequestGet").
 		WithField("id", id)
 
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		query := sq.Select("*").
 			From("hiro.request_tokens").
 			PlaceholderFormat(sq.Dollar).
@@ -246,11 +243,11 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 
 		// all tokens except login are one-time-use
 		if out.Type != oauth.RequestTokenTypeLogin {
-			return o.RequestTokenDelete(ctx, out.ID.String())
+			return h.RequestTokenDelete(ctx, out.ID.String())
 		}
 
-		if safe.Int(out.LoginAttempts) >= o.Controller.PasswordManager().MaxLoginAttempts() {
-			err = o.RequestTokenDelete(ctx, out.ID.String())
+		if safe.Int(out.LoginAttempts) >= h.passwords.MaxLoginAttempts() {
+			err = h.RequestTokenDelete(ctx, out.ID.String())
 
 			return ErrTxCommit(
 				oauth.NewErrTooManyLoginAttempts(*out.LoginAttempts).WithError(err))
@@ -287,9 +284,9 @@ func (o *oauthController) RequestTokenGet(ctx context.Context, id string, t ...o
 }
 
 // RequestTokenDelete deletes a request token by id
-func (o *oauthController) RequestTokenDelete(ctx context.Context, id string) error {
+func (h *oauthController) RequestTokenDelete(ctx context.Context, id string) error {
 
-	db := o.DB(ctx)
+	db := h.DB(ctx)
 
 	_, err := sq.Delete("hiro.request_tokens").
 		Where(sq.Eq{"id": ID(id)}).
@@ -301,28 +298,23 @@ func (o *oauthController) RequestTokenDelete(ctx context.Context, id string) err
 }
 
 // TokenCreate creates a new token
-func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (oauth.Token, error) {
-	log := o.Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
+func (h *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (oauth.Token, error) {
+	log := Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
 
-	var p AudienceGetInput
-	if !ID(token.Audience).Valid() {
-		p.Name = &token.Audience
-	} else {
-		p.AudienceID = NewID(token.Audience)
-	}
-
-	aud, err := o.Controller.AudienceGet(ctx, p)
+	inst, err := h.InstanceGet(ctx, InstanceGetInput{
+		InstanceID: ID(token.Audience),
+	})
 	if err != nil {
 		return token, err
 	}
 
 	tokenID := NewID()
 	token.ID = tokenID.String()
-	token.Audience = aud.ID.String()
+	token.Audience = inst.ID.String()
 	token.IssuedAt = oauth.Time(time.Now())
 
 	if token.ExpiresAt == nil {
-		token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenLifetime)).Ptr()
+		token.ExpiresAt = oauth.Time(time.Now().Add(inst.TokenLifetime)).Ptr()
 	}
 
 	if token.Claims == nil {
@@ -332,7 +324,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	if !token.Revokable {
 		// ensure revokable tokens have a valid time
 		if token.ExpiresAt.Time().IsZero() {
-			token.ExpiresAt = oauth.Time(time.Now().Add(aud.TokenLifetime)).Ptr()
+			token.ExpiresAt = oauth.Time(time.Now().Add(inst.TokenLifetime)).Ptr()
 		}
 
 		log.Debugf("token %s [%s] initialized", token.ID, token.Use)
@@ -342,14 +334,14 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 
 	var out AccessToken
 
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new access token")
 
 		stmt, args, err := sq.Insert("hiro.access_tokens").
 			Columns(
 				"id",
 				"issuer",
-				"audience_id",
+				"instance_id",
 				"application_id",
 				"user_id",
 				"token_use",
@@ -359,7 +351,7 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 			Values(
 				tokenID,
 				token.Issuer,
-				aud.ID,
+				inst.ID,
 				ID(token.ClientID),
 				NewID(token.Subject),
 				token.Use,
@@ -406,13 +398,13 @@ func (o *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 }
 
 // TokenGet gets a token by id
-func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.TokenUse) (oauth.Token, error) {
+func (h *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.TokenUse) (oauth.Token, error) {
 	var out AccessToken
 
-	log := o.Log(ctx).WithField("operation", "TokenGet").
+	log := Log(ctx).WithField("operation", "TokenGet").
 		WithField("id", id)
 
-	if err := o.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		query := sq.Select("*").
 			From("hiro.access_tokens").
 			PlaceholderFormat(sq.Dollar).
@@ -469,12 +461,12 @@ func (o *oauthController) TokenGet(ctx context.Context, id string, use ...oauth.
 }
 
 // TokenRevoke revokes a token by id
-func (o *oauthController) TokenRevoke(ctx context.Context, id string) error {
-	log := o.Log(ctx).
+func (h *oauthController) TokenRevoke(ctx context.Context, id string) error {
+	log := Log(ctx).
 		WithField("operation", "TokenRevoke").
 		WithField("token_id", id)
 
-	db := o.DB(ctx)
+	db := h.DB(ctx)
 
 	if _, err := sq.Update("hiro.access_tokens").
 		Where(
@@ -494,8 +486,8 @@ func (o *oauthController) TokenRevoke(ctx context.Context, id string) error {
 }
 
 // TokenRevokeAll will remove all tokens for a subject
-func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses ...oauth.TokenUse) error {
-	log := o.Log(ctx).
+func (h *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses ...oauth.TokenUse) error {
+	log := Log(ctx).
 		WithField("operation", "TokenRevokeAll")
 
 	query := sq.Update("hiro.access_tokens").
@@ -505,7 +497,7 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 		query = query.Where(sq.Eq{"token_use": uses})
 	}
 
-	db := o.DB(ctx)
+	db := h.DB(ctx)
 
 	if _, err := query.
 		Set("revoked_at", time.Now()).
@@ -522,12 +514,12 @@ func (o *oauthController) TokenRevokeAll(ctx context.Context, sub string, uses .
 }
 
 // TokenCleanup should remove any expired or revoked tokens from the store
-func (o *oauthController) TokenCleanup(ctx context.Context) error {
-	log := o.Log(ctx).WithField("operation", "TokenCleanup")
+func (h *oauthController) TokenCleanup(ctx context.Context) error {
+	log := Log(ctx).WithField("operation", "TokenCleanup")
 
 	log.Debugf("cleaning up request tokens")
 
-	db := o.DB(ctx)
+	db := h.DB(ctx)
 
 	if _, err := sq.Delete("hiro.request_tokens").
 		Where(
@@ -559,8 +551,9 @@ func (o *oauthController) TokenCleanup(ctx context.Context) error {
 	return nil
 }
 
+/*
 // UserGet gets a user by id
-func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, error) {
+func (h *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, error) {
 	var in UserGetInput
 
 	if ID(sub).Valid() {
@@ -569,7 +562,7 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 		in.Login = &sub
 	}
 
-	user, err := o.Controller.UserGet(ctx, in)
+	user, err := o.Hiro.UserGet(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -591,15 +584,15 @@ func (o *oauthController) UserGet(ctx context.Context, sub string) (oauth.User, 
 			p.Login = &sub
 		}
 
-		o.Controller.UserUpdate(ctx, p)
+		o.Hiro.UserUpdate(ctx, p)
 	}
 
 	return &oauthUser{user}, nil
-}
+}*/
 
 // UserAuthenticate authenticates a user
-func (o *oauthController) UserAuthenticate(ctx context.Context, login, password string) (oauth.User, error) {
-	user, err := o.Controller.UserGet(ctx, UserGetInput{
+func (h *oauthController) UserAuthenticate(ctx context.Context, login, password string) (oauth.User, error) {
+	user, err := h.UserGet(ctx, UserGetInput{
 		Login: &login,
 	})
 	if err != nil {
@@ -609,33 +602,33 @@ func (o *oauthController) UserAuthenticate(ctx context.Context, login, password 
 		return nil, err
 	}
 
-	if user.PasswordHash == nil {
-		return nil, oauth.ErrAccessDenied.WithDetail("password not set")
-	}
-
 	if user.LockedUntil != nil {
 		if user.LockedUntil.After(time.Now()) {
-			return nil, oauth.ErrAccessDenied.
+			return nil, oauth.ErrUnauthorized.
 				WithDetail("user account locked").
 				WithDetail(user.LockedUntil.String())
 		}
 
-		o.Controller.UserUpdate(ctx, UserUpdateInput{
+		h.UserUpdate(ctx, UserUpdateInput{
 			Login:       &login,
 			LockedUntil: ptr.Time(time.Unix(0, 0)),
 		})
 	}
 
-	if !o.PasswordManager().CheckPasswordHash(password, *user.PasswordHash) {
-		return nil, oauth.ErrAccessDenied
+	if user.PasswordHash == nil {
+		return nil, oauth.ErrUnauthorized.WithDetail("password not set")
+	}
+
+	if !h.passwords.CheckPasswordHash(password, *user.PasswordHash) {
+		return nil, oauth.ErrUnauthorized
 	}
 
 	return &oauthUser{user}, nil
 }
 
 // UserLockout should lock a user for the specified time or default
-func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error) {
-	u := time.Now().Add(o.PasswordManager().AccountLockoutPeriod())
+func (h *oauthController) UserLockout(ctx context.Context, sub string, until ...time.Time) (time.Time, error) {
+	u := time.Now().Add(h.passwords.AccountLockoutPeriod())
 
 	if len(until) > 0 {
 		u = until[0]
@@ -651,16 +644,16 @@ func (o *oauthController) UserLockout(ctx context.Context, sub string, until ...
 		p.Login = &sub
 	}
 
-	_, err := o.Controller.UserUpdate(ctx, p)
+	_, err := h.UserUpdate(ctx, p)
 
 	return u, err
 }
 
 // UserSetPassword sets the users password
-func (o *oauthController) UserSetPassword(ctx context.Context, sub, password string) error {
+func (h *oauthController) UserSetPassword(ctx context.Context, sub, password string) error {
 	p := UserUpdateInput{
 		Password:          &password,
-		PasswordExpiresAt: ptr.Time(time.Now().Add(o.PasswordManager().PasswordExpiry())),
+		PasswordExpiresAt: ptr.Time(time.Now().Add(h.passwords.PasswordExpiry())),
 	}
 
 	if ID(sub).Valid() {
@@ -669,7 +662,7 @@ func (o *oauthController) UserSetPassword(ctx context.Context, sub, password str
 		p.Login = &sub
 	}
 
-	_, err := o.Controller.UserUpdate(ctx, p)
+	_, err := h.UserUpdate(ctx, p)
 
 	return err
 }
@@ -686,7 +679,7 @@ func (o *oauthController) UserCreate(ctx context.Context, login string, password
 		roles = req.Scope
 	}
 
-	user, err := o.Controller.UserCreate(ctx, UserCreateInput{
+	user, err := o.Hiro.UserCreate(ctx, UserCreateInput{
 		Login:             login,
 		Password:          password,
 		PasswordExpiresAt: ptr.Time(time.Now().Add(o.PasswordManager().PasswordExpiry())),
@@ -699,8 +692,8 @@ func (o *oauthController) UserCreate(ctx context.Context, login string, password
 	return &oauthUser{user}, nil
 }
 
-// UserUpdate updates a user's profile
-func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *openid.Profile) error {
+// UserRegister updates a user's profile
+func (h *oauthController) UserRegister(ctx context.Context, sub string, profile *openid.Profile) error {
 	p := UserUpdateInput{
 		Profile: profile,
 	}
@@ -711,14 +704,14 @@ func (o *oauthController) UserUpdate(ctx context.Context, sub string, profile *o
 		p.Login = &sub
 	}
 
-	_, err := o.Controller.UserUpdate(ctx, p)
+	_, err := h.UserUpdate(ctx, p)
 
 	return err
 }
 
 // UserVerify should create a email with the verification link for the user
-func (o *oauthController) UserNotify(ctx context.Context, note oauth.Notification) error {
-	o.Log(ctx).WithField("operation", "UserNotify").
+func (h *oauthController) UserNotify(ctx context.Context, note oauth.Notification) error {
+	Log(ctx).WithField("operation", "UserNotify").
 		WithField("type", note.Type()).
 		WithField("sub", note.Subject()).
 		WithField("channels", note.Channels())
@@ -744,13 +737,17 @@ func (u oauthUser) Profile() *openid.Profile {
 	return u.User.Profile
 }
 
-func (u oauthUser) Permissions(aud oauth.Audience) oauth.Scope {
-	return u.User.Permissions.Get(aud.Name())
+func (u oauthUser) Permissions() oauth.Scope {
+	return nil
 }
 
 // ClientID returns the client id
-func (c oauthClient) ClientID() string {
-	return c.ID.String()
+func (c oauthClient) ID() string {
+	return c.Application.ID.String()
+}
+
+func (c oauthClient) Audience() string {
+	return c.aud.ID()
 }
 
 // ClientType returns the client type
@@ -758,60 +755,17 @@ func (c oauthClient) Type() oauth.ClientType {
 	return c.Application.Type
 }
 
-// Authorize authorizes the client for the specified grants, uris, and scopes
-// Used for authorization_code flows
-func (c oauthClient) Authorize(ctx context.Context, aud oauth.Audience, grant oauth.GrantType, uris []oauth.URI, scopes ...oauth.Scope) error {
-	if grant != oauth.GrantTypeNone {
-		if g, ok := c.Grants[aud.Name()]; ok {
-			if !g.Contains(grant) {
-				return oauth.ErrAccessDenied.WithMessage("grant type % not authorized for audience %s", grant, aud)
-			}
-		}
-	}
+func (c oauthClient) AuthorizedGrants() oauth.GrantList {
+	rval := make(oauth.GrantList, 0)
 
-	for _, uri := range uris {
-		found := false
-
-		u, err := uri.Parse()
-		if err != nil {
-			return api.ErrBadRequest.WithMessage("%w: uri %s is invalid", err, u.String())
-		}
-
-		for _, appURI := range c.URIs {
-			uu, _ := appURI.Parse()
-			if uu.Scheme == u.Scheme && u.Host == uu.Host {
-				if ok, _ := filepath.Match(uu.Path, u.Path); ok {
-					found = true
-					break
-				}
-			}
-		}
-
-		if !found {
-			return oauth.ErrAccessDenied.WithMessage("%s is not an authorized uri", u.String())
-		}
-	}
-
-	perms, ok := c.Permissions[aud.Name()]
-	if !ok {
-		return oauth.ErrAccessDenied.WithMessage("client is not authorized for audience %s", aud.Name())
-	}
-
-	for _, s := range scopes {
-		if !perms.Every(s...) {
-			return oauth.ErrAccessDenied.WithMessage("client has insufficient access for request")
-		}
-	}
-
-	return nil
+	return rval
 }
 
 func (a oauthAudience) ID() string {
-	return a.Audience.ID.String()
-}
-
-func (a oauthAudience) Name() string {
-	return a.Audience.Name
+	if a.Audience != nil {
+		return *a.Audience
+	}
+	return a.Instance.ID.String()
 }
 
 func (a oauthAudience) Secrets() []oauth.TokenSecret {
@@ -826,7 +780,7 @@ func (a oauthAudience) Secrets() []oauth.TokenSecret {
 }
 
 func (a oauthAudience) Permissions() oauth.Scope {
-	return a.Audience.Permissions
+	return a.Instance.Permissions
 }
 
 func (a oauthAudience) RefreshTokenLifetime() time.Duration {

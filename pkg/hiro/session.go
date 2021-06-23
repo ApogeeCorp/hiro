@@ -40,7 +40,7 @@ type (
 	// Session is the backend store representation of session.Session
 	Session struct {
 		ID         ID         `json:"id" db:"id"`
-		AudienceID ID         `json:"audience_id" db:"audience_id"`
+		InstanceID ID         `json:"instance_id" db:"instance_id"`
 		UserID     ID         `json:"user_id" db:"user_id"`
 		Data       string     `json:"data" db:"data"`
 		CreatedAt  time.Time  `json:"created_at" db:"created_at"`
@@ -52,44 +52,38 @@ type (
 	SessionKey Secret
 )
 
-func SessionController(c Controller) session.Controller {
-	return &sessionController{
-		Controller: c,
-	}
-}
-
 // SessionCreate creates a session
-func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Session) error {
+func (h *Hiro) SessionCreate(ctx context.Context, sess *session.Session) error {
 	var out Session
 
-	log := s.Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
+	log := Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
-	var p AudienceGetInput
+	var p InstanceGetInput
 	if !ID(sess.Audience).Valid() {
 		p.Name = &sess.Audience
 	} else {
-		p.AudienceID = ID(sess.Audience)
+		p.InstanceID = ID(sess.Audience)
 	}
 
-	aud, err := s.Controller.AudienceGet(ctx, p)
+	inst, err := h.InstanceGet(ctx, p)
 	if err != nil {
 		return err
 	}
 
-	if err := s.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new session")
 
 		stmt, args, err := sq.Insert("hiro.sessions").
 			Columns(
-				"audience_id",
+				"instance_id",
 				"user_id",
 				"data",
 				"expires_at").
 			Values(
-				aud.ID,
+				inst.ID,
 				ID(sess.Subject),
 				sess.Data,
-				time.Now().Add(aud.SessionLifetime),
+				time.Now().Add(inst.SessionLifetime),
 			).
 			PlaceholderFormat(sq.Dollar).
 			Suffix(`RETURNING *`).
@@ -113,7 +107,7 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 
 	*sess = session.Session{
 		ID:        out.ID.String(),
-		Audience:  out.AudienceID.String(),
+		Audience:  out.InstanceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
 		CreatedAt: out.CreatedAt,
@@ -125,14 +119,14 @@ func (s *sessionController) SessionCreate(ctx context.Context, sess *session.Ses
 }
 
 // SessionUpdate saves a session
-func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Session) error {
+func (h *Hiro) SessionUpdate(ctx context.Context, sess *session.Session) error {
 	var out Session
 
-	log := s.Log(ctx).WithField("operation", "SessionUpdate").
+	log := Log(ctx).WithField("operation", "SessionUpdate").
 		WithField("session_id", sess.ID).
 		WithField("user_id", sess.Subject)
 
-	if err := s.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("updating session")
 
 		stmt, args, err := sq.Update("hiro.sessions").
@@ -161,7 +155,7 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 
 	*sess = session.Session{
 		ID:        out.ID.String(),
-		Audience:  out.AudienceID.String(),
+		Audience:  out.InstanceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
 		CreatedAt: out.CreatedAt,
@@ -173,13 +167,13 @@ func (s *sessionController) SessionUpdate(ctx context.Context, sess *session.Ses
 }
 
 // SessionLoad gets a session by id
-func (s *sessionController) SessionLoad(ctx context.Context, id string) (session.Session, error) {
+func (h *Hiro) SessionLoad(ctx context.Context, id string) (session.Session, error) {
 	var out Session
 
-	log := s.Log(ctx).WithField("operation", "SessionLoad").
+	log := Log(ctx).WithField("operation", "SessionLoad").
 		WithField("id", id)
 
-	if err := s.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 
 		stmt, args, err := sq.Select("*").
 			From("hiro.sessions").
@@ -222,7 +216,7 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 
 	return session.Session{
 		ID:        out.ID.String(),
-		Audience:  out.AudienceID.String(),
+		Audience:  out.InstanceID.String(),
 		Subject:   out.UserID.String(),
 		Data:      out.Data,
 		CreatedAt: out.CreatedAt,
@@ -231,8 +225,8 @@ func (s *sessionController) SessionLoad(ctx context.Context, id string) (session
 	}, nil
 }
 
-func (s *sessionController) SessionDestroy(ctx context.Context, id string) error {
-	db := s.Controller.DB(ctx)
+func (h *Hiro) SessionDestroy(ctx context.Context, id string) error {
+	db := h.DB(ctx)
 
 	if _, err := sq.Delete("hiro.sessions").
 		Where(sq.Eq{"id": ID(id)}).
@@ -245,22 +239,22 @@ func (s *sessionController) SessionDestroy(ctx context.Context, id string) error
 	return nil
 }
 
-func (s *sessionController) SessionOptions(ctx context.Context, id string) (session.Options, error) {
-	var p AudienceGetInput
+func (h *Hiro) SessionOptions(ctx context.Context, id string) (session.Options, error) {
+	var p InstanceGetInput
 	if !ID(id).Valid() {
 		p.Name = &id
 	} else {
-		p.AudienceID = ID(id)
+		p.InstanceID = ID(id)
 	}
 
-	aud, err := s.Controller.AudienceGet(ctx, p)
+	inst, err := h.InstanceGet(ctx, p)
 	if err != nil {
 		return session.Options{}, err
 	}
 
 	opts := session.Options{
 		Options: sessions.Options{
-			MaxAge:   int(aud.SessionLifetime.Seconds()),
+			MaxAge:   int(inst.SessionLifetime.Seconds()),
 			HttpOnly: true,
 			Secure:   true,
 			Path:     "/",
@@ -268,7 +262,7 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 		KeyPairs: make([][]byte, 0),
 	}
 
-	for _, k := range aud.SessionKeys {
+	for _, k := range inst.SessionKeys {
 
 		opts.KeyPairs = append(opts.KeyPairs, k.Hash(), k.Block())
 	}
@@ -277,12 +271,12 @@ func (s *sessionController) SessionOptions(ctx context.Context, id string) (sess
 }
 
 // SessionCleanup removes expired sessions
-func (s *sessionController) SessionCleanup(ctx context.Context) error {
-	log := s.Log(ctx).WithField("operation", "SessionCleanup")
+func (h *Hiro) SessionCleanup(ctx context.Context) error {
+	log := Log(ctx).WithField("operation", "SessionCleanup")
 
 	log.Debug("cleaning up sessions")
 
-	db := s.DB(ctx)
+	db := h.DB(ctx)
 
 	if _, err := sq.Delete("hiro.sessions").
 		Where(

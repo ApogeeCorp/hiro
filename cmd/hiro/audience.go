@@ -109,7 +109,7 @@ var (
 	audienceCommand = &cli.Command{
 		Name:    "audience",
 		Aliases: []string{"aud"},
-		Usage:   "Audience management",
+		Usage:   "Instance management",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "id",
@@ -156,7 +156,7 @@ var (
 
 func audienceCreate(c *cli.Context) error {
 	var err error
-	var aud hiro.Audience
+	var aud hiro.Instance
 
 	conn, err := rpcClient(c)
 	if err != nil {
@@ -192,7 +192,7 @@ func audienceCreate(c *cli.Context) error {
 		return errors.New("invalid token_algorithm")
 	}
 
-	a, err := h.AudienceCreate(context.Background(), &pb.AudienceCreateRequest{
+	a, err := h.InstanceCreate(context.Background(), &pb.InstanceCreateRequest{
 		Name:            c.String("name"),
 		Description:     ptr.NilString(c.String("description")),
 		TokenLifetime:   uint64(lifetime.Seconds()),
@@ -202,7 +202,7 @@ func audienceCreate(c *cli.Context) error {
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
-			fmt.Printf("Audience with name %s already exists\n", c.String("name"))
+			fmt.Printf("Instance with name %s already exists\n", c.String("name"))
 			return nil
 		}
 		return err
@@ -210,7 +210,7 @@ func audienceCreate(c *cli.Context) error {
 
 	if m := c.String("token_hmac"); m != "" {
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
-			AudienceId: a.Id,
+			InstanceId: a.Id,
 			Type:       pb.Secret_Token,
 			Algorithm:  pb.Secret_HS256,
 			Key:        &m,
@@ -224,14 +224,14 @@ func audienceCreate(c *cli.Context) error {
 		key := base64.RawURLEncoding.EncodeToString(data)
 
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
-			AudienceId: a.Id,
+			InstanceId: a.Id,
 			Type:       pb.Secret_Token,
 			Algorithm:  pb.Secret_RS256,
 			Key:        &key,
 		})
 	} else {
 		_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
-			AudienceId: a.Id,
+			InstanceId: a.Id,
 			Type:       pb.Secret_Token,
 			Algorithm:  a.TokenAlgorithm,
 		})
@@ -239,7 +239,7 @@ func audienceCreate(c *cli.Context) error {
 
 	// generate a new session secret
 	_, err = h.SecretCreate(context.Background(), &pb.SecretCreateRequest{
-		AudienceId: a.Id,
+		InstanceId: a.Id,
 		Type:       pb.Secret_Session,
 	})
 	if err != nil {
@@ -256,7 +256,7 @@ func audienceCreate(c *cli.Context) error {
 }
 
 func audienceGet(c *cli.Context) error {
-	var aud hiro.Audience
+	var aud hiro.Instance
 
 	conn, err := rpcClient(c)
 	if err != nil {
@@ -266,19 +266,19 @@ func audienceGet(c *cli.Context) error {
 
 	h := pb.NewHiroClient(conn)
 
-	req := &pb.AudienceGetRequest{}
+	req := &pb.InstanceGetRequest{}
 
 	if id := c.String("id"); id != "" {
-		req.GetBy = &pb.AudienceGetRequest_Id{
+		req.GetBy = &pb.InstanceGetRequest_Id{
 			Id: id,
 		}
 	} else if name := c.String("name"); name != "" {
-		req.GetBy = &pb.AudienceGetRequest_Name{
+		req.GetBy = &pb.InstanceGetRequest_Name{
 			Name: name,
 		}
 	}
 
-	rval, err := h.AudienceGet(context.Background(), req)
+	rval, err := h.InstanceGet(context.Background(), req)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func audienceDelete(c *cli.Context) error {
 	id := c.String("id")
 
 	prompt := promptui.Prompt{
-		Label:     fmt.Sprintf("Delete Audience %s", id),
+		Label:     fmt.Sprintf("Delete Instance %s", id),
 		IsConfirm: true,
 	}
 
@@ -312,7 +312,7 @@ func audienceDelete(c *cli.Context) error {
 
 		h := pb.NewHiroClient(conn)
 
-		if _, err := h.AudienceDelete(context.Background(), &pb.AudienceDeleteRequest{
+		if _, err := h.InstanceDelete(context.Background(), &pb.InstanceDeleteRequest{
 			Id: id,
 		}); err != nil {
 			return err
@@ -343,7 +343,7 @@ func audienceList(c *cli.Context) error {
 
 	h := pb.NewHiroClient(conn)
 
-	auds, err := h.AudienceList(context.Background(), &pb.AudienceListRequest{})
+	auds, err := h.InstanceList(context.Background(), &pb.InstanceListRequest{})
 	if err != nil {
 		return err
 	}
@@ -384,7 +384,7 @@ func audienceUpdate(c *cli.Context) error {
 
 	h := pb.NewHiroClient(conn)
 
-	params := pb.AudienceUpdateRequest{
+	params := pb.InstanceUpdateRequest{
 		Id: c.String("id"),
 	}
 
@@ -407,12 +407,12 @@ func audienceUpdate(c *cli.Context) error {
 	}
 
 	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = &pb.AudienceUpdateRequest_PermissionsUpdate{
+		params.Permissions = &pb.InstanceUpdateRequest_PermissionsUpdate{
 			Add: oauth.Scope(perms),
 		}
 	}
 
-	aud, err := h.AudienceUpdate(context.Background(), &params)
+	aud, err := h.InstanceUpdate(context.Background(), &params)
 	if err != nil {
 		return err
 	}

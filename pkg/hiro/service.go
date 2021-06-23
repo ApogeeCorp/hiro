@@ -54,7 +54,7 @@ type (
 		apiOptions  []api.Option
 		rpcServer   *grpc.Server
 		webRPCPath  string
-		backOptions []BackendOption
+		backOptions []HiroOption
 		ctrl        Controller
 		oauthPath   string
 		hiroPath    string
@@ -98,7 +98,7 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		name:        defaultName,
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
-		backOptions: []BackendOption{Automigrate(), Initialize()},
+		backOptions: []HiroOption{Automigrate(), Initialize()},
 		hiroPath:    defaultHiroPath,
 		oauthPath:   defaultOAuthPath,
 		webRPCPath:  defaultWebRPCPath,
@@ -114,16 +114,22 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 	d.log = log.WithField("service", d.name)
 
 	if d.ctrl == nil {
-		back, err := New(d.backOptions...)
+		hiro, err := New(d.backOptions...)
 		if err != nil {
 			return nil, err
 		}
 
-		d.ctrl = back
+		d.ctrl = hiro
+		d.oauthCtrl = hiro.OAuthController()
 	}
 
 	if d.oauthCtrl == nil {
-		d.oauthCtrl = OAuthController(d.ctrl)
+		switch o := d.ctrl.(type) {
+		case oauth.Controller:
+			d.oauthCtrl = o
+		case *Hiro:
+			d.oauthCtrl = o.OAuthController()
+		}
 	}
 
 	// The oauth.Controller doesn't define how tokens are managed, hiro
@@ -135,7 +141,9 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		Do(d.oauthCtrl.TokenCleanup, context.Background())
 
 	if d.sessionCtrl == nil {
-		d.sessionCtrl = SessionController(d.ctrl)
+		if s, ok := d.ctrl.(session.Controller); ok {
+			d.sessionCtrl = s
+		}
 	}
 
 	// start the session cleanup job, same purpose as the token cleanup
@@ -153,16 +161,16 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 	// setup the oauth router
 	d.apiServer.Router(
 		d.oauthPath,
-		api.WithContext(d.oauthCtrl),
+		api.WithContext(func(context.Context) interface{} { return d.oauthCtrl }),
 		api.WithSessionManager(d.sessionMgr),
-		api.WithAuthorizers(oauth.Authorizer(oauth.WithPermitQueryToken(true)))).
+		api.WithAuthorizers(oauth.Authorizer(oauth.WithPermitQueryToken(env.Bool("OAUTH_PERMIT_QUERY_TOKEN", true))))).
 		AddRoutes(oauth.Routes()...)
 
 	// setup the hiro router
 	d.apiServer.Router(
 		d.hiroPath,
 		api.WithVersioning("1.0.0"),
-		api.WithContext(d.ctrl), api.WithAuthorizers(oauth.Authorizer())).
+		api.WithAuthorizers(oauth.Authorizer())).
 		AddRoutes(Routes()...)
 
 	if d.rpcServer == nil {
@@ -203,7 +211,7 @@ func WithServerAddr(addr string) ServiceOption {
 }
 
 // WithBackendOptions sets backend options
-func WithBackendOptions(o []BackendOption) ServiceOption {
+func WithBackendOptions(o []HiroOption) ServiceOption {
 	return func(s *Service) {
 		s.backOptions = o
 	}
@@ -389,12 +397,12 @@ func (d *Service) validateToken(ctx context.Context) error {
 	}
 
 	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
-		aud, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
+		inst, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
 		if err != nil {
 			return nil, err
 		}
 
-		for _, s := range aud.Secrets() {
+		for _, s := range inst.Secrets() {
 			if string(s.ID()) == kid {
 				return s, nil
 			}

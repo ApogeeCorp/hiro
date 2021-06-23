@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/safe"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -60,13 +59,13 @@ type (
 	// TokenParams is the parameters for the token request
 	TokenParams struct {
 		ClientID     string    `json:"client_id"`
-		Audience     *string   `json:"audience,omitempty"`
+		Audience     string    `json:"audience,omitempty"`
 		ClientSecret *string   `json:"client_secret"`
 		GrantType    GrantType `json:"grant_type"`
 		Code         *string   `json:"code,omitempty"`
 		RefreshToken *string   `json:"refresh_token,omitempty"`
 		Scope        Scope     `json:"scope,omitempty"`
-		RedirectURI  *URI      `json:"redirect_uri,omitempty"`
+		RedirectURI  *string   `json:"redirect_uri,omitempty"`
 		CodeVerifier *string   `json:"code_verifier,omitempty"`
 	}
 
@@ -91,9 +90,9 @@ func (p TokenRevokeParams) Validate() error {
 // Validate handles the validation for the TokenParams struct
 func (p TokenParams) Validate() error {
 	return validation.ValidateStruct(&p,
+		validation.Field(&p.Audience, validation.Required),
 		validation.Field(&p.ClientID, validation.Required),
 		validation.Field(&p.ClientSecret, validation.When(p.GrantType == GrantTypeClientCredentials, validation.Required).Else(validation.Nil)),
-		validation.Field(&p.Audience, validation.When(p.GrantType == GrantTypeClientCredentials, validation.Required).Else(validation.Nil)),
 		validation.Field(&p.RedirectURI, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.Nil)),
 		validation.Field(&p.Code, validation.When(p.GrantType == GrantTypeAuthCode, validation.Required).Else(validation.Nil)),
 		validation.Field(&p.RefreshToken, validation.When(p.GrantType == GrantTypeRefreshToken, validation.Required).Else(validation.Nil)),
@@ -106,21 +105,18 @@ func (p TokenParams) Validate() error {
 	)
 }
 
-func issuer(ctx context.Context, aud string) *URI {
+func issuer(ctx context.Context, aud string) *string {
 	r, _ := api.Request(ctx)
 
-	iss := URI(
-		fmt.Sprintf("https://%s%s",
-			r.Host,
-			path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud))),
-	)
+	iss := fmt.Sprintf("https://%s%s",
+		r.Host,
+		path.Clean(path.Join(path.Dir(r.URL.Path), "openid", aud)))
 
 	return &iss
 }
 
 func token(ctx context.Context, params *TokenParams) api.Responder {
 	var bearer *BearerToken
-	var aud Audience
 	var refreshToken *string
 	var req RequestToken
 	var err error
@@ -129,93 +125,97 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "token").WithField("grant_type", params.GrantType)
-
-	client, err := ctrl.ClientGet(ctx, params.ClientID, safe.String(params.ClientSecret))
+	aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: params.Audience})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return api.Error(err)
+	}
+
+	client, err := ctrl.ClientGet(ctx, ClientGetInput{
+		Audience:     params.Audience,
+		ClientID:     params.ClientID,
+		ClientSecret: params.ClientSecret,
+	})
+	if err != nil {
+		return ErrInvalidClient.WithError(err)
+	}
+
+	if !client.AuthorizedGrants().Contains(GrantTypeAuthCode) {
+		return ErrUnauthorizedClient
+	}
+
+	if !client.Permissions().Every(params.Scope...) {
+		return ErrUnauthorized
 	}
 
 	switch params.GrantType {
 	case GrantTypeClientCredentials:
-		aud, err = ctrl.AudienceGet(ctx, *params.Audience)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		if err := client.Authorize(ctx, aud, params.GrantType, []URI{}, params.Scope); err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		access, err := ctrl.TokenCreate(ctx, Token{
-			Issuer:   issuer(ctx, aud.ID()),
-			Audience: *params.Audience,
-			ClientID: params.ClientID,
-			Use:      TokenUseAccess,
-			Scope:    params.Scope,
-		})
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		log.Debugf("access token %s issued", access.ID)
-
-		tokens = append(tokens, access)
-
 		if params.Scope.Contains(ScopeOfflineAccess) {
 			rt, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 				Type:                RequestTokenTypeRefreshToken,
-				Audience:            *params.Audience,
+				Audience:            params.Audience,
 				ClientID:            params.ClientID,
-				ExpiresAt:           Time(time.Now().Add(aud.RefreshTokenLifetime())),
 				Scope:               params.Scope,
 				CodeChallengeMethod: PKCEChallengeMethodNone,
 			})
 			if err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 
 			refreshToken = &rt
 		}
 
-	case GrantTypeRefreshToken:
-		req, err = ctrl.RequestTokenGet(ctx, *params.RefreshToken, RequestTokenTypeRefreshToken)
+		access, err := ctrl.TokenCreate(ctx, Token{
+			Issuer:   issuer(ctx, params.Audience),
+			Audience: params.Audience,
+			ClientID: params.ClientID,
+			Use:      TokenUseAccess,
+			Scope:    params.Scope,
+		})
 		if err != nil {
-			return ErrAccessDenied.WithError(err)
+			return api.Error(err)
+		}
+
+		tokens = append(tokens, access)
+
+	case GrantTypeRefreshToken:
+		req, err = ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+			TokenID:   *params.RefreshToken,
+			TokenType: RequestTokenTypePtr(RequestTokenTypeRefreshToken),
+		})
+		if err != nil {
+			return api.Error(err)
 		}
 		fallthrough
 
 	case GrantTypeAuthCode:
 		if req.Type != RequestTokenTypeRefreshToken {
-			req, err = ctrl.RequestTokenGet(ctx, *params.Code, RequestTokenTypeAuthCode)
+			req, err = ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+				TokenID:   *params.Code,
+				TokenType: RequestTokenTypePtr(RequestTokenTypeAuthCode),
+			})
 			if err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 		}
 
 		if req.CodeChallengeMethod == PKCEChallengeMethodS256 {
 			if err := req.CodeChallenge.Verify(*params.CodeVerifier); err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 		}
 
 		if req.RedirectURI != nil {
 			if params.RedirectURI == nil || *params.RedirectURI != *req.RedirectURI {
-				return ErrAccessDenied.WithDetail("redirect_uri mismatch")
+				return ErrInvalidRequest
 			}
 		}
 
-		if req.ClientID != client.ClientID() {
-			return ErrAccessDenied.WithDetail("client_id mismatch")
-		}
-
-		aud, err = ctrl.AudienceGet(ctx, req.Audience)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
+		if req.ClientID != client.ID() {
+			return ErrInvalidClient
 		}
 
 		access, err := ctrl.TokenCreate(ctx, Token{
-			Issuer:   issuer(ctx, aud.ID()),
+			Issuer:   issuer(ctx, params.Audience),
 			Subject:  req.Subject,
 			Audience: req.Audience,
 			ClientID: req.ClientID,
@@ -223,29 +223,30 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 			Scope:    req.Scope,
 		})
 		if err != nil {
-			return ErrAccessDenied.WithError(err)
+			return api.Error(err)
 		}
-
-		log.Debugf("access token %s issued", access.ID)
 
 		tokens = append(tokens, access)
 
 		if req.Scope.Contains(ScopeOpenID) && req.Subject != nil {
 			id, err := ctrl.TokenCreate(ctx, Token{
-				Issuer:   issuer(ctx, aud.ID()),
+				Issuer:   issuer(ctx, params.Audience),
 				Subject:  req.Subject,
 				Audience: req.Audience,
 				ClientID: req.ClientID,
 				Use:      TokenUseIdentity,
-				AuthTime: &req.CreatedAt,
+				AuthTime: req.CreatedAt,
 			})
 			if err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 
-			user, err := ctrl.UserGet(ctx, safe.String(req.Subject))
+			user, err := ctrl.UserGet(ctx, UserGetInput{
+				Audience: params.Audience,
+				Subject:  req.Subject,
+			})
 			if err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 
 			if user.Profile() != nil {
@@ -283,24 +284,17 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 				}
 			}
 
-			log.Debugf("identity token %s issued", id.ID)
-
 			tokens = append(tokens, id)
 		}
 
 		if req.Scope.Contains(ScopeOfflineAccess) {
-			// convert the request to a refresh token
-			if req.Type != RequestTokenTypeRefreshToken {
-				// existing tokens should have the same expiration
-				req.ExpiresAt = Time(time.Now().Add(aud.RefreshTokenLifetime()))
-			}
 			req.Type = RequestTokenTypeRefreshToken
 			req.RedirectURI = nil
 			req.AppURI = nil
 
 			rt, err := ctrl.RequestTokenCreate(ctx, req)
 			if err != nil {
-				return ErrAccessDenied.WithError(err)
+				return api.Error(err)
 			}
 
 			refreshToken = &rt
@@ -314,7 +308,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 	bearer, err = NewBearer(secrets[rand.Intn(len(secrets))], tokens...)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return api.Error(err)
 	}
 	bearer.RefreshToken = refreshToken
 
@@ -342,12 +336,14 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 	ctrl := api.Context(ctx).(Controller)
 
 	if len(params.Token) == 22 {
-		token, err := ctrl.TokenGet(ctx, params.Token)
+		token, err := ctrl.TokenGet(ctx, TokenGetInput{
+			TokenID: params.Token,
+		})
 		if err != nil {
 			return api.Error(err)
 		}
 
-		if token.ExpiresAt.Time().After(time.Now()) {
+		if !token.Expired() {
 			token.Claims["active"] = true
 		}
 
@@ -359,7 +355,7 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 	api.RequirePrincipal(ctx, &token)
 
 	t, err := ParseBearer(params.Token, func(kid string, c Claims) (TokenSecret, error) {
-		aud, err := ctrl.AudienceGet(ctx, c.Audience())
+		aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: c.Audience()})
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +372,7 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 		return api.Error(err)
 	}
 
-	if t.ExpiresAt.Time().After(time.Now()) {
+	if !t.Expired() {
 		t.Claims["active"] = true
 	}
 
@@ -412,7 +408,9 @@ func tokenRevoke(ctx context.Context, params *TokenRevokeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	if len(params.Token) == 22 {
-		if err := ctrl.TokenRevoke(ctx, params.Token); err != nil {
+		if err := ctrl.TokenRevoke(ctx, TokenRevokeInput{
+			TokenID: &params.Token,
+		}); err != nil {
 			return api.Error(err)
 		}
 

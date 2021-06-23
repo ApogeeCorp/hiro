@@ -27,7 +27,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/safe"
@@ -38,15 +37,15 @@ import (
 type (
 	// AuthorizeParams contains all the bound params for the authorize operation
 	AuthorizeParams struct {
-		AppURI              URI                  `json:"app_uri"`
+		AppURI              string               `json:"app_uri"`
 		Audience            string               `json:"audience"`
 		ClientID            string               `json:"client_id"`
 		CodeChallenge       PKCEChallenge        `json:"code_challenge"`
-		CodeChallengeMethod *PKCEChallengeMethod `json:"code_challenge_method"`
-		RedirectURI         *URI                 `json:"redirect_uri"`
+		CodeChallengeMethod *PKCEChallengeMethod `json:"code_challenge_method,omitempty"`
+		RedirectURI         string               `json:"redirect_uri"`
 		ResponseType        string               `json:"response_type"`
 		Scope               Scope                `json:"scope"`
-		State               *string              `json:"state"`
+		State               *string              `json:"state,omitempty"`
 	}
 
 	// AuthorizeRoute is the authorize route handler
@@ -71,7 +70,7 @@ func (p AuthorizeParams) Validate() error {
 		validation.Field(&p.ClientID, validation.Required),
 		validation.Field(&p.CodeChallenge, validation.Required),
 		validation.Field(&p.CodeChallengeMethod, validation.NilOrNotEmpty),
-		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
+		validation.Field(&p.RedirectURI, validation.Required, is.RequestURI),
 		validation.Field(&p.ResponseType, validation.Required, validation.In("code")),
 		validation.Field(&p.Scope, validation.NilOrNotEmpty),
 	)
@@ -80,63 +79,53 @@ func (p AuthorizeParams) Validate() error {
 func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "authorize")
-
-	// ensure the audience is valid
-	aud, err := ctrl.AudienceGet(ctx, params.Audience)
-	if err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
-	}
-
 	// ensure this is a valid client
-	client, err := ctrl.ClientGet(ctx, params.ClientID)
+	client, err := ctrl.ClientGet(ctx, ClientGetInput{
+		Audience: params.Audience,
+		ClientID: params.ClientID,
+	})
 	if err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(ErrClientNotFound)
 	}
 
-	// authorize this client for the grant, uris, and scope
-	uris := []URI{params.AppURI}
-	if params.RedirectURI != nil {
-		uris = append(uris, *params.RedirectURI)
-	}
-
-	// User's cannot request verification scopes
-	params.Scope = params.Scope.Without(ScopeEmailVerify, ScopePhoneVerify)
-
-	if err := client.Authorize(
-		ctx,
-		aud,
-		GrantTypeAuthCode,
-		uris,
-		params.Scope,
-	); err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
-	}
-
-	// parse the api uri
-	u, err := params.AppURI.Parse()
+	// validate the redirect uri
+	rdrURI, err := EnsureURI(ctx, params.RedirectURI, client.RedirectEndpoints())
 	if err != nil {
-		log.Error(err.Error())
-
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	store, err := api.SessionManager(ctx).GetStore(ctx, aud.ID())
+	// validate the app uri
+	appURI, err := EnsureURI(ctx, params.AppURI, client.ApplicationEndpoints())
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		return api.Redirect(rdrURI).WithError(err)
+	}
+
+	// ensure this client is allowed authorization code grant
+	if !client.AuthorizedGrants().Contains(GrantTypeAuthCode) {
+		return api.Redirect(rdrURI).WithError(ErrUnauthorizedClient)
+	}
+
+	// check the scope
+	if len(params.Scope) > 0 {
+		if params.Scope.Contains(ScopeEmailVerify) || params.Scope.Contains(ScopePhoneVerify) {
+			return api.Redirect(rdrURI).WithError(ErrInvalidScope)
+		}
+
+		if !client.Permissions().Every(params.Scope...) {
+			return api.Redirect(rdrURI).WithError(ErrForbidden)
+		}
+	}
+
+	store, err := api.SessionManager(ctx).GetStore(ctx, params.Audience)
+	if err != nil {
+		return api.Redirect(rdrURI).WithError(err)
 	}
 
 	// check for a session
 	r, _ := api.Request(ctx)
-	session, err := store.Get(r, fmt.Sprintf("hiro-session#%s", aud.ID()))
+	session, err := store.Get(r, fmt.Sprintf("%s%s", SessionPrefix, params.Audience))
 	if err != nil {
-		return api.ErrServerError.WithError(err)
+		return api.Redirect(rdrURI).WithError(err)
 	}
 
 	if !session.IsNew {
@@ -144,68 +133,54 @@ func authorize(ctx context.Context, params *AuthorizeParams) api.Responder {
 			// create a new auth code
 			code, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 				Type:                RequestTokenTypeAuthCode,
-				Audience:            string(params.Audience),
-				ClientID:            string(params.ClientID),
+				Audience:            params.Audience,
+				ClientID:            params.ClientID,
 				Subject:             &sub,
-				ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
 				Scope:               params.Scope,
 				CodeChallenge:       params.CodeChallenge,
 				CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
 				AppURI:              &params.AppURI,
-				RedirectURI:         params.RedirectURI,
+				RedirectURI:         &params.RedirectURI,
 			})
 			if err != nil {
-				api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-			}
-
-			log.Debugf("auth code %s created", code)
-
-			if params.RedirectURI != nil {
-				u, err = params.RedirectURI.Parse()
-				if err != nil {
-					return ErrAccessDenied.WithError(err)
-				}
+				api.Redirect(rdrURI).WithError(err)
 			}
 
 			// parse the redirect uri
-			q := u.Query()
+			q := rdrURI.Query()
 			q.Set("code", code)
 
 			if params.State != nil {
 				q.Set("state", *params.State)
 			}
-			u.RawQuery = q.Encode()
+			rdrURI.RawQuery = q.Encode()
 
-			return api.Redirect(u)
+			return api.Redirect(rdrURI)
 		}
 	}
 
 	// create a new login request
 	token, err := ctrl.RequestTokenCreate(ctx, RequestToken{
 		Type:                RequestTokenTypeLogin,
-		Audience:            string(params.Audience),
-		ClientID:            string(params.ClientID),
-		ExpiresAt:           Time(time.Now().Add(time.Minute * 10)),
+		Audience:            params.Audience,
+		ClientID:            params.ClientID,
 		Scope:               params.Scope,
 		CodeChallenge:       params.CodeChallenge,
 		CodeChallengeMethod: PKCEChallengeMethod(safe.String(params.CodeChallengeMethod, PKCEChallengeMethodS256)),
 		AppURI:              &params.AppURI,
-		RedirectURI:         params.RedirectURI,
+		RedirectURI:         &params.RedirectURI,
 		State:               params.State,
 	})
 	if err != nil {
-		log.Error(err.Error())
-
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(rdrURI).WithError(err)
 	}
-	log.Debugf("request token %s created", token)
 
-	q := u.Query()
+	q := appURI.Query()
 	q.Set(RequestTokenParam, token)
 
-	u.RawQuery = q.Encode()
+	appURI.RawQuery = q.Encode()
 
-	return api.Redirect(u)
+	return api.Redirect(appURI)
 }
 
 // Name implements api.Route

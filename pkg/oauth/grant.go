@@ -24,10 +24,6 @@
 package oauth
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
-
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -37,9 +33,6 @@ type (
 
 	// GrantList is a list of grants
 	GrantList []GrantType
-
-	// Grants is a mapping of grants to audiece
-	Grants map[string]GrantList
 )
 
 const (
@@ -87,54 +80,4 @@ func (g GrantList) Unique() GrantList {
 		}
 	}
 	return list
-}
-
-// Validate validates the Grants type
-func (g Grants) Validate() error {
-	return validation.Validate(map[string]GrantList(g), validation.Each())
-}
-
-// Get returns the scope for the audience
-func (g Grants) Get(a string) GrantList {
-	if l, ok := g[a]; ok {
-		return l
-	}
-	return GrantList{}
-}
-
-// Set sets a value in scope set
-func (g Grants) Set(a string, t ...GrantType) {
-	g[a] = t
-}
-
-// Append appends to the scope set
-func (g Grants) Append(a string, t ...GrantType) {
-	if g[a] == nil {
-		g[a] = make(GrantList, 0)
-	}
-	g[a] = append(g[a], t...)
-}
-
-// Value returns PermissionSet as a value that can be stored as json in the database
-func (g Grants) Value() (driver.Value, error) {
-	grants := make(Grants)
-	for k, v := range g {
-		grants[k] = v.Unique()
-	}
-
-	return json.Marshal(grants)
-}
-
-// Scan reads a json value from the database into a PermissionSet
-func (g Grants) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if err := json.Unmarshal(b, &g); err != nil {
-		return err
-	}
-
-	return nil
 }

@@ -28,6 +28,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 
 	"github.com/ModelRocket/hiro/pkg/api"
@@ -38,7 +39,7 @@ import (
 type (
 	// OIDConfigInput is the input for the jwks route
 	OIDConfigInput struct {
-		Audience string `json:"audience_id"`
+		Audience string `json:"audience"`
 	}
 
 	// OpenIDConfigRoute is the openid-configuration route
@@ -46,7 +47,7 @@ type (
 
 	// JWKSInput is the input for the jwks route
 	JWKSInput struct {
-		Audience string `json:"audience_id"`
+		Audience string `json:"audience"`
 	}
 
 	// JWKSRoute is the jwks route
@@ -59,48 +60,52 @@ func (j JWKSInput) Validate() error {
 		validation.Field(&j.Audience, validation.Required))
 }
 
+func uriAppend(base string, paths ...string) string {
+	v, _ := url.Parse(base)
+	v.Path = path.Join(append([]string{path.Dir(v.Path)}, paths...)...)
+	return v.String()
+}
+
 func openidConfig(ctx context.Context, params *OIDConfigInput) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	r, _ := api.Request(ctx)
 
-	aud, err := ctrl.AudienceGet(ctx, params.Audience)
+	aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: params.Audience})
 	if err != nil {
 		return ErrAudienceNotFound.WithError(err)
 	}
 
-	issuer := URI(
-		fmt.Sprintf("https://%s%s",
-			r.Host,
-			path.Clean(path.Join(path.Dir(r.URL.Path), ".."))),
-	)
+	issuer := fmt.Sprintf("https://%s%s",
+		r.Host,
+		path.Clean(path.Join(path.Dir(r.URL.Path), "..")))
 
 	config := struct {
-		Issuer                 URI         `json:"issuer"`
-		JWKSURI                URI         `json:"jwks_uri"`
-		AuthorizationEndpoint  URI         `json:"authorization_endpoint"`
+		Issuer                 string      `json:"issuer"`
+		JWKSURI                string      `json:"jwks_uri"`
+		AuthorizationEndpoint  string      `json:"authorization_endpoint"`
 		ResponseTypesSupported []string    `json:"response_type_supported"`
 		SubjectTypesSupported  []string    `json:"subject_types_supported"`
 		SigningAlgSupported    []string    `json:"id_token_signing_alg_values_supported"`
-		TokenEndpoint          URI         `json:"token_endpoint"`
-		IntrospectionEndpoint  URI         `json:"introspection_endpoint"`
-		UserInfoEndpoint       URI         `json:"userinfo_endpoint"`
-		EndSessionEndpoint     URI         `json:"end_session_endpoint"`
-		RevocationEndpoint     URI         `json:"revocation_endpoint"`
+		TokenEndpoint          string      `json:"token_endpoint"`
+		IntrospectionEndpoint  string      `json:"introspection_endpoint"`
+		UserInfoEndpoint       string      `json:"userinfo_endpoint"`
+		EndSessionEndpoint     string      `json:"end_session_endpoint"`
+		RevocationEndpoint     string      `json:"revocation_endpoint"`
 		GrantTypesSupported    []GrantType `json:"grant_types_supported"`
 		ScopesSupported        Scope       `json:"scopes_supported"`
 	}{
 		Issuer:                 issuer,
-		JWKSURI:                issuer.Append(aud.ID(), ".well-known/jwks.json"),
-		AuthorizationEndpoint:  issuer.Append("..", "authorize"),
+		JWKSURI:                uriAppend(issuer, aud.ID(), ".well-known/jwks.json"),
+		AuthorizationEndpoint:  uriAppend(issuer, "..", "authorize"),
 		ResponseTypesSupported: []string{"code"},
 		SubjectTypesSupported:  []string{"public"},
 		SigningAlgSupported:    []string{"RS256", "HS256"},
-		TokenEndpoint:          issuer.Append("..", "token"),
-		IntrospectionEndpoint:  issuer.Append("..", "token-introspect"),
-		UserInfoEndpoint:       issuer.Append("..", "userInfo"),
-		EndSessionEndpoint:     issuer.Append("..", "logout"),
-		RevocationEndpoint:     issuer.Append("..", "token-revoke"),
+		TokenEndpoint:          uriAppend(issuer, "..", "token"),
+		IntrospectionEndpoint:  uriAppend(issuer, "..", "token-introspect"),
+		UserInfoEndpoint:       uriAppend(issuer, "..", "userInfo"),
+		EndSessionEndpoint:     uriAppend(issuer, "..", "logout"),
+		RevocationEndpoint:     uriAppend(issuer, "..", "token-revoke"),
 		GrantTypesSupported: []GrantType{
 			GrantTypeAuthCode,
 			GrantTypeClientCredentials,
@@ -132,7 +137,7 @@ func jwks(ctx context.Context, params *JWKSInput) api.Responder {
 
 	keys := make([]jose.JSONWebKey, 0)
 
-	aud, err := ctrl.AudienceGet(ctx, params.Audience)
+	aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: params.Audience})
 	if err != nil {
 		return ErrAudienceNotFound.WithError(err)
 	}

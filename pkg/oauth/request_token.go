@@ -24,6 +24,8 @@
 package oauth
 
 import (
+	"time"
+
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -34,18 +36,18 @@ type (
 	RequestToken struct {
 		ID                  ID
 		Type                RequestTokenType
-		CreatedAt           Time
+		CreatedAt           int64
 		Audience            string
 		ClientID            string
 		Subject             *string
 		Passcode            *string
 		Uses                int
 		Scope               Scope
-		ExpiresAt           Time
+		ExpiresAt           int64
 		CodeChallenge       PKCEChallenge
 		CodeChallengeMethod PKCEChallengeMethod
-		AppURI              *URI
-		RedirectURI         *URI
+		AppURI              *string
+		RedirectURI         *string
 		State               *string
 	}
 
@@ -73,25 +75,32 @@ const (
 	RequestTokenTypeRefreshToken RequestTokenType = "refresh_token"
 )
 
+func (t RequestTokenType) Validate() error {
+	return validation.Validate(string(t), validation.In("login", "session", "verify", "invite", "auth_code", "refresh_token"))
+}
+
+func RequestTokenTypePtr(t RequestTokenType) *RequestTokenType {
+	return &t
+}
+
 // Validate validates the Request
 func (r RequestToken) Validate() error {
 	return validation.ValidateStruct(&r,
-		validation.Field(&r.Type, validation.Required, validation.In(
-			RequestTokenTypeLogin,
-			RequestTokenTypeSession,
-			RequestTokenTypeInvite,
-			RequestTokenTypeVerify,
-			RequestTokenTypeAuthCode,
-			RequestTokenTypeRefreshToken)),
+		validation.Field(&r.Type, validation.Required),
 		validation.Field(&r.Audience, validation.Required),
 		validation.Field(&r.ClientID, validation.Required),
 		validation.Field(&r.Subject, validation.NilOrNotEmpty),
 		validation.Field(&r.CodeChallenge, validation.Required),
 		validation.Field(&r.CodeChallengeMethod, validation.Required),
 		validation.Field(&r.ExpiresAt, validation.Required),
-		validation.Field(&r.AppURI, validation.Required, is.RequestURI),
-		validation.Field(&r.RedirectURI, validation.Required, is.RequestURI),
+		validation.Field(&r.AppURI, validation.NilOrNotEmpty, is.RequestURI),
+		validation.Field(&r.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
 		validation.Field(&r.Scope, validation.Required),
 		validation.Field(&r.State, validation.NilOrNotEmpty),
 	)
+}
+
+// Expired returns true if the token is expired
+func (r RequestToken) Expired() bool {
+	return time.Unix(r.ExpiresAt, 0).Before(time.Now())
 }

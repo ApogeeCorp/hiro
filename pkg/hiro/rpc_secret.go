@@ -38,7 +38,7 @@ func (s Secret) ToProto() *pb.Secret {
 	return &pb.Secret{
 		Id:         s.ID.String(),
 		Type:       apiSecretMap[s.Type],
-		AudienceId: s.AudienceID.String(),
+		InstanceId: s.InstanceID.String(),
 		Algorithm:  &algo,
 		Key:        s.Key,
 	}
@@ -55,7 +55,7 @@ func (s *Secret) FromProto(p *pb.Secret) {
 	s.ID = ID(p.Id)
 	s.Type = pbSecretMap[p.Type]
 	s.Algorithm = &algo
-	s.AudienceID = ID(p.AudienceId)
+	s.InstanceID = ID(p.InstanceId)
 	s.Key = p.Key
 }
 
@@ -65,7 +65,7 @@ func (s *RPCServer) SecretCreate(ctx context.Context, params *pb.SecretCreateReq
 
 	sec, err := s.Controller.SecretCreate(ctx, SecretCreateInput{
 		Type:       pbSecretMap[params.Type],
-		AudienceID: ID(params.AudienceId),
+		InstanceID: ID(params.InstanceId),
 		Algorithm:  &algo,
 		Key:        params.Key,
 	})

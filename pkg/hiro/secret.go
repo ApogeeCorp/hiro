@@ -49,7 +49,7 @@ type (
 	Secret struct {
 		ID         ID                    `json:"id" db:"id"`
 		Type       SecretType            `json:"type"`
-		AudienceID ID                    `json:"audience_id" db:"audience_id"`
+		InstanceID ID                    `json:"instance_id" db:"instance_id"`
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty" db:"algorithm"`
 		Key        string                `json:"key" db:"key"`
 		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
@@ -58,7 +58,7 @@ type (
 
 	// SecretCreateInput is the params used to create a secret
 	SecretCreateInput struct {
-		AudienceID ID                    `json:"audience_id"`
+		InstanceID ID                    `json:"instance_id"`
 		Type       SecretType            `json:"type"`
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty"`
 		Key        *string               `json:"key,omitempty"`
@@ -87,10 +87,10 @@ const (
 	SecretTypeSession SecretType = "session"
 )
 
-// ValidateWithContext handles validation of the AudienceCreateInput struct
+// ValidateWithContext handles validation of the InstanceCreateInput struct
 func (s SecretCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&s,
-		validation.Field(&s.AudienceID, validation.Required),
+		validation.Field(&s.InstanceID, validation.Required),
 		validation.Field(&s.Type, validation.Required, validation.In(SecretTypeToken, SecretTypeSession)),
 		validation.Field(&s.Algorithm, validation.When(s.Type == SecretTypeToken, validation.Required).Else(validation.Nil)),
 	)
@@ -104,10 +104,10 @@ func (s SecretDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // SecretCreate creates a new secret, generating the key if not is provided
-func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error) {
+func (b *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error) {
 	var secret Secret
 
-	log := b.Log(ctx).WithField("operation", "SecretCreate").WithField("secret_type", params.Type)
+	log := Log(ctx).WithField("operation", "SecretCreate").WithField("secret_type", params.Type)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -190,13 +190,13 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 
 		stmt, args, err := sq.Insert("hiro.secrets").
 			Columns(
-				"audience_id",
+				"instance_id",
 				"type",
 				"algorithm",
 				"key",
 				"expires_at").
 			Values(
-				params.AudienceID,
+				params.InstanceID,
 				params.Type,
 				params.Algorithm,
 				params.Key,
@@ -227,9 +227,9 @@ func (b *Backend) SecretCreate(ctx context.Context, params SecretCreateInput) (*
 	return &secret, nil
 }
 
-// SecretDelete deletes an audience by id
-func (b *Backend) SecretDelete(ctx context.Context, params SecretDeleteInput) error {
-	log := b.Log(ctx).WithField("operation", "SecretDelete").WithField("audience", params.SecretID)
+// SecretDelete deletes an instance by id
+func (b *Hiro) SecretDelete(ctx context.Context, params SecretDeleteInput) error {
+	log := Log(ctx).WithField("operation", "SecretDelete").WithField("instance", params.SecretID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())

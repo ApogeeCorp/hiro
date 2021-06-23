@@ -29,8 +29,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/ptr"
@@ -45,7 +45,7 @@ type (
 		Notify       []NotificationChannel `json:"notify"`
 		Type         PasswordType          `json:"type"`
 		RequestToken string                `json:"request_token"`
-		RedirectURI  *URI                  `json:"redirect_uri,omitempty"`
+		RedirectURI  string                `json:"redirect_uri"`
 		CodeVerifier string                `json:"code_verifier"`
 	}
 
@@ -54,9 +54,9 @@ type (
 
 	// PasswordUpdateParams are used by the password update route
 	PasswordUpdateParams struct {
-		Password    string `json:"password"`
-		ResetToken  string `json:"reset_token"`
-		RedirectURI *URI   `json:"redirect_uri"`
+		Password    string  `json:"password"`
+		ResetToken  string  `json:"reset_token"`
+		RedirectURI *string `json:"redirect_uri,omitempty"`
 	}
 
 	// PasswordUpdateRoute is the password update handler
@@ -73,9 +73,10 @@ type (
 	}
 
 	passwordNotification struct {
-		login        string
+		audience     string
+		subject      string
 		passwordType PasswordType
-		uri          *URI
+		link         *string
 		code         string
 		notify       []NotificationChannel
 	}
@@ -108,7 +109,7 @@ func (p PasswordCreateParams) Validate() error {
 		validation.Field(&p.Type, validation.Required),
 		validation.Field(&p.Notify, validation.Required, validation.Each(validation.In(NotificationChannelEmail, NotificationChannelPhone))),
 		validation.Field(&p.RequestToken, validation.Required),
-		validation.Field(&p.RedirectURI, validation.NilOrNotEmpty, is.RequestURI),
+		validation.Field(&p.RedirectURI, validation.Required, is.RequestURI),
 		validation.Field(&p.CodeVerifier, validation.Required),
 	)
 }
@@ -125,46 +126,58 @@ func (p PasswordUpdateParams) Validate() error {
 func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
-	log := api.Log(ctx).WithField("operation", "passwordCreate").WithField("login", params.Login)
-
-	req, err := ctrl.RequestTokenGet(ctx, params.RequestToken, RequestTokenTypeLogin)
+	req, err := ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+		TokenID:   params.RequestToken,
+		TokenType: RequestTokenTypePtr(RequestTokenTypeLogin),
+	})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	// parse the app uri
-	u, err := req.AppURI.Parse()
+	// errors will be redirect back to the app endpoint of the original request
+	appURI, err := url.Parse(*req.AppURI)
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
 	}
 
-	if req.ExpiresAt.Time().Before(time.Now()) {
-		return api.Redirect(u).WithError(err)
+	if req.Expired() {
+		return api.Redirect(appURI).WithError(ErrExpiredToken)
 	}
 
 	if err := req.CodeChallenge.Verify(params.CodeVerifier); err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 	}
 
-	user, err := ctrl.UserGet(ctx, params.Login)
+	// validate the redirect uri
+	client, err := ctrl.ClientGet(ctx, ClientGetInput{
+		Audience: req.Audience,
+		ClientID: req.ClientID,
+	})
 	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(appURI).WithError(ErrForbidden.WithError(err))
 	}
-	req.Subject = ptr.String(user.Subject())
+
+	rdrURI, err := EnsureURI(ctx, params.RedirectURI, client.RedirectEndpoints())
+	if err != nil {
+		return api.Redirect(appURI).WithError(ErrForbidden)
+	}
+
+	user, err := ctrl.UserGet(ctx, UserGetInput{
+		Audience: req.Audience,
+		Login:    &params.Login,
+	})
+	if err != nil {
+		return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
+	}
+
+	req.Subject = ptr.String(user.ID())
 
 	// The new token is for sessions which should be one time use
 	req.Type = RequestTokenTypeSession
 
-	// Links are cood for 1 hour, codes are good for 10 minutes
-	if params.Type.IsLink() {
-		req.ExpiresAt = Time(time.Now().Add(time.Hour * 1))
-	} else {
-		req.ExpiresAt = Time(time.Now().Add(time.Minute * 10))
-	}
-
 	if params.Type == PasswordTypeCode {
 		// generate a simple OTP for the this request
-		req.Passcode = ptr.String(generatePasscode(6))
+		req.Passcode = ptr.String(generatePasscode(PasscodeLength))
 
 	} else if params.Type == PasswordTypeReset {
 		// the user will need the password reset scope for thier magic link token
@@ -172,14 +185,13 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 		// create a password reset token that the user will use to change their password
 		passToken, err := ctrl.RequestTokenCreate(ctx, RequestToken{
-			Type:      RequestTokenTypeVerify,
-			Subject:   req.Subject,
-			ClientID:  req.ClientID,
-			Audience:  req.Audience,
-			ExpiresAt: req.ExpiresAt,
+			Type:     RequestTokenTypeVerify,
+			Subject:  req.Subject,
+			ClientID: req.ClientID,
+			Audience: req.Audience,
 		})
 		if err != nil {
-			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+			return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 		}
 
 		req.Passcode = &passToken
@@ -187,11 +199,12 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 	reqToken, err := ctrl.RequestTokenCreate(ctx, req)
 	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 	}
 
 	note := &passwordNotification{
-		login:        params.Login,
+		audience:     req.Audience,
+		subject:      user.ID(),
 		passwordType: params.Type,
 		notify:       params.Notify,
 		code:         *req.Passcode,
@@ -203,28 +216,23 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 		token, err := ctrl.TokenCreate(ctx, Token{
 			Issuer:    issuer(ctx, req.Audience),
-			Subject:   ptr.String(user.Subject()),
+			Subject:   ptr.String(user.ID()),
 			Audience:  req.Audience,
 			ClientID:  req.ClientID,
 			Use:       TokenUseAccess,
-			ExpiresAt: Time(time.Now().Add(time.Hour * 1)).Ptr(),
 			Revokable: true,
 			Scope:     Scope{ScopeSession},
 		})
 		if err != nil {
-			log.Error(err.Error())
-
-			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+			return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 		}
 
-		link, err := URI(
+		link, err := url.Parse(
 			fmt.Sprintf("https://%s%s",
 				r.Host,
-				path.Clean(path.Join(path.Dir(r.URL.Path), "session")))).Parse()
+				path.Clean(path.Join(path.Dir(r.URL.Path), "session"))))
 		if err != nil {
-			log.Error(err.Error())
-
-			return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+			return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 		}
 
 		q := link.Query()
@@ -233,39 +241,14 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 
 		link.RawQuery = q.Encode()
 
-		note.uri = URI(link.String()).Ptr()
+		note.link = ptr.String(link.String())
 	}
 
 	if err := ctrl.UserNotify(ctx, note); err != nil {
-		log.Error(err.Error())
-
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
+		return api.Redirect(appURI).WithError(ErrUnauthorized.WithError(err))
 	}
 
-	if params.RedirectURI != nil {
-		aud, err := ctrl.AudienceGet(ctx, req.Audience)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		client, err := ctrl.ClientGet(ctx, req.ClientID)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		req.RedirectURI = params.RedirectURI
-	}
-
-	u, err = req.RedirectURI.Parse()
-	if err != nil {
-		return api.Redirect(u).WithError(ErrAccessDenied.WithError(err))
-	}
-
-	q := u.Query()
+	q := rdrURI.Query()
 	if !params.Type.IsLink() {
 		q.Set("request_token", reqToken)
 	}
@@ -273,9 +256,9 @@ func passwordCreate(ctx context.Context, params *PasswordCreateParams) api.Respo
 		q.Set("state", *req.State)
 	}
 
-	u.RawQuery = q.Encode()
+	rdrURI.RawQuery = q.Encode()
 
-	return api.Redirect(u)
+	return api.Redirect(rdrURI)
 }
 
 // Name implements api.Route
@@ -300,49 +283,48 @@ func passwordUpdate(ctx context.Context, params *PasswordUpdateParams) api.Respo
 
 	api.RequirePrincipal(ctx, &token, api.PrincipalTypeUser)
 
-	log := api.Log(ctx).
-		WithField("operation", "passwordUpdate").
-		WithField("sub", token.Subject)
-
-	req, err := ctrl.RequestTokenGet(ctx, params.ResetToken, RequestTokenTypeVerify)
+	req, err := ctrl.RequestTokenGet(ctx, RequestTokenGetInput{
+		TokenID:   params.ResetToken,
+		TokenType: RequestTokenTypePtr(RequestTokenTypeVerify),
+	})
 	if err != nil {
-		return ErrAccessDenied.WithError(err)
+		return ErrUnauthorized.WithError(err)
+	}
+
+	var u *url.URL
+
+	if params.RedirectURI != nil {
+		client, err := ctrl.ClientGet(ctx, ClientGetInput{
+			Audience: token.Audience,
+			ClientID: token.ClientID,
+		})
+		if err != nil {
+			return ErrUnauthorized.WithError(err)
+		}
+
+		u, err = EnsureURI(ctx, *params.RedirectURI, client.RedirectEndpoints())
+		if err != nil {
+			return ErrUnauthorized.WithError(err)
+		}
+	}
+
+	if req.Expired() {
+		return api.RedirectErrIf(u != nil, u, ErrExpiredToken)
 	}
 
 	if *req.Subject != *token.Subject {
-		return ErrAccessDenied.WithDetail("subject does not match")
+		return api.RedirectErrIf(u != nil, u, ErrUnauthorized.WithDetail("subject does not match"))
 	}
 
-	log.Debug("updating user password")
-
-	if err := ctrl.UserSetPassword(ctx, *token.Subject, params.Password); err != nil {
-		return api.Error(err)
+	if _, err := ctrl.UserUpdate(ctx, UserUpdateInput{
+		Audience: token.Audience,
+		Subject:  token.Subject,
+		Password: &params.Password,
+	}); err != nil {
+		return api.RedirectErrIf(u != nil, u, err)
 	}
 
-	if params.RedirectURI != nil {
-		aud, err := ctrl.AudienceGet(ctx, req.Audience)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		client, err := ctrl.ClientGet(ctx, req.ClientID)
-		if err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		if err := client.Authorize(ctx, aud, GrantTypeNone, []URI{*params.RedirectURI}); err != nil {
-			return ErrAccessDenied.WithError(err)
-		}
-
-		u, err := req.RedirectURI.Parse()
-		if err != nil {
-			return api.ErrBadRequest.WithError(err)
-		}
-
-		api.Redirect(u)
-	}
-
-	return api.NewResponse().WithStatus(http.StatusNoContent)
+	return api.RedirectIf(u != nil, u)
 }
 
 // Name implements api.Route
@@ -374,12 +356,22 @@ func (n passwordNotification) Type() NotificationType {
 	return NotificationTypePassword
 }
 
-func (n passwordNotification) Subject() string {
-	return n.login
+func (n passwordNotification) Audience() string {
+	return n.audience
 }
 
-func (n passwordNotification) URI() *URI {
-	return n.uri
+func (n passwordNotification) Subject() string {
+	return n.subject
+}
+
+func (n passwordNotification) Context() map[string]interface{} {
+	rval := make(map[string]interface{})
+
+	if n.link != nil {
+		rval["link"] = *n.link
+	}
+
+	return rval
 }
 
 func (n passwordNotification) PasswordType() PasswordType {

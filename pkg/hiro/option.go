@@ -55,7 +55,7 @@ type (
 
 	// OptionUpdateInput is the option update input
 	OptionUpdateInput struct {
-		AudienceID       ID     `json:"audience_id"`
+		InstanceID       ID     `json:"instance_id"`
 		Name             string `json:"name"`
 		Option           Option `json:"-"`
 		suppressHandlers bool
@@ -79,13 +79,13 @@ type (
 	Option interface {
 		Name() string
 		SetName(string)
-		Audience() string
-		SetAudience(string)
+		Instance() string
+		SetInstance(string)
 	}
 
 	option struct {
 		name     string
-		audience string
+		instance string
 		m        common.Map
 	}
 )
@@ -105,7 +105,7 @@ var (
 // Validate validates OptionUpdateInput
 func (o OptionUpdateInput) Validate() error {
 	return validation.Errors{
-		"audience_id": validation.Validate(o.AudienceID, validation.Required),
+		"instance_id": validation.Validate(o.InstanceID, validation.Required),
 		"name":        validation.Validate(o.Name, validation.Required),
 	}.Filter()
 }
@@ -125,7 +125,7 @@ func (o OptionRemoveInput) Validate() error {
 }
 
 // OptionUpdate stores a named option in the backend data store
-func (b *Backend) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Option, error) {
+func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Option, error) {
 	log := api.Log(ctx).WithField("operation", "OptionUpdate").WithField("option", params.Name)
 
 	if err := params.Validate(); err != nil {
@@ -137,10 +137,10 @@ func (b *Backend) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (
 
 	if _, err := b.db.ExecContext(
 		ctx,
-		`INSERT INTO options (audience_id, name, value) 
+		`INSERT INTO options (instance_id, name, value) 
 			VALUES($1, $2, COALESCE(value, '{}') || $3) 
-			ON CONFLICT (audience_id,name) SET value=COALESCE(value, '{}') || $3`,
-		params.AudienceID,
+			ON CONFLICT (instance_id,name) SET value=COALESCE(value, '{}') || $3`,
+		params.InstanceID,
 		params.Name,
 		params.Option,
 	); err != nil {
@@ -180,7 +180,7 @@ func (b *Backend) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (
 }
 
 // OptionGet returns a named option from the backend
-func (b *Backend) OptionGet(ctx context.Context, params *OptionGetInput) (Option, error) {
+func (b *Hiro) OptionGet(ctx context.Context, params *OptionGetInput) (Option, error) {
 	data := make([]byte, 0)
 
 	if v, ok := optionCache.Get(params.Name); ok {
@@ -211,7 +211,7 @@ func (b *Backend) OptionGet(ctx context.Context, params *OptionGetInput) (Option
 }
 
 // OptionRemove removes the named option from the backend
-func (b *Backend) OptionRemove(ctx context.Context, params *OptionRemoveInput) error {
+func (b *Hiro) OptionRemove(ctx context.Context, params *OptionRemoveInput) error {
 	_, err := b.db.ExecContext(ctx, `DELETE FROM options WHERE name=$1`, params.Name)
 
 	optionLock.Lock()
@@ -267,14 +267,14 @@ func (o *option) SetName(val string) {
 	o.name = val
 }
 
-// Audience returns the audience
-func (o *option) Audience() string {
-	return o.audience
+// Instance returns the instance
+func (o *option) Instance() string {
+	return o.instance
 }
 
-// SetAudience sets the audience
-func (o *option) SetAudience(val string) {
-	o.audience = val
+// SetInstance sets the instance
+func (o *option) SetInstance(val string) {
+	o.instance = val
 }
 
 // UnmarshalOptionSlice unmarshals polymorphic slices of Option

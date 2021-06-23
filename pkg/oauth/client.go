@@ -24,7 +24,7 @@
 package oauth
 
 import (
-	"context"
+	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -32,23 +32,34 @@ import (
 type (
 	// Client is an oauth client interface
 	Client interface {
-		// ClientID returns the client id
-		ClientID() string
+		Principal
 
 		// Type returns the client type
 		Type() ClientType
 
-		// Authorize authorizes the client for the specified grants, uris, and scopes
-		// Used for authorization_code flows
-		Authorize(ctx context.Context, aud Audience, grant GrantType, uris []URI, scopes ...Scope) error
+		// AuthorizedGrants returns the grants this client is authorized to use
+		AuthorizedGrants() GrantList
+
+		// ApplicationEndpoints are uris that can be used as valid application flow redirects
+		ApplicationEndpoints() []string
+
+		// RedirectEndpoints are uris that can be used as valid authorization flow redirects
+		RedirectEndpoints() []string
 	}
 
 	// ClientType is an oauth client type
 	ClientType string
+
+	AuthorizeClientInput struct {
+		GrantType   GrantType
+		AppURI      *string
+		RedirectURI *string
+		Scope       Scope
+		Request     *http.Request
+	}
 )
 
 const (
-
 	// ClientTypeWeb defines a web based client type
 	// 	Web based clients are restricted from passing client_secret values
 	// 	and using password grants

@@ -3,9 +3,9 @@
 ## Controller
 The `hiro.Controller` interface is designed to built on-top of the `hiro.Backend` implementation, but it is abstracted into an interface to simplify testing and improve extensibility such that it could be provided over other interfaces easily like grpc.
 
-The interface is responsbile for managing the CRUD operations and persistence of audiences, applications, roles, users, and secrets.
+The interface is responsbile for managing the CRUD operations and persistence of instances, applications, roles, users, and secrets.
 
-### Audiences
+### Instances
 
 #### Secrets
 ### Applications

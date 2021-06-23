@@ -30,13 +30,9 @@ import (
 type (
 	// User is an oauth user interface
 	User interface {
-		// Subject is the user subject identifier
-		Subject() string
+		Principal
 
 		// Profile returns the users openid profile claims, filtering on the provided scope
 		Profile() *openid.Profile
-
-		// Permissions returns the users permissions for the specified audience
-		Permissions(aud Audience) Scope
 	}
 )

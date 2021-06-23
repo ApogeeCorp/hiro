@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/ModelRocket/hiro/pkg/api"
 )
@@ -70,8 +69,6 @@ func (a authorizer) Authorize(r *http.Request, rt api.Route) (api.Principal, err
 	switch c := api.Context(ctx).(type) {
 	case Controller:
 		ctrl = c
-	case ControllerProxy:
-		ctrl = c.OAuthController()
 	default:
 		return nil, api.ErrAuthUnacceptable
 	}
@@ -87,27 +84,27 @@ func (a authorizer) Authorize(r *http.Request, rt api.Route) (api.Principal, err
 	}
 
 	if bearer == "" {
-		return nil, fmt.Errorf("%w: token not present", ErrAccessDenied)
+		return nil, fmt.Errorf("%w: token not present", ErrUnauthorized)
 	}
 
 	// check for a token id
 	if isQuery && len(bearer) == 22 && a.permitQueryToken {
-		token, err = ctrl.TokenGet(ctx, bearer)
+		token, err = ctrl.TokenGet(ctx, TokenGetInput{TokenID: bearer})
 		if err != nil {
-			return nil, ErrAccessDenied.WithError(err)
+			return nil, ErrUnauthorized.WithError(err)
 		}
 
 		if token.RevokedAt != nil {
 			return nil, ErrRevokedToken
-		} else if token.ExpiresAt != nil && token.ExpiresAt.Time().Before(time.Now()) {
+		} else if token.Expired() {
 			return nil, ErrExpiredToken
 		}
 	} else {
 		if isQuery && !a.permitQueryBearer {
-			return nil, ErrAccessDenied.WithDetail("access token not permited in query")
+			return nil, ErrUnauthorized.WithDetail("access token not permited in query")
 		}
 		token, err = ParseBearer(bearer, func(kid string, c Claims) (TokenSecret, error) {
-			aud, err := ctrl.AudienceGet(ctx, c.Audience())
+			aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: c.Audience()})
 			if err != nil {
 				return nil, err
 			}

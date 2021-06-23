@@ -57,7 +57,7 @@ var (
 )
 
 // ToProto converts the audiece to its protobuf conterpart
-func (a Audience) ToProto() (*pb.Audience, error) {
+func (a Instance) ToProto() (*pb.Instance, error) {
 	secrets := make([]*pb.Secret, 0)
 
 	for _, s := range a.Secrets {
@@ -79,7 +79,7 @@ func (a Audience) ToProto() (*pb.Audience, error) {
 		return nil, err
 	}
 
-	return &pb.Audience{
+	return &pb.Instance{
 		Id:              a.ID.String(),
 		Name:            a.Name,
 		Slug:            a.Slug,
@@ -95,8 +95,8 @@ func (a Audience) ToProto() (*pb.Audience, error) {
 	}, err
 }
 
-// FromProto convert the proto audience to an api audience
-func (a *Audience) FromProto(p *pb.Audience) {
+// FromProto convert the proto instance to an api instance
+func (a *Instance) FromProto(p *pb.Instance) {
 	a.Secrets = make([]*Secret, 0)
 
 	for _, s := range p.Secrets {
@@ -126,9 +126,9 @@ func (a *Audience) FromProto(p *pb.Audience) {
 	a.Metadata = p.Metadata.AsMap()
 }
 
-// AudienceCreate implements the pb.HiroServer interface
-func (s *RPCServer) AudienceCreate(ctx context.Context, params *pb.AudienceCreateRequest) (*pb.Audience, error) {
-	aud, err := s.Controller.AudienceCreate(ctx, AudienceCreateInput{
+// InstanceCreate implements the pb.HiroServer interface
+func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreateRequest) (*pb.Instance, error) {
+	inst, err := s.Controller.InstanceCreate(ctx, InstanceCreateInput{
 		Name:            params.Name,
 		Description:     params.Description,
 		TokenAlgorithm:  pbAlgoMap[params.TokenAlgorithm],
@@ -141,14 +141,14 @@ func (s *RPCServer) AudienceCreate(ctx context.Context, params *pb.AudienceCreat
 		return nil, err
 	}
 
-	return aud.ToProto()
+	return inst.ToProto()
 }
 
-// AudienceUpdate implements the pb.HiroServer interface
-func (s *RPCServer) AudienceUpdate(ctx context.Context, params *pb.AudienceUpdateRequest) (*pb.Audience, error) {
+// InstanceUpdate implements the pb.HiroServer interface
+func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdateRequest) (*pb.Instance, error) {
 	var algo *oauth.TokenAlgorithm
 	var tl, sl *time.Duration
-	var perms *AudiencePermissionsUpdate
+	var perms *InstancePermissionsUpdate
 
 	if params.TokenAlgorithm != nil {
 		a := pbAlgoMap[*params.TokenAlgorithm]
@@ -164,14 +164,14 @@ func (s *RPCServer) AudienceUpdate(ctx context.Context, params *pb.AudienceUpdat
 	}
 
 	if params.Permissions != nil {
-		perms = &AudiencePermissionsUpdate{
+		perms = &InstancePermissionsUpdate{
 			Add:       params.Permissions.Add,
 			Remove:    params.Permissions.Remove,
 			Overwrite: params.Permissions.Overwrite,
 		}
 	}
 
-	aud, err := s.Controller.AudienceUpdate(ctx, AudienceUpdateInput{
+	inst, err := s.Controller.InstanceUpdate(ctx, InstanceUpdateInput{
 		Name:            params.Name,
 		Description:     params.Description,
 		TokenAlgorithm:  algo,
@@ -184,13 +184,13 @@ func (s *RPCServer) AudienceUpdate(ctx context.Context, params *pb.AudienceUpdat
 		return nil, err
 	}
 
-	return aud.ToProto()
+	return inst.ToProto()
 }
 
-// AudienceGet implements the pb.HiroServer interface
-func (s *RPCServer) AudienceGet(ctx context.Context, params *pb.AudienceGetRequest) (*pb.Audience, error) {
-	a, err := s.Controller.AudienceGet(ctx, AudienceGetInput{
-		AudienceID: ID(params.GetId()),
+// InstanceGet implements the pb.HiroServer interface
+func (s *RPCServer) InstanceGet(ctx context.Context, params *pb.InstanceGetRequest) (*pb.Instance, error) {
+	a, err := s.Controller.InstanceGet(ctx, InstanceGetInput{
+		InstanceID: ID(params.GetId()),
 		Name:       ptr.NilString(params.GetName()),
 	})
 	if err != nil {
@@ -200,9 +200,9 @@ func (s *RPCServer) AudienceGet(ctx context.Context, params *pb.AudienceGetReque
 	return a.ToProto()
 }
 
-// AudienceList implements the pb.HiroServer interface
-func (s *RPCServer) AudienceList(req *pb.AudienceListRequest, stream pb.Hiro_AudienceListServer) error {
-	auds, err := s.Controller.AudienceList(stream.Context(), AudienceListInput{
+// InstanceList implements the pb.HiroServer interface
+func (s *RPCServer) InstanceList(req *pb.InstanceListRequest, stream pb.Hiro_InstanceListServer) error {
+	auds, err := s.Controller.InstanceList(stream.Context(), InstanceListInput{
 		Limit:  &req.Limit,
 		Offset: &req.Offset,
 	})
@@ -221,10 +221,10 @@ func (s *RPCServer) AudienceList(req *pb.AudienceListRequest, stream pb.Hiro_Aud
 	return nil
 }
 
-// AudienceDelete implements the pb.HiroServer interface
-func (s *RPCServer) AudienceDelete(ctx context.Context, params *pb.AudienceDeleteRequest) (*empty.Empty, error) {
-	err := s.Controller.AudienceDelete(ctx, AudienceDeleteInput{
-		AudienceID: ID(params.Id),
+// InstanceDelete implements the pb.HiroServer interface
+func (s *RPCServer) InstanceDelete(ctx context.Context, params *pb.InstanceDeleteRequest) (*empty.Empty, error) {
+	err := s.Controller.InstanceDelete(ctx, InstanceDeleteInput{
+		InstanceID: ID(params.Id),
 	})
 
 	return nil, err

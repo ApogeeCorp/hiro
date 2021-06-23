@@ -46,7 +46,7 @@ type (
 	// Role is the database model for an role
 	Role struct {
 		ID          ID             `json:"id" db:"id"`
-		AudienceID  ID             `json:"audience_id" db:"audience_id"`
+		InstanceID  ID             `json:"instance_id" db:"instance_id"`
 		Name        string         `json:"name" db:"name"`
 		Slug        string         `json:"slug" db:"slug"`
 		Description *string        `json:"description,omitempty" db:"description"`
@@ -58,7 +58,7 @@ type (
 
 	// RoleCreateInput is the role create request
 	RoleCreateInput struct {
-		AudienceID  ID             `json:"audience_id"`
+		InstanceID  ID             `json:"instance_id"`
 		Name        string         `json:"name"`
 		Description *string        `json:"description,omitempty"`
 		Permissions oauth.ScopeSet `json:"permissions,omitempty"`
@@ -70,7 +70,7 @@ type (
 		RoleID      ID                 `json:"id" structs:"-"`
 		Name        *string            `json:"name" structs:"name,omitempty"`
 		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
-		Permissions *PermissionsUpdate `json:"permissions,omitempty" structs:"-"`
+		Permissions *PermissionUpdate `json:"permissions,omitempty" structs:"-"`
 		Metadata    common.Map         `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
@@ -97,14 +97,14 @@ type (
 
 	rolePatchInput struct {
 		Role        *Role
-		Permissions *PermissionsUpdate
+		Permissions *PermissionUpdate
 	}
 )
 
 // ValidateWithContext handles validation of the RoleCreateInput struct
 func (a RoleCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.AudienceID, validation.Required),
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
@@ -142,10 +142,10 @@ func (a RoleDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // RoleCreate create a new permission object
-func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error) {
+func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error) {
 	var role Role
 
-	log := b.Log(ctx).WithField("operation", "RoleCreate").WithField("name", params.Name)
+	log := Log(ctx).WithField("operation", "RoleCreate").WithField("name", params.Name)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -158,12 +158,12 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 
 		stmt, args, err := sq.Insert("hiro.roles").
 			Columns(
-				"audience_id",
+				"instance_id",
 				"name",
 				"description",
 				"metadata").
 			Values(
-				params.AudienceID,
+				params.InstanceID,
 				params.Name,
 				null.String(params.Description),
 				null.JSON(params.Metadata),
@@ -181,7 +181,7 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 			return ParseSQLError(err)
 		}
 
-		return b.rolePatch(ctx, rolePatchInput{&role, &PermissionsUpdate{Add: params.Permissions}})
+		return b.rolePatch(ctx, rolePatchInput{&role, &PermissionUpdate{Add: params.Permissions}})
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
 			r, err := b.RoleGet(ctx, RoleGetInput{
@@ -205,10 +205,10 @@ func (b *Backend) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role
 }
 
 // RoleUpdate updates an role by id, including child objects
-func (b *Backend) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error) {
+func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error) {
 	var role Role
 
-	log := b.Log(ctx).WithField("operation", "RoleUpdate").WithField("id", params.RoleID)
+	log := Log(ctx).WithField("operation", "RoleUpdate").WithField("id", params.RoleID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -265,10 +265,10 @@ func (b *Backend) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role
 }
 
 // RoleGet gets an role by id and optionally preloads child objects
-func (b *Backend) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) {
+func (b *Hiro) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) {
 	var suffix string
 
-	log := b.Log(ctx).WithField("operation", "RoleGet").
+	log := Log(ctx).WithField("operation", "RoleGet").
 		WithField("id", params.RoleID).
 		WithField("name", params.Name)
 
@@ -325,8 +325,8 @@ func (b *Backend) RoleGet(ctx context.Context, params RoleGetInput) (*Role, erro
 }
 
 // RoleList returns a listing of roles
-func (b *Backend) RoleList(ctx context.Context, params RoleListInput) ([]*Role, error) {
-	log := b.Log(ctx).WithField("operation", "RoleList")
+func (b *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, error) {
+	log := Log(ctx).WithField("operation", "RoleList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
@@ -365,38 +365,38 @@ func (b *Backend) RoleList(ctx context.Context, params RoleListInput) ([]*Role, 
 	return roles, nil
 }
 
-func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
-	log := b.Log(ctx).WithField("operation", "rolePatch").WithField("role", params.Role.ID)
+func (b *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
+	log := Log(ctx).WithField("operation", "rolePatch").WithField("role", params.Role.ID)
 
 	db := b.DB(ctx)
 
 	for audID, perms := range params.Permissions.Add {
 		if !ID(audID).Valid() {
-			aud, err := b.AudienceGet(ctx, AudienceGetInput{
+			inst, err := b.InstanceGet(ctx, InstanceGetInput{
 				Name: &audID,
 			})
 			if err != nil {
-				err = fmt.Errorf("%w: lookup for audience named %s failed", err, audID)
+				err = fmt.Errorf("%w: lookup for instance named %s failed", err, audID)
 
 				log.Error(err.Error())
 
 				return err
 			}
 
-			audID = aud.ID.String()
+			audID = inst.ID.String()
 		}
 
 		if params.Permissions.Overwrite {
 			if _, err := sq.Delete("hiro.role_permissions").
 				Where(
 					sq.Eq{
-						"audience_id": ID(audID),
+						"instance_id": ID(audID),
 						"role_id":     params.Role.ID,
 					}).
 				PlaceholderFormat(sq.Dollar).
 				RunWith(db).
 				ExecContext(ctx); err != nil {
-				log.Errorf("failed to delete permissions for audience: %s", audID, err)
+				log.Errorf("failed to delete permissions for instance: %s", audID, err)
 
 				return ParseSQLError(err)
 			}
@@ -404,7 +404,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 
 		for _, p := range perms.Unique() {
 			_, err := sq.Insert("hiro.role_permissions").
-				Columns("role_id", "audience_id", "permission").
+				Columns("role_id", "instance_id", "permission").
 				Values(
 					params.Role.ID,
 					ID(audID),
@@ -415,7 +415,7 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 				PlaceholderFormat(sq.Dollar).
 				ExecContext(ctx)
 			if err != nil {
-				log.Errorf("failed to update audience permissions %s: %s", audID, err)
+				log.Errorf("failed to update instance permissions %s: %s", audID, err)
 
 				return ParseSQLError(err)
 			}
@@ -424,32 +424,32 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 
 	for audID, perms := range params.Permissions.Remove {
 		if !ID(audID).Valid() {
-			aud, err := b.AudienceGet(ctx, AudienceGetInput{
+			inst, err := b.InstanceGet(ctx, InstanceGetInput{
 				Name: &audID,
 			})
 			if err != nil {
-				err = fmt.Errorf("%w: lookup for audience named %s failed", err, audID)
+				err = fmt.Errorf("%w: lookup for instance named %s failed", err, audID)
 
 				log.Error(err.Error())
 
 				return err
 			}
 
-			audID = aud.ID.String()
+			audID = inst.ID.String()
 		}
 
 		for _, p := range perms {
 			if _, err := sq.Delete("hiro.role_permissions").
 				Where(
 					sq.Eq{
-						"audience_id": ID(audID),
+						"instance_id": ID(audID),
 						"role_id":     params.Role.ID,
 						"permission":  p,
 					}).
 				PlaceholderFormat(sq.Dollar).
 				RunWith(db).
 				ExecContext(ctx); err != nil {
-				log.Errorf("failed to delete permissions for audience: %s", audID, err)
+				log.Errorf("failed to delete permissions for instance: %s", audID, err)
 
 				return ParseSQLError(err)
 			}
@@ -459,23 +459,23 @@ func (b *Backend) rolePatch(ctx context.Context, params rolePatchInput) error {
 	return nil
 }
 
-func (b *Backend) rolePreload(ctx context.Context, role *Role) (*Role, error) {
-	log := b.Log(ctx).WithField("operation", "rolePreload").WithField("role", role.ID)
+func (b *Hiro) rolePreload(ctx context.Context, role *Role) (*Role, error) {
+	log := Log(ctx).WithField("operation", "rolePreload").WithField("role", role.ID)
 
 	db := b.DB(ctx)
 
 	perms := []struct {
-		Audience   string `db:"audience"`
+		Instance   string `db:"instance"`
 		Permission string `db:"permission"`
 	}{}
 
 	if err := db.SelectContext(
 		ctx,
 		&perms,
-		`SELECT a.name as audience, p.permission 
+		`SELECT a.name as instance, p.permission 
 		  FROM hiro.role_permissions p
-		  LEFT JOIN hiro.audiences a
-			  ON  a.id = p.audience_id
+		  LEFT JOIN hiro.instances a
+			  ON  a.id = p.instance_id
 		  WHERE p.role_id=$1`,
 		role.ID); err != nil {
 		log.Errorf("failed to load role permissions %s: %s", role.ID, err)
@@ -485,15 +485,15 @@ func (b *Backend) rolePreload(ctx context.Context, role *Role) (*Role, error) {
 
 	role.Permissions = make(oauth.ScopeSet)
 	for _, p := range perms {
-		role.Permissions.Append(p.Audience, p.Permission)
+		role.Permissions.Append(p.Instance, p.Permission)
 	}
 
 	return role, nil
 }
 
 // RoleDelete deletes an role by id
-func (b *Backend) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
-	log := b.Log(ctx).WithField("operation", "RoleDelete").WithField("role", params.RoleID)
+func (b *Hiro) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
+	log := Log(ctx).WithField("operation", "RoleDelete").WithField("role", params.RoleID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
 		log.Error(err.Error())
