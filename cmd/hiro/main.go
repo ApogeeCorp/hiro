@@ -85,6 +85,7 @@ func main() {
 	app.Commands = []*cli.Command{
 		instanceCommand,
 		userCommand,
+		serverCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {

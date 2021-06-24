@@ -49,7 +49,7 @@ type (
 		Name        string       `json:"name" db:"name"`
 		Slug        string       `json:"slug" db:"slug"`
 		Description *string      `json:"description,omitempty" db:"description"`
-		Default     bool         `json:"default": db:"default"`
+		Default     bool         `json:"default" db:"is_default"`
 		Permissions []Permission `json:"permissions,omitempty" db:"-"`
 		CreatedAt   time.Time    `json:"created_at" db:"created_at"`
 		UpdatedAt   *time.Time   `json:"updated_at,omitempty" db:"updated_at"`

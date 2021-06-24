@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     instance_id UUID NOT NULL,
-    audince VARCHAR(1024),
+    audience VARCHAR(1024),
     application_id UUID NOT NULL,
     client_id CHAR(22) NOT NULL,
     user_id UUID,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS hiro.request_tokens(
 
 CREATE INDEX IF NOT EXISTS request_token_app ON hiro.request_tokens(application_id, type);
 CREATE INDEX IF NOT EXISTS request_token_user ON hiro.request_tokens(user_id, type);
-CREATE INDEX IF NOT EXISTS request_token_aud ON hiro.request_tokens(audiece);
+CREATE INDEX IF NOT EXISTS request_token_aud ON hiro.request_tokens(audience);
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied

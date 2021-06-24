@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS hiro.access_tokens(
     audince VARCHAR(1024),
     application_id UUID NOT NULL,
     client_id CHAR(22) NOT NULL,
-    application_id UUID NOT NULL,
     issuer TEXT,
     user_id UUID,
     token_use VARCHAR(64),

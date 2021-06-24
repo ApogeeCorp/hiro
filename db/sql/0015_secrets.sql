@@ -8,11 +8,11 @@ CREATE TABLE IF NOT EXISTS hiro.secrets(
     key TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMPTZ,
-    default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IN NOT EXISTS secret_default ON hiro.secrets(instance_id, default) WHERE default;
+CREATE UNIQUE INDEX IF NOT EXISTS secret_default ON hiro.secrets(instance_id, is_default) WHERE is_default IS TRUE;
 
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied

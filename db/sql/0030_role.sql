@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS hiro.roles(
     name VARCHAR(64) NOT NULL,
     slug VARCHAR(64) NOT NULL,
     description VARCHAR(1024),
-    default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     metadata JSONB,
     FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE
 );

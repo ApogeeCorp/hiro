@@ -54,7 +54,7 @@ type (
 		Key        string                `json:"key" db:"key"`
 		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
 		ExpiresAt  *time.Time            `json:"expires_at,omitempty" db:"expires_at"`
-		Default    bool                  `json:"default" db:"default"`
+		Default    bool                  `json:"default" db:"is_default"`
 	}
 
 	// SecretCreateInput is the params used to create a secret

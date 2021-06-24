@@ -126,6 +126,10 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		}
 	}
 
+	if h, ok := d.ctrl.(*Hiro); ok && d.oauthCtrl == nil {
+		d.oauthCtrl = h.OAuthController()
+	}
+
 	// The oauth.Controller doesn't define how tokens are managed, hiro
 	// starts a cron job to ensure expired and revoked tokens are periodically
 	// removed from the database or are at least marked unusable.
