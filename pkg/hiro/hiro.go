@@ -56,9 +56,7 @@ type (
 
 var (
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
-	Scopes = oauth.Scope{
-		ScopeInstanceRead,
-		ScopeInstanceWrite,
+	Scopes = append(oauth.Scopes,
 		ScopeApplicationRead,
 		ScopeApplicationWrite,
 		ScopeUserRead,
@@ -72,11 +70,25 @@ var (
 		ScopeRoleWrite,
 		ScopeAssetRead,
 		ScopeAssetWrite,
-	}
+	)
+
+	ScopesReadOnly = append(oauth.Scopes,
+		ScopeApplicationRead,
+		ScopeUserRead,
+		ScopeTokenRead,
+		ScopeTokenCreate,
+		ScopeTokenRevoke,
+		ScopeSessionRead,
+		ScopeSessionRevoke,
+		ScopeRoleRead,
+		ScopeAssetRead,
+	)
 
 	// Roles is the list of hiro roles by name
 	Roles = map[string]oauth.Scope{
-		"admin": Scopes,
+		RoleSuperAdmin: append(Scopes, ScopeInstanceRead, ScopeInstanceWrite),
+		RoleAdmin:      Scopes,
+		RoleUser:       append(ScopesReadOnly, ScopeUserWrite),
 	}
 
 	contextKeyHiro   contextKey = "hiro:context"
@@ -91,7 +103,31 @@ const (
 	DefaultTokenLifetime = time.Hour
 
 	// DefaultSessionLifetime is the default instance session lifetime
-	DefaultSessionLifetime = time.Hour * 24 * 30
+	DefaultSessionLifetime = time.Hour * 24
+
+	// DefaultRefreshTokenLifetime is the default refresh token lifetime
+	DefaultRefreshTokenLifetime = time.Hour * 24 * 7
+
+	// DefaultLoginTokenLifetime is the default login token lifetime used for magic links, etc
+	DefaultLoginTokenLifetime = time.Minute * 15
+
+	// DefaultInviteTokenLifetime is  the token lifetime for invitation links
+	DefaultInviteTokenLifetime = time.Hour * 24 * 7
+
+	// DefaultVerifyTokenLifetime is the default two-factor verification code lifetime
+	DefaultVerifyTokenLifetime = time.Hour * 24
+
+	// DefaultAuthCodeLifetime is the default lifetime for oauth auth codes
+	DefaultAuthCodeLifetime = time.Minute * 10
+
+	// RoleSuperAdmin is the superadmin scope
+	RoleSuperAdmin = "superadmin"
+
+	// RoleAdmin is the default admin role name
+	RoleAdmin = "admin"
+
+	// RoleUser is the default user role
+	RoleUser = "user"
 )
 
 // New returns a new hiro backend

@@ -104,15 +104,16 @@ func (a authorizer) Authorize(r *http.Request, rt api.Route) (api.Principal, err
 			return nil, ErrUnauthorized.WithDetail("access token not permited in query")
 		}
 		token, err = ParseBearer(bearer, func(kid string, c Claims) (TokenSecret, error) {
-			aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: c.Audience()})
+			client, err := ctrl.ClientGet(ctx, ClientGetInput{
+				Audience: c.Audience(),
+				ClientID: c.ClientID(),
+			})
 			if err != nil {
 				return nil, err
 			}
 
-			for _, s := range aud.Secrets() {
-				if s.ID() == kid {
-					return s, nil
-				}
+			if client.TokenSecret().ID() == kid {
+				return client.TokenSecret(), nil
 			}
 
 			return nil, ErrKeyNotFound

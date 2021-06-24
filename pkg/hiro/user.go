@@ -66,6 +66,7 @@ type (
 
 	// UserCreateInput is the user create request input
 	UserCreateInput struct {
+		InstanceID        ID              `json:"instance_id"`
 		Login             string          `json:"login"`
 		Password          *string         `json:"password,omitempty"`
 		Roles             []UserRole      `json:"roles,omitempty"`
@@ -101,22 +102,25 @@ type (
 
 	// UserGetInput is used to get an user for the id
 	UserGetInput struct {
-		UserID ID                 `json:"user_id,omitempty"`
-		Expand common.StringSlice `json:"expand,omitempty"`
-		Login  *string            `json:"-"`
+		InstanceID *ID                `json:"instance_id,omitempty"`
+		UserID     ID                 `json:"user_id,omitempty"`
+		Expand     common.StringSlice `json:"expand,omitempty"`
+		Login      *string            `json:"-"`
 	}
 
 	// UserListInput is the user list request
 	UserListInput struct {
-		Expand common.StringSlice `json:"expand,omitempty"`
-		Limit  *uint64            `json:"limit,omitempty"`
-		Offset *uint64            `json:"offset,omitempty"`
-		Count  *uint64            `json:"count,omitempty"`
+		InstanceID *ID                `json:"instance_id,omitempty"`
+		Expand     common.StringSlice `json:"expand,omitempty"`
+		Limit      *uint64            `json:"limit,omitempty"`
+		Offset     *uint64            `json:"offset,omitempty"`
+		Count      *uint64            `json:"count,omitempty"`
 	}
 
 	// UserDeleteInput is the user delete request input
 	UserDeleteInput struct {
-		UserID ID `json:"user_id"`
+		InstanceID *ID `json:"instance_id,omitempty"`
+		UserID     ID  `json:"user_id"`
 	}
 
 	userPatchInput struct {

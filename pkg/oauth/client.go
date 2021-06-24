@@ -37,6 +37,9 @@ type (
 		// Type returns the client type
 		Type() ClientType
 
+		// TokenSecret returns the client token secret
+		TokenSecret() TokenSecret
+
 		// AuthorizedGrants returns the grants this client is authorized to use
 		AuthorizedGrants() GrantList
 

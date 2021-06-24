@@ -21,13 +21,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
@@ -50,21 +47,25 @@ var (
 			Usage: "The application type",
 			Value: "web",
 		},
-		&cli.GenericFlag{
+		&cli.StringSliceFlag{
 			Name:    "permissions",
 			Aliases: []string{"p"},
-			Usage:   "Application permissions, in the format audience=perm1,perm2,permn",
-			Value:   permArg{},
-		},
-		&cli.GenericFlag{
-			Name:    "grants",
-			Aliases: []string{"g"},
-			Usage:   "Application grants, in the format audience=client_credentials,refresh_token",
-			Value:   grantArg{},
+			Usage:   "Application permissions",
 		},
 		&cli.StringSliceFlag{
-			Name:  "uri",
-			Usage: "Specify the authorized redirect uris for this application",
+			Name:    "grants",
+			Aliases: []string{"g"},
+			Usage:   "Application grants",
+		},
+		&cli.StringSliceFlag{
+			Name:    "application-endpoint",
+			Aliases: []string{"aep"},
+			Usage:   "Specify the authorized application endpoints for this application",
+		},
+		&cli.StringSliceFlag{
+			Name:    "redirect-endpoint",
+			Aliases: []string{"rep"},
+			Usage:   "Specify the authorized redirect endpoints for this application",
 		},
 	}
 
@@ -116,31 +117,12 @@ var (
 	}
 )
 
-type (
-	permArg  map[string]oauth.Scope
-	grantArg map[string]oauth.GrantType
-)
-
 func applicationCreate(c *cli.Context) error {
 
 	return nil
 }
 
 func applicationGet(c *cli.Context) error {
-	var params hiro.ApplicationGetInput
-
-	if id := hiro.ID(c.String("id")); id.Valid() {
-		params.ApplicationID = id
-	} else if name := c.String("name"); name != "" {
-		params.Name = &name
-	}
-
-	app, err := h.ApplicationGet(context.Background(), params)
-	if err != nil {
-		return err
-	}
-
-	dumpValue(app)
 
 	return nil
 }
@@ -205,85 +187,5 @@ func applicationList(c *cli.Context) error {
 }
 
 func applicationUpdate(c *cli.Context) error {
-	var err error
-
-	params := hiro.ApplicationUpdateInput{
-		ApplicationID: hiro.ID(c.String("id")),
-		Permissions: &hiro.PermissionUpdate{
-			Add:       oauth.ScopeSet(c.Generic("permissions").(permArg)),
-			Overwrite: true,
-		},
-		Grants: oauth.Grants(c.Generic("grants").(grantArg)),
-	}
-
-	if name := c.String("name"); name != "" {
-		params.Name = &name
-	}
-
-	if desc := c.String("description"); desc != "" {
-		params.Description = &desc
-	}
-
-	if uris := c.StringSlice("uri"); len(uris) > 0 {
-		params.Endpoints = oauth.MakeURIList(c.StringSlice("uri")...)
-	}
-
-	app, err := h.ApplicationUpdate(context.Background(), params)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Application %s [%s] updated.\n", app.Name, app.ID)
-
-	dumpValue(app)
-
-	return err
-}
-
-func (m permArg) Set(value string) error {
-	parts := strings.Split(value, "=")
-	if len(parts) == 0 {
-		return nil
-	}
-
-	if len(parts) != 2 {
-		return errors.New("argument requires two parts")
-	}
-
-	if m[parts[0]] == nil {
-		m[parts[0]] = make([]string, 0)
-	}
-
-	m[parts[0]] = append(m[parts[0]], strings.Split(parts[1], ",")...)
-
 	return nil
-}
-
-func (m permArg) String() string {
-	return ""
-}
-
-func (m grantArg) Set(value string) error {
-	parts := strings.Split(value, "=")
-	if len(parts) == 0 {
-		return nil
-	}
-
-	if len(parts) != 2 {
-		return errors.New("argument requires two parts")
-	}
-
-	if m[parts[0]] == nil {
-		m[parts[0]] = make([]oauth.GrantType, 0)
-	}
-
-	for _, s := range strings.Split(parts[1], ",") {
-		m[parts[0]] = append(m[parts[0]], oauth.GrantType(s))
-	}
-
-	return nil
-}
-
-func (m grantArg) String() string {
-	return ""
 }

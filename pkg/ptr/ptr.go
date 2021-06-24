@@ -36,6 +36,7 @@ type (
 	Pointers interface {
 		Int() *int
 		Int64() *int64
+		Uint64() *uint64
 		Bool() *bool
 		String() *string
 		NilString() *string
@@ -70,6 +71,12 @@ func (p *ptr) Int() *int {
 // Int64 returns the address of the int64
 func (p *ptr) Int64() *int64 {
 	i := cast.ToInt64(p.v)
+	return &i
+}
+
+// Int64 returns the address of the int64
+func (p *ptr) Uint64() *uint64 {
+	i := cast.ToUint64(p.v)
 	return &i
 }
 
@@ -119,6 +126,11 @@ func Int(i interface{}) *int {
 // Int64 returns i safely as *int64
 func Int64(i interface{}) *int64 {
 	return Pointer(i).Int64()
+}
+
+// Int64 returns i safely as *int64
+func Uint64(u interface{}) *uint64 {
+	return Pointer(u).Uint64()
 }
 
 // Bool returns s safely as *bool

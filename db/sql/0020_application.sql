@@ -14,9 +14,11 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     type TEXT NOT NULL DEFAULT 'web',
     client_id CHAR(22),
     client_secret CHAR(32),
+    token_secret_id UUID,
     uris JSONB,
     metadata JSONB,
-    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE
+    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
+    FOREIGN KEY (token_secret_id) REFERENCES hiro.secrets(id) ON DELETE SET NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS application_client_id ON hiro.applications(instance_id, client_id);

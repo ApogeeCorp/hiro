@@ -54,6 +54,7 @@ type (
 		Key        string                `json:"key" db:"key"`
 		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
 		ExpiresAt  *time.Time            `json:"expires_at,omitempty" db:"expires_at"`
+		Default    bool                  `json:"default" db:"default"`
 	}
 
 	// SecretCreateInput is the params used to create a secret
@@ -63,6 +64,7 @@ type (
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty"`
 		Key        *string               `json:"key,omitempty"`
 		ExpiresAt  *time.Time            `json:"expires_at,omitempty"`
+		Default    bool                  `json:"default"`
 	}
 
 	// SecretDeleteInput is the secret delete request input
@@ -194,13 +196,16 @@ func (b *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Sec
 				"type",
 				"algorithm",
 				"key",
-				"expires_at").
+				"expires_at",
+				"default",
+			).
 			Values(
 				params.InstanceID,
 				params.Type,
 				params.Algorithm,
 				params.Key,
 				params.ExpiresAt,
+				params.Default,
 			).
 			PlaceholderFormat(sq.Dollar).
 			Suffix(`RETURNING *`).

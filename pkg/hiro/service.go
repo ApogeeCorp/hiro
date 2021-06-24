@@ -120,15 +120,9 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		}
 
 		d.ctrl = hiro
-		d.oauthCtrl = hiro.OAuthController()
-	}
 
-	if d.oauthCtrl == nil {
-		switch o := d.ctrl.(type) {
-		case oauth.Controller:
-			d.oauthCtrl = o
-		case *Hiro:
-			d.oauthCtrl = o.OAuthController()
+		if d.oauthCtrl == nil {
+			d.oauthCtrl = hiro.OAuthController()
 		}
 	}
 
@@ -397,15 +391,16 @@ func (d *Service) validateToken(ctx context.Context) error {
 	}
 
 	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
-		inst, err := d.oauthCtrl.AudienceGet(ctx, oauth.AudienceGetInput{Audience: c.Audience()})
+		client, err := d.oauthCtrl.ClientGet(ctx, oauth.ClientGetInput{
+			Audience: c.Audience(),
+			ClientID: c.ClientID(),
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		for _, s := range inst.Secrets() {
-			if string(s.ID()) == kid {
-				return s, nil
-			}
+		if client.TokenSecret().ID() == kid {
+			return client.TokenSecret(), nil
 		}
 
 		return nil, oauth.ErrKeyNotFound

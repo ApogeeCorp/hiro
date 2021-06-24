@@ -83,11 +83,8 @@ func main() {
 	}
 
 	app.Commands = []*cli.Command{
-		audienceCommand,
-		applicationCommand,
+		instanceCommand,
 		userCommand,
-		roleCommand,
-		serverCommand,
 	}
 
 	app.Before = func(c *cli.Context) error {

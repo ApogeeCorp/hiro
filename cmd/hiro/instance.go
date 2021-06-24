@@ -31,7 +31,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/hiro/pb"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
@@ -40,35 +39,67 @@ import (
 )
 
 var (
-	audienceCreateFlags = []cli.Flag{
+	instanceCreateFlags = []cli.Flag{
 		&cli.StringFlag{
 			Name:     "name",
-			Usage:    "The audience name",
+			Usage:    "The instance name",
 			Required: true,
 		},
 		&cli.StringFlag{
 			Name:  "description",
-			Usage: "The audience description",
-		},
-		&cli.DurationFlag{
-			Name:  "token_lifetime",
-			Usage: "The oauth token lifetime in seconds for the audience",
+			Usage: "The instance description",
 		},
 		&cli.StringFlag{
-			Name:  "token_algorithm",
+			Name:     "audience",
+			Usage:    "The instance audience domain",
+			Required: true,
+		},
+		&cli.DurationFlag{
+			Name:  "token-lifetime",
+			Usage: "The oauth token lifetime in seconds for the instance",
+			Value: hiro.DefaultTokenLifetime,
+		},
+		&cli.StringFlag{
+			Name:  "token-algorithm",
 			Usage: "Specify the oauth token algorithm (rsa,hmac)",
 			Value: "rsa",
 		},
-		&cli.StringSliceFlag{
-			Name:  "permissions",
-			Usage: "Specifiy the audience permissions",
+		&cli.DurationFlag{
+			Name:  "session-lifetime",
+			Usage: "Specify the instance browser session lifetime in seconds",
+			Value: hiro.DefaultSessionLifetime,
 		},
 		&cli.DurationFlag{
-			Name:  "session_lifetime",
-			Usage: "Specify the audience browser session lifetime",
+			Name:  "refresh-token-lifetime",
+			Usage: "Specify the refresh token lifetime in seconds",
+			Value: hiro.DefaultRefreshTokenLifetime,
+		},
+		&cli.DurationFlag{
+			Name:  "login-token-lifetime",
+			Usage: "Specify the login token lifetime in seconds",
+			Value: hiro.DefaultLoginTokenLifetime,
+		},
+		&cli.DurationFlag{
+			Name:  "invite-token-lifetime",
+			Usage: "Specify the invite token lifetime in seconds",
+			Value: hiro.DefaultInviteTokenLifetime,
+		},
+		&cli.DurationFlag{
+			Name:  "verify-token-lifetime",
+			Usage: "Specify the verify token lifetime in seconds",
+			Value: hiro.DefaultVerifyTokenLifetime,
+		},
+		&cli.DurationFlag{
+			Name:  "auth-code-lifetime",
+			Usage: "Specify the authorization code lifetime in seconds",
+			Value: hiro.DefaultAuthCodeLifetime,
+		},
+		&cli.StringSliceFlag{
+			Name:  "permissions",
+			Usage: "Specifiy the instance permissions",
 		},
 		&cli.PathFlag{
-			Name:      "token_file",
+			Name:      "token-file",
 			Usage:     "Read the token from the file",
 			TakesFile: true,
 		},
@@ -78,18 +109,18 @@ var (
 		},
 	}
 
-	audienceUpdateFlags = []cli.Flag{
+	instanceUpdateFlags = []cli.Flag{
 		&cli.StringFlag{
 			Name:  "name",
-			Usage: "The audience name",
+			Usage: "The instance name",
 		},
 		&cli.StringFlag{
 			Name:  "description",
-			Usage: "The audience description",
+			Usage: "The instance description",
 		},
 		&cli.DurationFlag{
 			Name:  "token_lifetime",
-			Usage: "The oauth token lifetime in seconds for the audience",
+			Usage: "The oauth token lifetime in seconds for the instance",
 		},
 		&cli.StringFlag{
 			Name:  "token_algorithm",
@@ -97,66 +128,71 @@ var (
 			Value: "rsa",
 		},
 		&cli.StringSliceFlag{
-			Name:  "permissions",
-			Usage: "Specifiy the audience permissions",
+			Name:  "add-permission",
+			Usage: "Add an instance permission",
+		},
+		&cli.StringSliceFlag{
+			Name:  "rem-permission",
+			Usage: "Remove an instance permission",
 		},
 		&cli.DurationFlag{
 			Name:  "session_lifetime",
-			Usage: "Specify the audience browser session lifetime",
+			Usage: "Specify the instance browser session lifetime",
 		},
 	}
 
-	audienceCommand = &cli.Command{
-		Name:    "audience",
-		Aliases: []string{"aud"},
+	instanceCommand = &cli.Command{
+		Name:    "instance",
+		Aliases: []string{"inst"},
 		Usage:   "Instance management",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "id",
-				Usage: "The audience id for querying by id",
+				Usage: "The instance id",
 			},
 			&cli.StringFlag{
-				Name:  "name",
-				Usage: "The audience name for querying by",
+				Name:  "audience",
+				Usage: "The instance audience",
 			},
 		},
 		Subcommands: []*cli.Command{
 			{
 				Name:   "create",
-				Usage:  "Create a new audience",
-				Flags:  audienceCreateFlags,
-				Action: audienceCreate,
+				Usage:  "Create a new instance",
+				Flags:  instanceCreateFlags,
+				Action: instanceCreate,
 			},
 			{
 				Name:   "get",
-				Usage:  "Get an audience by id",
-				Action: audienceGet,
+				Usage:  "Get an instance",
+				Action: instanceGet,
 			},
 			{
 				Name:    "list",
 				Aliases: []string{"ls"},
-				Usage:   "List all audiences",
-				Action:  audienceList,
+				Usage:   "Query instances",
+				Action:  instanceList,
 			},
 			{
 				Name:    "delete",
 				Aliases: []string{"rm"},
-				Usage:   "Delete an audience by id",
-				Action:  audienceDelete,
+				Usage:   "Delete an instance",
+				Action:  instanceDelete,
 			},
 			{
 				Name:   "update",
-				Usage:  "Update and existing audience",
-				Flags:  audienceUpdateFlags,
-				Action: audienceUpdate,
+				Usage:  "Update and existing instance",
+				Flags:  instanceUpdateFlags,
+				Action: instanceUpdate,
 			},
+			applicationCommand,
 		},
 	}
 )
 
-func audienceCreate(c *cli.Context) error {
+func instanceCreate(c *cli.Context) error {
 	var err error
-	var aud hiro.Instance
+	var inst hiro.Instance
 
 	conn, err := rpcClient(c)
 	if err != nil {
@@ -168,38 +204,34 @@ func audienceCreate(c *cli.Context) error {
 
 	lifetime := time.Duration(c.Duration("token_lifetime"))
 	if lifetime == 0 {
-		lifetime = time.Hour
+		lifetime = hiro.DefaultTokenLifetime
 	}
 
 	sessionLifetime := c.Duration("session-lifetime")
 	if sessionLifetime == 0 {
-		sessionLifetime = time.Hour * 24 * 30
+		sessionLifetime = hiro.DefaultSessionLifetime
 	}
 
 	perms := c.StringSlice("permissions")
 	if len(perms) == 0 {
-		perms = append(hiro.Scopes, oauth.Scopes...)
+		perms = hiro.Scopes
 	}
 
-	var algo pb.Secret_TokenAlgorithm
-
-	switch c.String("token_algorithm") {
-	case "rsa":
-		algo = pb.Secret_RS256
-	case "hmac":
-		algo = pb.Secret_HS256
-	default:
-		return errors.New("invalid token_algorithm")
-	}
-
-	a, err := h.InstanceCreate(context.Background(), &pb.InstanceCreateRequest{
+	params := &pb.InstanceCreateRequest{
 		Name:            c.String("name"),
 		Description:     ptr.NilString(c.String("description")),
-		TokenLifetime:   uint64(lifetime.Seconds()),
-		TokenAlgorithm:  algo,
-		Permissions:     oauth.Scope(perms),
-		SessionLifetime: uint64(sessionLifetime.Seconds()),
-	})
+		TokenLifetime:   ptr.Uint64(uint64(lifetime.Seconds())),
+		Permissions:     make([]*pb.Instance_Permission, 0),
+		SessionLifetime: ptr.Uint64(uint64(sessionLifetime.Seconds())),
+	}
+
+	for _, p := range perms {
+		params.Permissions = append(params.Permissions, &pb.Instance_Permission{
+			Permission: p,
+		})
+	}
+
+	a, err := h.InstanceCreate(context.Background(), params)
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
 			fmt.Printf("Instance with name %s already exists\n", c.String("name"))
@@ -246,17 +278,17 @@ func audienceCreate(c *cli.Context) error {
 		return err
 	}
 
-	aud.FromProto(a)
+	inst.FromProto(a)
 
-	fmt.Printf("Audiece %s [%s] created.\n", aud.Name, aud.ID)
+	fmt.Printf("Instance %s [%s] created.\n", inst.Name, inst.ID)
 
-	dumpValue(aud)
+	dumpValue(inst)
 
 	return err
 }
 
-func audienceGet(c *cli.Context) error {
-	var aud hiro.Instance
+func instanceGet(c *cli.Context) error {
+	var inst hiro.Instance
 
 	conn, err := rpcClient(c)
 	if err != nil {
@@ -283,14 +315,14 @@ func audienceGet(c *cli.Context) error {
 		return err
 	}
 
-	aud.FromProto(rval)
+	inst.FromProto(rval)
 
-	dumpValue(aud)
+	dumpValue(inst)
 
 	return nil
 }
 
-func audienceDelete(c *cli.Context) error {
+func instanceDelete(c *cli.Context) error {
 	id := c.String("id")
 
 	prompt := promptui.Prompt{
@@ -318,7 +350,7 @@ func audienceDelete(c *cli.Context) error {
 			return err
 		}
 
-		fmt.Println("audience deleted")
+		fmt.Println("instance deleted")
 		fmt.Println()
 	} else {
 		fmt.Println("operation cancelled")
@@ -327,7 +359,7 @@ func audienceDelete(c *cli.Context) error {
 	return nil
 }
 
-func audienceList(c *cli.Context) error {
+func instanceList(c *cli.Context) error {
 	type entry struct {
 		ID          hiro.ID `header:"id"`
 		Name        string  `header:"name"`
@@ -343,7 +375,7 @@ func audienceList(c *cli.Context) error {
 
 	h := pb.NewHiroClient(conn)
 
-	auds, err := h.InstanceList(context.Background(), &pb.InstanceListRequest{})
+	insts, err := h.InstanceList(context.Background(), &pb.InstanceListRequest{})
 	if err != nil {
 		return err
 	}
@@ -351,7 +383,7 @@ func audienceList(c *cli.Context) error {
 	list := make([]entry, 0)
 
 	for {
-		a, err := auds.Recv()
+		a, err := insts.Recv()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -373,7 +405,7 @@ func audienceList(c *cli.Context) error {
 	return nil
 }
 
-func audienceUpdate(c *cli.Context) error {
+func instanceUpdate(c *cli.Context) error {
 	var err error
 
 	conn, err := rpcClient(c)
@@ -386,14 +418,18 @@ func audienceUpdate(c *cli.Context) error {
 
 	params := pb.InstanceUpdateRequest{
 		Id: c.String("id"),
+		Permissions: &pb.InstanceUpdateRequest_PermissionUpdate{
+			Add:    make([]*pb.Instance_Permission, 0),
+			Remove: make([]*pb.Instance_Permission, 0),
+		},
 	}
 
-	lifetime := uint64(c.Duration("token_lifetime").Seconds())
+	lifetime := uint64(c.Duration("token_lifetime"))
 	if lifetime > 0 {
 		params.TokenLifetime = &lifetime
 	}
 
-	sessionLifetime := uint64(c.Duration("session_lifetime").Seconds())
+	sessionLifetime := uint64(c.Duration("session_lifetime"))
 	if sessionLifetime > 0 {
 		params.SessionLifetime = &sessionLifetime
 	}
@@ -406,20 +442,30 @@ func audienceUpdate(c *cli.Context) error {
 		params.Description = &desc
 	}
 
-	if perms := c.StringSlice("permissions"); len(perms) > 0 {
-		params.Permissions = &pb.InstanceUpdateRequest_PermissionsUpdate{
-			Add: oauth.Scope(perms),
+	if perms := c.StringSlice("add-permission"); len(perms) > 0 {
+		for _, p := range perms {
+			params.Permissions.Add = append(params.Permissions.Add, &pb.Instance_Permission{
+				Permission: p,
+			})
 		}
 	}
 
-	aud, err := h.InstanceUpdate(context.Background(), &params)
+	if perms := c.StringSlice("rem-permission"); len(perms) > 0 {
+		for _, p := range perms {
+			params.Permissions.Remove = append(params.Permissions.Remove, &pb.Instance_Permission{
+				Permission: p,
+			})
+		}
+	}
+
+	inst, err := h.InstanceUpdate(context.Background(), &params)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Audiece %s [%s] updated.\n", aud.Name, aud.Id)
+	fmt.Printf("Instance %s [%s] updated.\n", inst.Name, inst.Id)
 
-	dumpValue(aud)
+	dumpValue(inst)
 
 	return err
 }

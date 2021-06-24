@@ -62,7 +62,6 @@ func serverMain(c *cli.Context) error {
 	h, err := hiro.New(
 		hiro.WithDBSource(c.String("db")),
 		hiro.Automigrate(),
-		hiro.Initialize(),
 	)
 	if err != nil {
 		return err

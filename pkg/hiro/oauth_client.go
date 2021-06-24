@@ -41,9 +41,7 @@ func (c oauthClient) Permissions() oauth.Scope {
 	rval := make(oauth.Scope, 0)
 
 	for _, p := range c.Application.Permissions {
-		if p.InstanceID == c.inst.ID {
-			rval = append(rval, p.Permission)
-		}
+		rval = append(rval, p.Permission)
 	}
 
 	return rval.Unique()
@@ -54,6 +52,20 @@ func (c oauthClient) Type() oauth.ClientType {
 	return c.Application.Type
 }
 
+// TokenSecret returns the token secret for the client
+func (c oauthClient) TokenSecret() oauth.TokenSecret {
+	if c.Application.TokenSecret == nil {
+		return nil
+	}
+
+	if s, err := TokenSecret(c.Application.TokenSecret); err == nil {
+		return s
+	}
+
+	return nil
+}
+
+// AuthorizedGrants returns the authorized grants for the client
 func (c oauthClient) AuthorizedGrants() oauth.GrantList {
 	rval := make(oauth.GrantList, 0)
 

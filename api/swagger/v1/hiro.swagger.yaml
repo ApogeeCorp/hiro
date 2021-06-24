@@ -37,10 +37,8 @@ info:
     format:
     ```
     {
-      "message": "object not found",
-      "detail": [
-        "user does not exist"
-      ]
+      "error": "not_found",
+      "error_description": "the user was not found"
     }
     ```
 
@@ -512,10 +510,12 @@ definitions:
       error:
         type: "string"
         description: "The error code"
-        x-nullable: false
       error_description:
+        type: "string"
+        description: "The error code"
+      error_detail:
         type: "array"
-        description: "The error detail"
+        description: "The error description"
         items:
           type: "string"
           
@@ -585,13 +585,13 @@ paths:
                 enum: ["RS256", "HS256"]
                 default: "RS256"
               token_lifetime:
-                description: "The access token lifetime in nanoseconds"
+                description: "The access token lifetime in seconds"
                 type: "integer"
-                default: 3600000000000
+                default: 3600
               session_lifetime:
-                description: "The access token lifetime in nanoseconds"
+                description: "The access token lifetime in seconds"
                 type: "integer"
-                default: 2592000000000000
+                default: 86400
               permissions:
                 description: "The instance permissions as scope"
                 type: "array"
@@ -603,8 +603,8 @@ paths:
             example: {
               "name": "hiro",
               "token_algorithm": "RS256",
-              "token_lifetime": 3600000000000,
-              "session_lifetime": 2592000000000000,
+              "token_lifetime": 3600,
+              "session_lifetime": 86400,
             }
       responses:
         201:
@@ -683,13 +683,11 @@ paths:
                 enum: ["RS256", "HS256"]
                 default: "RS256"
               token_lifetime:
-                description: "The access token lifetime in nanoseconds"
+                description: "The access token lifetime in seconds"
                 type: "integer"
-                default: 3600000000000
               session_lifetime:
-                description: "The access token lifetime in nanoseconds"
+                description: "The access token lifetime in seconds"
                 type: "integer"
-                default: 2592000000000000
               permissions:
                 description: "The instance update permissions"
                 type: "object"

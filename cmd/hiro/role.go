@@ -21,12 +21,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
 	"github.com/manifoldco/promptui"
@@ -39,11 +37,10 @@ var (
 			Name:  "name",
 			Usage: "The role name",
 		},
-		&cli.GenericFlag{
+		&cli.StringFlag{
 			Name:    "permissions",
 			Aliases: []string{"p"},
-			Usage:   "Role permissions, in the format audience=perm1,perm2,permn",
-			Value:   permArg{},
+			Usage:   "Role permissions",
 		},
 	}
 
@@ -96,34 +93,7 @@ var (
 )
 
 func roleCreate(c *cli.Context) error {
-	var err error
-
-	perms := oauth.ScopeSet(c.Generic("permissions").(permArg))
-
-	// default to hiro permissions
-	if len(perms) == 0 {
-		perms = oauth.ScopeSet{
-			"hiro": append(oauth.Scopes, hiro.Scopes...),
-		}
-	}
-
-	role, err := h.RoleCreate(context.Background(), hiro.RoleCreateInput{
-		Name:        c.String("name"),
-		Permissions: perms,
-	})
-	if err != nil {
-		if errors.Is(err, hiro.ErrDuplicateObject) {
-			fmt.Printf("Role with login %s already exists\n", c.String("login"))
-			return nil
-		}
-		return err
-	}
-
-	fmt.Printf("Role %s [%s] created.\n", role.Name, role.ID)
-
-	dumpValue(role)
-
-	return err
+	return nil
 }
 
 func roleGet(c *cli.Context) error {
@@ -203,21 +173,5 @@ func roleList(c *cli.Context) error {
 }
 
 func roleUpdate(c *cli.Context) error {
-	var err error
-
-	params := hiro.RoleUpdateInput{
-		RoleID:      hiro.ID(c.String("id")),
-		Permissions: &hiro.PermissionUpdate{Add: oauth.ScopeSet(c.Generic("permissions").(permArg))},
-	}
-
-	role, err := h.RoleUpdate(context.Background(), params)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Role %s [%s] updated.\n", role.Name, role.ID)
-
-	dumpValue(role)
-
-	return err
+	return nil
 }

@@ -47,69 +47,66 @@ type (
 
 	// Instance is the database model for an instance
 	Instance struct {
-		ID                   ID                   `json:"id" db:"id"`
-		Name                 string               `json:"name" db:"name"`
-		Slug                 string               `json:"slug" db:"slug"`
-		Audience             string               `json:"audience" db:"audience"`
-		Description          *string              `json:"description,omitempty" db:"description"`
-		TokenSecrets         []oauth.TokenSecret  `json:"-" db:"-"`
-		SessionKeys          []SessionKey         `json:"-" db:"-"`
-		Secrets              []Secret             `json:"secrets,omitempty" db:"-"`
-		TokenAlgorithm       oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
-		TokenLifetime        time.Duration        `json:"token_lifetime" db:"token_lifetime"`
-		SessionLifetime      time.Duration        `json:"session_lifetime" db:"session_lifetime"`
-		RefreshTokenLifetime time.Duration        `json:"refresh_token_lifetime" db:"refresh_token_lifetime"`
-		LoginTokenLifetime   time.Duration        `json:"login_token_lifetime" db:"login_token_lifetime"`
-		InviteTokenLifetime  time.Duration        `json:"invite_token_lifetime" db:"invite_token_lifetime"`
-		VerifyTokenLifetime  time.Duration        `json:"verify_token_lifetime" db:"verify_token_lifetime"`
-		AuthCodeLifetime     time.Duration        `json:"auth_code_lifetime" db:"auth_code_lifetime"`
-		CreatedAt            time.Time            `json:"created_at" db:"created_at"`
-		UpdatedAt            *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
-		Roles                []Role               `json:"roles,omitempty" db:"-"`
-		Permissions          []Permission         `json:"permissions,omitempty,omitempty" db:"-"`
-		Metadata             common.Map           `json:"metadata,omitempty" db:"metadata"`
+		ID                   ID                  `json:"id" db:"id"`
+		Name                 string              `json:"name" db:"name"`
+		Slug                 string              `json:"slug" db:"slug"`
+		Audience             string              `json:"audience" db:"audience"`
+		Description          *string             `json:"description,omitempty" db:"description"`
+		TokenSecrets         []oauth.TokenSecret `json:"-" db:"-"`
+		SessionKeys          []SessionKey        `json:"-" db:"-"`
+		Secrets              []Secret            `json:"secrets,omitempty" db:"-"`
+		TokenLifetime        time.Duration       `json:"token_lifetime" db:"token_lifetime"`
+		SessionLifetime      time.Duration       `json:"session_lifetime" db:"session_lifetime"`
+		RefreshTokenLifetime time.Duration       `json:"refresh_token_lifetime" db:"refresh_token_lifetime"`
+		LoginTokenLifetime   time.Duration       `json:"login_token_lifetime" db:"login_token_lifetime"`
+		InviteTokenLifetime  time.Duration       `json:"invite_token_lifetime" db:"invite_token_lifetime"`
+		VerifyTokenLifetime  time.Duration       `json:"verify_token_lifetime" db:"verify_token_lifetime"`
+		AuthCodeLifetime     time.Duration       `json:"auth_code_lifetime" db:"auth_code_lifetime"`
+		CreatedAt            time.Time           `json:"created_at" db:"created_at"`
+		UpdatedAt            *time.Time          `json:"updated_at,omitempty" db:"updated_at"`
+		Roles                []Role              `json:"roles,omitempty" db:"-"`
+		Permissions          []Permission        `json:"permissions,omitempty,omitempty" db:"-"`
+		Metadata             common.Map          `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// Permission is an application permission entry
 	Permission struct {
-		InstanceID  ID     `json:"instance_id"`
-		Permission  string `json:"permission"`
-		Description string `json:"description,omitempty"`
+		InstanceID  ID      `json:"instance" db:"instance_id"`
+		Permission  string  `json:"permission" db:"permission"`
+		Description *string `json:"description,omitempty" db:"description"`
 	}
 
 	// InstanceCreateInput is the instance create request
 	InstanceCreateInput struct {
-		Name                 string               `json:"name"`
-		Description          *string              `json:"description,omitempty"`
-		Audience             *string              `json:"audience,omitempty" db:"audience"`
-		TokenLifetime        *time.Duration       `json:"token_lifetime,omitempty"`
-		TokenAlgorithm       oauth.TokenAlgorithm `json:"token_algorithm"`
-		SessionLifetime      *time.Duration       `json:"session_lifetime,omitempty"`
-		RefreshTokenLifetime *time.Duration       `json:"refresh_token_lifetime,omitempty"`
-		LoginTokenLifetime   *time.Duration       `json:"login_token_lifetime,omitempty"`
-		InviteTokenLifetime  *time.Duration       `json:"invite_token_lifetime,omitempty"`
-		VerifyTokenLifetime  *time.Duration       `json:"verify_token_lifetime,omitempty"`
-		AuthCodeLifetime     *time.Duration       `json:"auth_code_lifetime,omitempty"`
-		Permissions          []Permission         `json:"permissions,omitempty"`
-		Metadata             common.Map           `json:"metadata,omitempty"`
+		Name                 string         `json:"name"`
+		Description          *string        `json:"description,omitempty"`
+		Audience             string         `json:"audience" db:"audience"`
+		TokenLifetime        *time.Duration `json:"token_lifetime,omitempty"`
+		SessionLifetime      *time.Duration `json:"session_lifetime,omitempty"`
+		RefreshTokenLifetime *time.Duration `json:"refresh_token_lifetime,omitempty"`
+		LoginTokenLifetime   *time.Duration `json:"login_token_lifetime,omitempty"`
+		InviteTokenLifetime  *time.Duration `json:"invite_token_lifetime,omitempty"`
+		VerifyTokenLifetime  *time.Duration `json:"verify_token_lifetime,omitempty"`
+		AuthCodeLifetime     *time.Duration `json:"auth_code_lifetime,omitempty"`
+		Permissions          []Permission   `json:"permissions,omitempty"`
+		Metadata             common.Map     `json:"metadata,omitempty"`
 	}
 
 	// InstanceUpdateInput is the instance update request
 	InstanceUpdateInput struct {
-		InstanceID           ID                    `json:"instance_id" structs:"-"`
-		Name                 *string               `json:"name" structs:"name,omitempty"`
-		Description          *string               `json:"description,omitempty" structs:"description,omitempty"`
-		Audience             string                `json:"audience" structs:"audience"`
-		TokenAlgorithm       *oauth.TokenAlgorithm `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
-		TokenLifetime        *time.Duration        `json:"token_lifetime" structs:"token_lifetime,omitempty"`
-		SessionLifetime      *time.Duration        `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
-		RefreshTokenLifetime *time.Duration        `json:"refresh_token_lifetime,omitempty" structs:"refresh_token_lifetime,omitempty"`
-		LoginTokenLifetime   *time.Duration        `json:"login_token_lifetime,omitempty" structs:"login_token_lifetime,omitempty"`
-		InviteTokenLifetime  *time.Duration        `json:"invite_token_lifetime,omitempty" structs:"invite_token_lifetime,omitempty"`
-		VerifyTokenLifetime  *time.Duration        `json:"verify_token_lifetime,omitempty" structs:"verify_token_lifetime,omitempty"`
-		AuthCodeLifetime     *time.Duration        `json:"auth_code_lifetime,omitempty" structs:"auth_code_lifetime,omitempty"`
-		Permissions          PermissionUpdate      `json:"permissions,omitempty" structs:"-"`
-		Metadata             common.Map            `json:"metadata,omitempty" structs:"-"`
+		InstanceID           ID               `json:"instance_id" structs:"-"`
+		Name                 *string          `json:"name" structs:"name,omitempty"`
+		Description          *string          `json:"description,omitempty" structs:"description,omitempty"`
+		Audience             string           `json:"audience" structs:"audience"`
+		TokenLifetime        *time.Duration   `json:"token_lifetime" structs:"token_lifetime,omitempty"`
+		SessionLifetime      *time.Duration   `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
+		RefreshTokenLifetime *time.Duration   `json:"refresh_token_lifetime,omitempty" structs:"refresh_token_lifetime,omitempty"`
+		LoginTokenLifetime   *time.Duration   `json:"login_token_lifetime,omitempty" structs:"login_token_lifetime,omitempty"`
+		InviteTokenLifetime  *time.Duration   `json:"invite_token_lifetime,omitempty" structs:"invite_token_lifetime,omitempty"`
+		VerifyTokenLifetime  *time.Duration   `json:"verify_token_lifetime,omitempty" structs:"verify_token_lifetime,omitempty"`
+		AuthCodeLifetime     *time.Duration   `json:"auth_code_lifetime,omitempty" structs:"auth_code_lifetime,omitempty"`
+		Permissions          PermissionUpdate `json:"permissions,omitempty" structs:"-"`
+		Metadata             common.Map       `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// InstanceGetInput is used to get an instance for the id
@@ -140,7 +137,6 @@ func (a InstanceCreateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Audience, validation.Required, is.Domain),
 		validation.Field(&a.Permissions, validation.Required),
-		validation.Field(&a.TokenAlgorithm, validation.Required),
 		validation.Field(&a.TokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
 		validation.Field(&a.SessionLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
 		validation.Field(&a.RefreshTokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
@@ -157,7 +153,6 @@ func (a InstanceUpdateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Name, validation.NilOrNotEmpty, validation.Length(3, 64)),
 		validation.Field(&a.Audience, validation.NilOrNotEmpty, is.Domain),
-		validation.Field(&a.TokenAlgorithm, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 		validation.Field(&a.TokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
 		validation.Field(&a.SessionLifetime, validation.Required, validation.Min(time.Hour)),
@@ -195,31 +190,31 @@ func (h *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 	}
 
 	if params.TokenLifetime == nil {
-		params.TokenLifetime = ptr.Duration(time.Hour)
+		params.TokenLifetime = ptr.Duration(DefaultTokenLifetime)
 	}
 
 	if params.SessionLifetime == nil {
-		params.SessionLifetime = ptr.Duration(time.Hour * 24 * 7)
+		params.SessionLifetime = ptr.Duration(DefaultSessionLifetime)
 	}
 
 	if params.RefreshTokenLifetime == nil {
-		params.RefreshTokenLifetime = ptr.Duration(time.Hour * 24 * 7)
+		params.RefreshTokenLifetime = ptr.Duration(DefaultRefreshTokenLifetime)
 	}
 
 	if params.LoginTokenLifetime == nil {
-		params.LoginTokenLifetime = ptr.Duration(time.Minute * 15)
+		params.LoginTokenLifetime = ptr.Duration(DefaultLoginTokenLifetime)
 	}
 
 	if params.InviteTokenLifetime == nil {
-		params.InviteTokenLifetime = ptr.Duration(time.Hour * 24 * 7)
+		params.InviteTokenLifetime = ptr.Duration(DefaultInviteTokenLifetime)
 	}
 
 	if params.VerifyTokenLifetime == nil {
-		params.VerifyTokenLifetime = ptr.Duration(time.Hour * 24)
+		params.VerifyTokenLifetime = ptr.Duration(DefaultVerifyTokenLifetime)
 	}
 
 	if params.AuthCodeLifetime == nil {
-		params.AuthCodeLifetime = ptr.Duration(time.Minute * 10)
+		params.AuthCodeLifetime = ptr.Duration(DefaultAuthCodeLifetime)
 	}
 
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
@@ -230,7 +225,6 @@ func (h *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 				"name",
 				"description",
 				"audience",
-				"token_algorithm",
 				"token_lifetime",
 				"session_lifetime",
 				"refresh_token_lifetime",
@@ -243,14 +237,13 @@ func (h *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 				params.Name,
 				null.String(params.Description),
 				null.String(params.Audience),
-				params.TokenAlgorithm,
-				int64(params.TokenLifetime.Round(time.Second).Seconds()),
-				int64(params.SessionLifetime.Round(time.Second).Seconds()),
-				int64(params.RefreshTokenLifetime.Round(time.Second).Seconds()),
-				int64(params.LoginTokenLifetime.Round(time.Second).Seconds()),
-				int64(params.InviteTokenLifetime.Round(time.Second).Seconds()),
-				int64(params.VerifyTokenLifetime.Round(time.Second).Seconds()),
-				int64(params.AuthCodeLifetime.Round(time.Second).Seconds()),
+				params.TokenLifetime.Round(time.Second),
+				params.SessionLifetime.Round(time.Second),
+				params.RefreshTokenLifetime.Round(time.Second),
+				params.LoginTokenLifetime.Round(time.Second),
+				params.InviteTokenLifetime.Round(time.Second),
+				params.VerifyTokenLifetime.Round(time.Second),
+				params.AuthCodeLifetime.Round(time.Second),
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -295,31 +288,31 @@ func (h *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (
 			PlaceholderFormat(sq.Dollar)
 
 		if params.TokenLifetime != nil {
-			*params.TokenLifetime = time.Duration(params.TokenLifetime.Round(time.Second).Seconds())
+			*params.TokenLifetime = params.TokenLifetime.Round(time.Second)
 		}
 
 		if params.SessionLifetime != nil {
-			*params.SessionLifetime = time.Duration(params.SessionLifetime.Round(time.Second).Seconds())
+			*params.SessionLifetime = params.SessionLifetime.Round(time.Second)
 		}
 
 		if params.RefreshTokenLifetime != nil {
-			*params.RefreshTokenLifetime = time.Duration(params.RefreshTokenLifetime.Round(time.Second).Seconds())
+			*params.RefreshTokenLifetime = params.RefreshTokenLifetime.Round(time.Second)
 		}
 
 		if params.LoginTokenLifetime != nil {
-			*params.LoginTokenLifetime = time.Duration(params.LoginTokenLifetime.Round(time.Second).Seconds())
+			*params.LoginTokenLifetime = params.LoginTokenLifetime.Round(time.Second)
 		}
 
 		if params.InviteTokenLifetime != nil {
-			*params.InviteTokenLifetime = time.Duration(params.InviteTokenLifetime.Round(time.Second).Seconds())
+			*params.InviteTokenLifetime = params.InviteTokenLifetime.Round(time.Second)
 		}
 
 		if params.VerifyTokenLifetime != nil {
-			*params.VerifyTokenLifetime = time.Duration(params.VerifyTokenLifetime.Round(time.Second).Seconds())
+			*params.VerifyTokenLifetime = params.VerifyTokenLifetime.Round(time.Second)
 		}
 
 		if params.AuthCodeLifetime != nil {
-			*params.AuthCodeLifetime = time.Duration(params.AuthCodeLifetime.Round(time.Second).Seconds())
+			*params.AuthCodeLifetime = params.AuthCodeLifetime.Round(time.Second)
 		}
 
 		updates := structs.Map(params)
@@ -582,14 +575,12 @@ func (h *Hiro) instanceExpand(ctx context.Context, inst *Instance, expand common
 
 		for _, s := range inst.Secrets {
 			if s.Type == SecretTypeToken {
-				if *s.Algorithm == inst.TokenAlgorithm {
-					k, err := TokenSecret(&s)
-					if err != nil {
-						return nil, err
-					}
-
-					inst.TokenSecrets = append(inst.TokenSecrets, k)
+				k, err := TokenSecret(&s)
+				if err != nil {
+					return nil, err
 				}
+
+				inst.TokenSecrets = append(inst.TokenSecrets, k)
 			} else {
 				inst.SessionKeys = append(inst.SessionKeys, SessionKey(s))
 			}

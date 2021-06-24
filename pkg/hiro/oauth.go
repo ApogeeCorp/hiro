@@ -336,10 +336,6 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	token.Audience = inst.Audience
 	token.IssuedAt = time.Now().Unix()
 
-	if token.ExpiresAt == nil {
-		token.ExpiresAt = ptr.Int64(time.Now().Add(inst.TokenLifetime).Unix())
-	}
-
 	if token.Claims == nil {
 		token.Claims = make(oauth.Claims)
 	}
@@ -409,7 +405,7 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 
 	log.Debugf("token %s [%s] created", token.ID, token.Use)
 
-	return oauth.Token{
+	rval := oauth.Token{
 		ID:        out.ID.String(),
 		Issuer:    out.Issuer,
 		Subject:   ptr.NilString(out.UserID),
@@ -418,10 +414,17 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 		Use:       out.Use,
 		Scope:     out.Scope,
 		IssuedAt:  out.CreatedAt.Unix(),
-		ExpiresAt: ptr.Int64(out.ExpiresAt.Unix()),
 		Revokable: true,
 		Claims:    out.Claims,
-	}, nil
+	}
+
+	if out.ExpiresAt != nil {
+		rval.ExpiresAt = ptr.Int64(out.ExpiresAt.Unix())
+	} else {
+		rval.Persistent = true
+	}
+
+	return rval, nil
 }
 
 // TokenGet gets a token by id

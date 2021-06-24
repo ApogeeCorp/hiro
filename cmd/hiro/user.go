@@ -106,7 +106,6 @@ func userCreate(c *cli.Context) error {
 	user, err := h.UserCreate(context.Background(), hiro.UserCreateInput{
 		Login:    c.String("login"),
 		Password: ptr.NilString(c.String("password")),
-		Roles:    c.StringSlice("roles"),
 	})
 	if err != nil {
 		if errors.Is(err, hiro.ErrDuplicateObject) {
@@ -206,7 +205,6 @@ func userUpdate(c *cli.Context) error {
 
 	params := hiro.UserUpdateInput{
 		UserID: hiro.ID(c.String("id")),
-		Roles:  c.StringSlice("roles"),
 	}
 
 	user, err := h.UserUpdate(context.Background(), params)

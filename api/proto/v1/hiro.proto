@@ -28,28 +28,39 @@ service Hiro {
 message InstanceCreateRequest {
     string name = 1;
     optional string description = 2;
-    uint64 token_lifetime = 3;
-    Secret.TokenAlgorithm token_algorithm = 4;
-    uint64 session_lifetime = 5;
-    repeated string permissions = 6;
-    google.protobuf.Struct metadata = 7;
+    string audience = 3;
+    optional uint64 token_lifetime = 4;
+    optional Secret.TokenAlgorithm token_algorithm = 5;
+    optional uint64 session_lifetime = 6;
+    optional uint64 refresh_token_lifetime = 7;
+    optional uint64 login_token_lifetime = 8;
+    optional uint64 invite_token_lifetime = 9;
+    optional uint64 verify_token_lifetime = 10;
+    optional uint64 auth_code_lifetime = 11;
+    repeated Instance.Permission permissions = 12;
+    google.protobuf.Struct metadata = 13;
 }
 
 message InstanceUpdateRequest {
-    message PermissionsUpdate {
-        repeated string add = 1;
-        repeated string remove = 2;
-        bool overwrite = 3;
+    message PermissionUpdate {
+        repeated Instance.Permission add = 1;
+        repeated Instance.Permission remove = 2;
     }
 
     string id = 1;
     optional string name = 2;
     optional string description = 3;
-    optional uint64 token_lifetime = 4;
-    optional Secret.TokenAlgorithm token_algorithm = 5;
-    optional uint64 session_lifetime = 6;
-    optional PermissionsUpdate permissions = 7;
-    google.protobuf.Struct metadata = 8;
+    optional string audience = 4;
+    optional uint64 token_lifetime = 5;
+    optional Secret.TokenAlgorithm token_algorithm = 6;
+    optional uint64 session_lifetime = 7;
+    optional uint64 refresh_token_lifetime = 8;
+    optional uint64 login_token_lifetime = 9;
+    optional uint64 invite_token_lifetime = 10;
+    optional uint64 verify_token_lifetime = 11;
+    optional uint64 auth_code_lifetime = 12;
+    optional PermissionUpdate permissions = 13;
+    google.protobuf.Struct metadata = 14;
 }
 
 message InstanceGetRequest {
@@ -69,6 +80,12 @@ message InstanceDeleteRequest {
 }
 
 message Instance {
+    message Permission {
+        string instance_id = 1;
+        string permission = 2;
+        optional string description = 3;
+    }
+
     string id = 1;
     string name = 2;
     string slug = 3;
@@ -79,7 +96,7 @@ message Instance {
     uint64 session_lifetime = 8;
     google.protobuf.Timestamp created_at = 9;
     google.protobuf.Timestamp updated_at = 10;
-    repeated string permissions = 11;
+    repeated Permission permissions = 11;
     google.protobuf.Struct metadata = 12;
 }
 

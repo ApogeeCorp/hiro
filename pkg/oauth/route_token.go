@@ -125,11 +125,6 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 
 	ctrl := api.Context(ctx).(Controller)
 
-	aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: params.Audience})
-	if err != nil {
-		return api.Error(err)
-	}
-
 	client, err := ctrl.ClientGet(ctx, ClientGetInput{
 		Audience:     params.Audience,
 		ClientID:     params.ClientID,
@@ -301,12 +296,7 @@ func token(ctx context.Context, params *TokenParams) api.Responder {
 		}
 	}
 
-	secrets := aud.Secrets()
-	if len(secrets) == 0 {
-		return ErrKeyNotFound
-	}
-
-	bearer, err = NewBearer(secrets[rand.Intn(len(secrets))], tokens...)
+	bearer, err = NewBearer(client.TokenSecret(), tokens...)
 	if err != nil {
 		return api.Error(err)
 	}
@@ -355,15 +345,16 @@ func tokenIntrospect(ctx context.Context, params *TokenIntrospectParams) api.Res
 	api.RequirePrincipal(ctx, &token)
 
 	t, err := ParseBearer(params.Token, func(kid string, c Claims) (TokenSecret, error) {
-		aud, err := ctrl.AudienceGet(ctx, AudienceGetInput{Audience: c.Audience()})
+		client, err := ctrl.ClientGet(ctx, ClientGetInput{
+			Audience: c.Audience(),
+			ClientID: c.ClientID(),
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		for _, s := range aud.Secrets() {
-			if string(s.ID()) == kid {
-				return s, nil
-			}
+		if client.TokenSecret().ID() == kid {
+			return client.TokenSecret(), nil
 		}
 
 		return nil, ErrKeyNotFound

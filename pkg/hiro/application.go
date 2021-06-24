@@ -49,20 +49,22 @@ type (
 
 	// Application is the database model for an application
 	Application struct {
-		ID           ID                    `json:"id" db:"id"`
-		InstanceID   ID                    `json:"instance_id" db:"instance_id"`
-		Name         string                `json:"name" db:"name"`
-		Slug         string                `json:"slug" db:"slug"`
-		Description  *string               `json:"description,omitempty" db:"description"`
-		Type         oauth.ClientType      `json:"type" db:"type"`
-		ClientID     *string               `json:"client_id,omitempty" db:"client_id"`
-		ClientSecret *string               `json:"client_secret,omitempty" db:"client_secret"`
-		Permissions  []Permission          `json:"permissions,omitempty" db:"-"`
-		Grants       []ApplicationGrant    `json:"grants,omitempty" db:"-"`
-		Endpoints    []ApplicationEndpoint `json:"uris,omitempty" db:"-"`
-		CreatedAt    time.Time             `json:"created_at" db:"created_at"`
-		UpdatedAt    *time.Time            `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata     common.Map            `json:"metadata,omitempty" db:"metadata"`
+		ID            ID                    `json:"id" db:"id"`
+		InstanceID    ID                    `json:"instance_id" db:"instance_id"`
+		Name          string                `json:"name" db:"name"`
+		Slug          string                `json:"slug" db:"slug"`
+		Description   *string               `json:"description,omitempty" db:"description"`
+		Type          oauth.ClientType      `json:"type" db:"type"`
+		ClientID      *string               `json:"client_id,omitempty" db:"client_id"`
+		ClientSecret  *string               `json:"client_secret,omitempty" db:"client_secret"`
+		TokenSecretID *ID                   `json:"token_secret_id,omitempty" db:"token_secret_id"`
+		TokenSecret   *Secret               `json:"-" db:"-"`
+		Permissions   []Permission          `json:"permissions,omitempty" db:"-"`
+		Grants        []ApplicationGrant    `json:"grants,omitempty" db:"-"`
+		Endpoints     []ApplicationEndpoint `json:"uris,omitempty" db:"-"`
+		CreatedAt     time.Time             `json:"created_at" db:"created_at"`
+		UpdatedAt     *time.Time            `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata      common.Map            `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// ApplicationGrant is an application grant entry
@@ -83,14 +85,15 @@ type (
 
 	// ApplicationCreateInput is the application create request
 	ApplicationCreateInput struct {
-		InstanceID  ID                    `json:"instance_id"`
-		Name        string                `json:"name"`
-		Description *string               `json:"description,omitempty"`
-		Type        oauth.ClientType      `json:"type"`
-		Permissions []Permission          `json:"permissions,omitempty" db:"-"`
-		Grants      []ApplicationGrant    `json:"grants,omitempty" db:"-"`
-		Endpoints   []ApplicationEndpoint `json:"uris,omitempty" db:"-"`
-		Metadata    common.Map            `json:"metadata,omitempty"`
+		InstanceID    ID                    `json:"instance_id"`
+		Name          string                `json:"name"`
+		Description   *string               `json:"description,omitempty"`
+		Type          oauth.ClientType      `json:"type"`
+		TokenSecretID *ID                   `json:"token_secret_id,omitempty"`
+		Permissions   []Permission          `json:"permissions,omitempty"`
+		Grants        []ApplicationGrant    `json:"grants,omitempty"`
+		Endpoints     []ApplicationEndpoint `json:"uris,omitempty"`
+		Metadata      common.Map            `json:"metadata,omitempty"`
 	}
 
 	// ApplicationUpdateInput is the application update request
@@ -100,6 +103,7 @@ type (
 		Name          *string           `json:"name" structs:"name,omitempty"`
 		Description   *string           `json:"description,omitempty" structs:"description,omitempty"`
 		Type          *oauth.ClientType `json:"type" structs:"type,omitempty"`
+		TokenSecretID *ID               `json:"token_secret_id,omitempty" structs:"token_secret_id,omitempty"`
 		Permissions   PermissionUpdate  `json:"permissions,omitempty" structs:"-"`
 		Grants        GrantUpdate       `json:"grants,omitempty" structs:"-"`
 		Endpoints     EndpointUpdate    `json:"uris,omitempty" structs:"-"`
@@ -171,6 +175,7 @@ func (a ApplicationCreateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
 		validation.Field(&a.Type, validation.Required),
+		validation.Field(&a.TokenSecretID, validation.Required),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
 		validation.Field(&a.Grants, validation.NilOrNotEmpty),
 		validation.Field(&a.Endpoints, validation.NilOrNotEmpty),
@@ -239,6 +244,7 @@ func (h *Hiro) ApplicationCreate(ctx context.Context, params ApplicationCreateIn
 				"name",
 				"description",
 				"type",
+				"token_secret_id",
 				"client_id",
 				"client_secret",
 				"uris",
@@ -248,6 +254,7 @@ func (h *Hiro) ApplicationCreate(ctx context.Context, params ApplicationCreateIn
 				params.Name,
 				null.String(params.Description),
 				params.Type,
+				params.TokenSecretID,
 				NewID().String(),
 				hex.EncodeToString(key),
 				params.Endpoints,
@@ -518,7 +525,7 @@ func (h *Hiro) applicationPatch(ctx context.Context, params applicationPatchInpu
 				"permission").
 			Values(
 				params.Application.ID,
-				p.InstanceID,
+				params.Application.InstanceID,
 				p.Permission,
 			).
 			Suffix("ON CONFLICT DO NOTHING").
@@ -536,14 +543,14 @@ func (h *Hiro) applicationPatch(ctx context.Context, params applicationPatchInpu
 		if _, err := sq.Delete("hiro.application_permissions").
 			Where(
 				sq.Eq{
-					"instance_id":    p.InstanceID,
+					"instance_id":    params.Application.InstanceID,
 					"application_id": params.Application.ID,
 					"permission":     p,
 				}).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for application: %s", params.Application.ID, err)
+			log.Errorf("failed to delete permissions for application %s: %s", params.Application.ID, err)
 
 			return ParseSQLError(err)
 		}
@@ -581,7 +588,7 @@ func (h *Hiro) applicationPatch(ctx context.Context, params applicationPatchInpu
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete grants for application: %s", params.Application.ID, err)
+			log.Errorf("failed to delete grants for application %s: %s", params.Application.ID, err)
 
 			return ParseSQLError(err)
 		}
@@ -622,7 +629,7 @@ func (h *Hiro) applicationPatch(ctx context.Context, params applicationPatchInpu
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete uris for application: %s", params.Application.ID, err)
+			log.Errorf("failed to delete uris for application %s: %s", params.Application.ID, err)
 
 			return ParseSQLError(err)
 		}
@@ -641,8 +648,8 @@ func (h *Hiro) applicationExpand(ctx context.Context, app *Application, expand c
 			ctx,
 			&app.Permissions,
 			`SELECT instance_id, permission
-		 FROM hiro.application_permissions
-		 WHERE application_id=$1`,
+			FROM hiro.application_permissions
+			WHERE application_id=$1`,
 			app.ID); err != nil {
 			log.Errorf("failed to load application permissions %s: %s", app.ID, err)
 
@@ -655,8 +662,8 @@ func (h *Hiro) applicationExpand(ctx context.Context, app *Application, expand c
 			ctx,
 			&app.Grants,
 			`SELECT instance_id, grant_type 
-		 FROM hiro.application_grants 
-		 WHERE application_id=$1`,
+			FROM hiro.application_grants 
+			WHERE application_id=$1`,
 			app.ID); err != nil {
 			log.Errorf("failed to load application grants %s: %s", app.ID, err)
 
@@ -669,10 +676,24 @@ func (h *Hiro) applicationExpand(ctx context.Context, app *Application, expand c
 			ctx,
 			&app.Endpoints,
 			`SELECT instance_id, uri, uri_type 
-		 FROM hiro.application_uris 
-		 WHERE application_id=$1`,
+			FROM hiro.application_uris 
+			WHERE application_id=$1`,
 			app.ID); err != nil {
 			log.Errorf("failed to load application uris %s: %s", app.ID, err)
+
+			return nil, ParseSQLError(err)
+		}
+	}
+
+	if app.TokenSecretID != nil {
+		if err := db.SelectContext(
+			ctx,
+			&app.TokenSecret,
+			`SELECT * 
+			FROM hiro.secrets 
+			WHERE id=$1`,
+			app.TokenSecretID); err != nil {
+			log.Errorf("failed to load application secret %s: %s", app.ID, err)
 
 			return nil, ParseSQLError(err)
 		}

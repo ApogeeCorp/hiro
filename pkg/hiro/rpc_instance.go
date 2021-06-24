@@ -85,10 +85,9 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 		Slug:            a.Slug,
 		Description:     a.Description,
 		Secrets:         secrets,
-		TokenAlgorithm:  apiAlgoMap[a.TokenAlgorithm],
 		TokenLifetime:   uint64(a.TokenLifetime.Seconds()),
 		SessionLifetime: uint64(a.TokenLifetime.Seconds()),
-		Permissions:     make([]string, 0),
+		Permissions:     make([]*pb.Instance_Permission, 0),
 		Metadata:        meta,
 		CreatedAt:       createdAt,
 		UpdatedAt:       updatedAt,
@@ -96,7 +95,11 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 
 	for _, p := range a.Permissions {
 		if p.InstanceID == a.ID {
-			rval.Permissions = append(rval.Permissions, p.Permission)
+			rval.Permissions = append(rval.Permissions, &pb.Instance_Permission{
+				InstanceId:  a.ID.String(),
+				Permission:  p.Permission,
+				Description: p.Description,
+			})
 		}
 	}
 
@@ -127,15 +130,15 @@ func (a *Instance) FromProto(p *pb.Instance) {
 	a.Name = p.Name
 	a.Slug = p.Slug
 	a.Description = p.Description
-	a.TokenAlgorithm = pbAlgoMap[p.TokenAlgorithm]
 	a.TokenLifetime = time.Duration(p.TokenLifetime) * time.Second
 	a.SessionLifetime = time.Duration(p.SessionLifetime) * time.Second
 
 	a.Permissions = make([]Permission, 0)
 	for _, p := range p.Permissions {
 		a.Permissions = append(a.Permissions, Permission{
-			InstanceID: a.ID,
-			Permission: p,
+			InstanceID:  ID(p.InstanceId),
+			Permission:  p.Permission,
+			Description: p.Description,
 		})
 	}
 
@@ -145,18 +148,25 @@ func (a *Instance) FromProto(p *pb.Instance) {
 // InstanceCreate implements the pb.HiroServer interface
 func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreateRequest) (*pb.Instance, error) {
 	in := InstanceCreateInput{
-		Name:            params.Name,
-		Description:     params.Description,
-		TokenAlgorithm:  pbAlgoMap[params.TokenAlgorithm],
-		TokenLifetime:   ptr.Duration(time.Duration(params.TokenLifetime) * time.Second),
-		SessionLifetime: ptr.Duration(time.Duration(params.SessionLifetime) * time.Second),
-		Permissions:     make([]Permission, 0),
-		Metadata:        params.Metadata.AsMap(),
+		Name:        params.Name,
+		Description: params.Description,
+		Permissions: make([]Permission, 0),
+		Metadata:    params.Metadata.AsMap(),
+	}
+
+	if params.TokenLifetime != nil {
+		in.TokenLifetime = ptr.Duration(time.Duration(*params.TokenLifetime) * time.Second)
+	}
+
+	if params.SessionLifetime != nil {
+		in.SessionLifetime = ptr.Duration(time.Duration(*params.SessionLifetime) * time.Second)
 	}
 
 	for _, p := range params.Permissions {
 		in.Permissions = append(in.Permissions, Permission{
-			Permission: p,
+			InstanceID:  ID(p.InstanceId),
+			Permission:  p.Permission,
+			Description: p.Description,
 		})
 	}
 
@@ -170,16 +180,11 @@ func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreat
 
 // InstanceUpdate implements the pb.HiroServer interface
 func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdateRequest) (*pb.Instance, error) {
-	var algo *oauth.TokenAlgorithm
 	var tl, sl *time.Duration
+
 	perms := PermissionUpdate{
 		Add:    make([]Permission, 0),
 		Remove: make([]Permission, 0),
-	}
-
-	if params.TokenAlgorithm != nil {
-		a := pbAlgoMap[*params.TokenAlgorithm]
-		algo = &a
 	}
 
 	if params.TokenLifetime != nil {
@@ -193,14 +198,16 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 	if params.Permissions != nil {
 		for _, p := range params.Permissions.Add {
 			perms.Add = append(perms.Add, Permission{
-				InstanceID: ID(params.Id),
-				Permission: p,
+				InstanceID:  ID(params.Id),
+				Permission:  p.Permission,
+				Description: p.Description,
 			})
 		}
 		for _, p := range params.Permissions.Remove {
 			perms.Remove = append(perms.Remove, Permission{
-				InstanceID: ID(params.Id),
-				Permission: p,
+				InstanceID:  ID(params.Id),
+				Permission:  p.Permission,
+				Description: p.Description,
 			})
 		}
 	}
@@ -208,7 +215,6 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 	inst, err := s.Controller.InstanceUpdate(ctx, InstanceUpdateInput{
 		Name:            params.Name,
 		Description:     params.Description,
-		TokenAlgorithm:  algo,
 		TokenLifetime:   tl,
 		SessionLifetime: sl,
 		Permissions:     perms,

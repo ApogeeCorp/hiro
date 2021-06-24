@@ -419,7 +419,7 @@ func (h *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for instance: %s", p.InstanceID, err)
+			log.Errorf("failed to delete roles for instance %s: %s", p.InstanceID, err)
 
 			return ParseSQLError(err)
 		}

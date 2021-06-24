@@ -58,6 +58,10 @@ type (
 
 // NewBearer creates a bearer from the tokens
 func NewBearer(secret TokenSecret, tokens ...Token) (*BearerToken, error) {
+	if secret == nil {
+		return nil, ErrUnauthorized.WithCode("invalid_secret")
+	}
+
 	bearer := &BearerToken{
 		TokenType: "Bearer",
 	}

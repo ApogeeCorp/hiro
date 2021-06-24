@@ -10,13 +10,13 @@ CREATE TABLE IF NOT EXISTS hiro.instances(
     description VARCHAR(1024),
     audience VARCHAR(1024) NOT NULL UNIQUE,
     token_algorithm VARCHAR(16) NOT NULL,
-    refresh_token_lifetime INTEGER NOT NULL DEFAULT 3600, 
-    token_lifetime INTEGER NOT NULL DEFAULT 3600,
-    session_lifetime INTEGER NOT NULL DEFAULT 3600, 
-    login_token_lifetime INTEGER NOT NULL DEFAULT 3600,
-    invite_token_lifetime INTEGER NOT NULL DEFAULT 3600,
-    verify_token_lifetime INTEGER NOT NULL DEFAULT 3600,
-    auth_code_lifetime INTEGER NOT NULL DEFAULT 600,
+    refresh_token_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000, 
+    token_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000,
+    session_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000, 
+    login_token_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000,
+    invite_token_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000,
+    verify_token_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 3600000000000,
+    auth_code_lifetime BIGINT UNSIGNED NOT NULL DEFAULT 600000000000,
     metadata JSONB
 );
 
