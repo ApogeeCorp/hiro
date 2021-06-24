@@ -133,6 +133,9 @@ type (
 
 		// TokenRevoke revokes a token
 		TokenRevoke(context.Context, TokenRevokeInput) error
+
+		// TokenCleanup should cleanup all expired and revoked tokens from the stores
+		TokenCleanup(ctx context.Context) error
 	}
 )
 

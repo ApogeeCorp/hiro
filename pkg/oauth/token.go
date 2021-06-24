@@ -40,20 +40,21 @@ import (
 type (
 	// Token represents a revokable set of claims
 	Token struct {
-		ID        string   `json:"jti,omitempty"`
-		Issuer    *string  `json:"iss,omitempty"`
-		Subject   *string  `json:"sub,omitempty"`
-		Audience  string   `json:"aud,omitempty"`
-		ClientID  string   `json:"azp,omitempty"`
-		Use       TokenUse `json:"use,omitempty"`
-		AuthTime  int64    `json:"auth_time,omitempty"`
-		Scope     Scope    `json:"scope,omitempty"`
-		IssuedAt  int64    `json:"iat,omitempty"`
-		ExpiresAt *int64   `json:"exp,omitempty"`
-		Revokable bool     `json:"-"`
-		RevokedAt *int64   `json:"-"`
-		Claims    Claims   `json:"-"`
-		Bearer    *string  `json:"-"`
+		ID         string   `json:"jti,omitempty"`
+		Issuer     *string  `json:"iss,omitempty"`
+		Subject    *string  `json:"sub,omitempty"`
+		Audience   string   `json:"aud,omitempty"`
+		ClientID   string   `json:"azp,omitempty"`
+		Use        TokenUse `json:"use,omitempty"`
+		AuthTime   int64    `json:"auth_time,omitempty"`
+		Scope      Scope    `json:"scope,omitempty"`
+		IssuedAt   int64    `json:"iat,omitempty"`
+		ExpiresAt  *int64   `json:"exp,omitempty"`
+		Revokable  bool     `json:"-"`
+		Persistent bool     `json:"-"`
+		RevokedAt  *int64   `json:"-"`
+		Claims     Claims   `json:"-"`
+		Bearer     *string  `json:"-"`
 	}
 
 	// TokenUse defines token usage

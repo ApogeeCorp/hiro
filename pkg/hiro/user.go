@@ -22,16 +22,13 @@ package hiro
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/common"
 	"github.com/ModelRocket/hiro/pkg/null"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/ModelRocket/hiro/pkg/oauth/openid"
-	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -49,17 +46,16 @@ type (
 
 	// User is a hiro user
 	User struct {
-		ID                ID                `json:"id" db:"id"`
-		CreatedAt         time.Time         `json:"created_at" db:"created_at"`
-		UpdatedAt         *time.Time        `json:"updated_at,omitempty" db:"updated_at"`
-		Login             string            `json:"login" db:"login"`
-		PasswordHash      *string           `json:"-" db:"password_hash,omitempty"`
-		PasswordExpiresAt *time.Time        `json:"password_expires_at,omitempty" db:"password_expires_at"`
-		LockedUntil       *time.Time        `json:"locked_until,omitempty" db:"locked_until,omitempty"`
-		Roles             []string          `json:"roles,omitempty"`
-		Permissions       []*UserPermission `json:"permissions,omitempty" db:"-"`
-		Profile           *openid.Profile   `json:"profile,omitempty" db:"profile"`
-		Metadata          common.Map        `json:"metadata,omitempty" db:"metadata"`
+		ID                ID              `json:"id" db:"id"`
+		CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+		UpdatedAt         *time.Time      `json:"updated_at,omitempty" db:"updated_at"`
+		Login             string          `json:"login" db:"login"`
+		PasswordHash      *string         `json:"-" db:"password_hash,omitempty"`
+		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" db:"password_expires_at"`
+		LockedUntil       *time.Time      `json:"locked_until,omitempty" db:"locked_until,omitempty"`
+		Roles             []Role          `json:"roles,omitempty"`
+		Profile           *openid.Profile `json:"profile,omitempty" db:"profile"`
+		Metadata          common.Map      `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// UserPermission is a user permission entry
@@ -72,10 +68,17 @@ type (
 	UserCreateInput struct {
 		Login             string          `json:"login"`
 		Password          *string         `json:"password,omitempty"`
-		Roles             []string        `json:"roles,omitempty"`
+		Roles             []UserRole      `json:"roles,omitempty"`
 		Profile           *openid.Profile `json:"profile,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"password_expires_at,omitempty" `
 		Metadata          common.Map      `json:"metadata,omitempty"`
+	}
+
+	// UserRole is used to add roles to a user
+	UserRole struct {
+		InstanceID ID      `json:"instance_id"`
+		RoleID     *ID     `json:"role_id,omitempty"`
+		Role       *string `json:"role,omitempty"`
 	}
 
 	// UserUpdateInput is the update user request input
@@ -86,21 +89,29 @@ type (
 		Profile           *openid.Profile `json:"profile,omitempty" structs:"profile,omitempty"`
 		PasswordExpiresAt *time.Time      `json:"-" structs:"password_expires_at,omitempty"`
 		LockedUntil       *time.Time      `json:"locked_until,omitempty" structs:"-"`
-		Roles             []string        `json:"roles,omitempty" structs:"-"`
+		Roles             RoleUpdate      `json:"roles,omitempty" structs:"-"`
 		Metadata          common.Map      `json:"metadata,omitempty" structs:"-"`
+	}
+
+	// RoleUpdate is used to update roles of a user
+	RoleUpdate struct {
+		Add    []UserRole `json:"add,omitempty"`
+		Remove []UserRole `json:"remove,omitempty"`
 	}
 
 	// UserGetInput is used to get an user for the id
 	UserGetInput struct {
-		UserID ID      `json:"user_id,omitempty"`
-		Login  *string `json:"login,omitempty"`
+		UserID ID                 `json:"user_id,omitempty"`
+		Expand common.StringSlice `json:"expand,omitempty"`
+		Login  *string            `json:"-"`
 	}
 
 	// UserListInput is the user list request
 	UserListInput struct {
-		Limit  *uint64 `json:"limit,omitempty"`
-		Offset *uint64 `json:"offset,omitempty"`
-		Count  *uint64 `json:"count,omitempty"`
+		Expand common.StringSlice `json:"expand,omitempty"`
+		Limit  *uint64            `json:"limit,omitempty"`
+		Offset *uint64            `json:"offset,omitempty"`
+		Count  *uint64            `json:"count,omitempty"`
 	}
 
 	// UserDeleteInput is the user delete request input
@@ -110,7 +121,7 @@ type (
 
 	userPatchInput struct {
 		User  *User
-		Roles []string
+		Roles RoleUpdate
 	}
 )
 
@@ -151,7 +162,7 @@ func (u UserDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // UserCreate create a new permission object
-func (b *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, error) {
+func (h *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, error) {
 	var user User
 
 	log := Log(ctx).WithField("operation", "UserCreate").WithField("login", params.Login)
@@ -162,13 +173,13 @@ func (b *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, e
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new user")
 
 		var passwordHash sql.NullString
 
 		if params.Password != nil {
-			hash, err := b.passwords.HashPassword(*params.Password)
+			hash, err := h.passwords.HashPassword(*params.Password)
 			if err != nil {
 				return err
 			}
@@ -206,18 +217,21 @@ func (b *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, e
 			return ParseSQLError(err)
 		}
 
-		return b.userPatch(ctx, userPatchInput{&user, params.Roles})
+		return h.userPatch(ctx, userPatchInput{
+			User:  &user,
+			Roles: RoleUpdate{Add: params.Roles},
+		})
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("user %s created", user.ID)
 
-	return b.userPreload(ctx, &user)
+	return h.userExpand(ctx, &user, expandAll)
 }
 
 // UserUpdate updates an user by id, including child objects
-func (b *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error) {
+func (h *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, error) {
 	var user User
 
 	log := Log(ctx).WithField("operation", "UserUpdate").WithField("id", params.UserID)
@@ -228,7 +242,7 @@ func (b *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, e
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("updating user")
 
 		q := sq.Update("hiro.users").
@@ -245,7 +259,7 @@ func (b *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, e
 		}
 
 		if params.Password != nil {
-			hash, err := b.passwords.HashPassword(*params.Password)
+			hash, err := h.passwords.HashPassword(*params.Password)
 			if err != nil {
 				return err
 			}
@@ -283,18 +297,21 @@ func (b *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, e
 			}
 		}
 
-		return b.userPatch(ctx, userPatchInput{&user, params.Roles})
+		return h.userPatch(ctx, userPatchInput{
+			User:  &user,
+			Roles: params.Roles,
+		})
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("user updated")
 
-	return b.userPreload(ctx, &user)
+	return h.userExpand(ctx, &user, expandAll)
 }
 
 // UserGet gets an user by id and optionally preloads child objects
-func (b *Hiro) UserGet(ctx context.Context, params UserGetInput) (*User, error) {
+func (h *Hiro) UserGet(ctx context.Context, params UserGetInput) (*User, error) {
 	var suffix string
 
 	log := Log(ctx).WithField("operation", "UserGet").
@@ -307,11 +324,7 @@ func (b *Hiro) UserGet(ctx context.Context, params UserGetInput) (*User, error) 
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
-
-	if IsTransaction(db) {
-		suffix = "FOR UPDATE"
-	}
+	db := h.DB(ctx)
 
 	query := sq.Select("*").
 		From("hiro.users").
@@ -343,11 +356,11 @@ func (b *Hiro) UserGet(ctx context.Context, params UserGetInput) (*User, error) 
 		return nil, ParseSQLError(err)
 	}
 
-	return b.userPreload(ctx, &user)
+	return h.userExpand(ctx, &user, params.Expand)
 }
 
 // UserList returns a listing of users
-func (b *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, error) {
+func (h *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, error) {
 	log := Log(ctx).WithField("operation", "UserList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -355,7 +368,7 @@ func (b *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, err
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	target := "*"
 	if params.Count != nil {
@@ -392,7 +405,7 @@ func (b *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, err
 	}
 
 	for _, user := range users {
-		if _, err = b.userPreload(ctx, user); err != nil {
+		if _, err = h.userExpand(ctx, user, params.Expand); err != nil {
 			return nil, err
 		}
 	}
@@ -401,7 +414,7 @@ func (b *Hiro) UserList(ctx context.Context, params UserListInput) ([]*User, err
 }
 
 // UserDelete deletes an user by id
-func (b *Hiro) UserDelete(ctx context.Context, params UserDeleteInput) error {
+func (h *Hiro) UserDelete(ctx context.Context, params UserDeleteInput) error {
 	log := Log(ctx).WithField("operation", "UserDelete").WithField("user", params.UserID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -409,7 +422,7 @@ func (b *Hiro) UserDelete(ctx context.Context, params UserDeleteInput) error {
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 	if _, err := sq.Delete("hiro.users").
 		Where(
 			sq.Eq{"id": params.UserID},
@@ -424,51 +437,30 @@ func (b *Hiro) UserDelete(ctx context.Context, params UserDeleteInput) error {
 	return nil
 }
 
-func (b *Hiro) userPatch(ctx context.Context, params userPatchInput) error {
-	if len(params.Roles) == 0 {
-		return nil
-	}
+func (h *Hiro) userPatch(ctx context.Context, params userPatchInput) error {
 
 	log := Log(ctx).WithField("operation", "userPatch").WithField("user", params.User.ID)
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
-	if _, err := sq.Delete("hiro.user_roles").
-		Where(
-			sq.Eq{"user_id": params.User.ID},
-		).
-		PlaceholderFormat(sq.Dollar).
-		RunWith(db).
-		ExecContext(ctx); err != nil {
-		log.Errorf("failed to delete roles for user: %s", err)
-
-		return ParseSQLError(err)
-	}
-
-	for _, role := range params.Roles {
-		input := RoleGetInput{
-			Preload: ptr.False,
-		}
-
-		if roleID := ID(role); roleID.Valid() {
-			input.RoleID = &roleID
-		} else {
-			input.Name = &role
-		}
-
-		r, err := b.RoleGet(ctx, input)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.New("role not found")
+	for _, r := range params.Roles.Add {
+		if r.RoleID == nil {
+			role, err := h.RoleGet(ctx, RoleGetInput{
+				InstanceID: r.InstanceID,
+				Name:       r.Role,
+			})
+			if err != nil {
+				return err
 			}
-			return err
+
+			r.RoleID = &role.ID
 		}
 
 		if _, err := sq.Insert("hiro.user_roles").
 			Columns("user_id", "role_id").
 			Values(
 				params.User.ID,
-				r.ID,
+				r.RoleID,
 			).
 			Suffix("ON CONFLICT DO NOTHING").
 			RunWith(db).
@@ -478,56 +470,68 @@ func (b *Hiro) userPatch(ctx context.Context, params userPatchInput) error {
 
 			return ParseSQLError(err)
 		}
+	}
 
-		params.User.Roles = params.Roles
+	for _, r := range params.Roles.Remove {
+		if r.RoleID == nil {
+			role, err := h.RoleGet(ctx, RoleGetInput{
+				InstanceID: r.InstanceID,
+				Name:       r.Role,
+			})
+			if err != nil {
+				return err
+			}
+
+			r.RoleID = &role.ID
+		}
+
+		if _, err := sq.Delete("hiro.user_roles").
+			Where(sq.Eq{
+				"user_id": params.User.ID,
+				"role_id": r.RoleID,
+			}).
+			RunWith(db).
+			PlaceholderFormat(sq.Dollar).
+			ExecContext(ctx); err != nil {
+			log.Errorf("failed to update user permissions: %s", err)
+
+			return ParseSQLError(err)
+		}
 	}
 
 	return nil
 }
 
-func (b *Hiro) userPreload(ctx context.Context, user *User) (*User, error) {
-	log := Log(ctx).WithField("operation", "userPreload").WithField("user", user.ID)
+func (h *Hiro) userExpand(ctx context.Context, user *User, expand common.StringSlice) (*User, error) {
+	log := Log(ctx).WithField("operation", "userExpand").WithField("user", user.ID)
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
-	perms := []struct {
-		Instance   string `db:"instance"`
-		Permission string `db:"permission"`
-	}{}
-
-	if err := db.SelectContext(
-		ctx,
-		&user.Roles,
-		`SELECT R.slug
+	if expand.ContainsAny("roles", "roles.permissions", "*") {
+		if err := db.SelectContext(
+			ctx,
+			&user.Roles,
+			`SELECT R.*
 		 FROM hiro.user_roles u
 		 LEFT JOIN hiro.roles R
-			 ON  u.role_id = r.id
+			 ON u.role_id = r.id
 		 WHERE u.user_id=$1`,
-		user.ID); err != nil {
-		log.Errorf("failed to load user roles %s: %s", user.ID, err)
+			user.ID); err != nil {
+			log.Errorf("failed to load user roles %s: %s", user.ID, err)
 
-		return nil, ParseSQLError(err)
+			return nil, ParseSQLError(err)
+		}
 	}
 
-	if err := db.SelectContext(
-		ctx,
-		&perms,
-		`SELECT a.name as instance, p.permission
-		 FROM hiro.user_roles r 
-		 LEFT JOIN hiro.role_permissions p
-		 	ON p.role_id = r.role_id
-		 LEFT JOIN hiro.instances a
-			 ON  a.id = p.instance_id
-		 WHERE r.user_id=$1`,
-		user.ID); err != nil {
-		log.Errorf("failed to load user permissions %s: %s", user.ID, err)
+	if expand.ContainsAny("roles.permissions", "*") {
+		for i, r := range user.Roles {
+			r, err := h.roleExpand(ctx, &r, expandAll)
+			if err != nil {
+				return nil, err
+			}
 
-		return nil, ParseSQLError(err)
-	}
-
-	user.Permissions = make(oauth.ScopeSet)
-	for _, p := range perms {
-		user.Permissions.Append(p.Instance, p.Permission)
+			user.Roles[i] = *r
+		}
 	}
 
 	return user, nil

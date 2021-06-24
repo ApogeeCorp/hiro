@@ -204,13 +204,14 @@ func verifySend(ctx context.Context, params *VerifySendParams) api.Responder {
 	}
 
 	v, err := ctrl.TokenCreate(ctx, Token{
-		Issuer:    issuer(ctx, token.Audience),
-		Subject:   token.Subject,
-		Audience:  token.Audience,
-		ClientID:  token.ClientID,
-		Use:       TokenUseVerify,
-		Revokable: true,
-		Scope:     scope,
+		Issuer:     issuer(ctx, token.Audience),
+		Subject:    token.Subject,
+		Audience:   token.Audience,
+		ClientID:   token.ClientID,
+		Use:        TokenUseVerify,
+		Revokable:  true,
+		Persistent: false,
+		Scope:      scope,
 	})
 	if err != nil {
 		return ErrUnauthorized.WithError(err)

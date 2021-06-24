@@ -65,7 +65,7 @@ const (
 	// RequestTokenTypeVerify is verification, i.e. password resets
 	RequestTokenTypeVerify RequestTokenType = "verify"
 
-	// RequestTokenTypeInvite is verification, i.e. password resets
+	// RequestTokenTypeInvite is used to invite users to the platform
 	RequestTokenTypeInvite RequestTokenType = "invite"
 
 	// RequestTokenTypeAuthCode is used to request token

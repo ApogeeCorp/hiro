@@ -8,10 +8,15 @@ CREATE TABLE IF NOT EXISTS hiro.instances(
     name VARCHAR(64) NOT NULL UNIQUE,
     slug VARCHAR(64) NOT NULL UNIQUE,
     description VARCHAR(1024),
-    audience VARCHAR(1024) UNIQUE,
+    audience VARCHAR(1024) NOT NULL UNIQUE,
     token_algorithm VARCHAR(16) NOT NULL,
-    token_lifetime BIGINT NOT NULL,
-    session_lifetime BIGINT NOT NULL, 
+    refresh_token_lifetime INTEGER NOT NULL DEFAULT 3600, 
+    token_lifetime INTEGER NOT NULL DEFAULT 3600,
+    session_lifetime INTEGER NOT NULL DEFAULT 3600, 
+    login_token_lifetime INTEGER NOT NULL DEFAULT 3600,
+    invite_token_lifetime INTEGER NOT NULL DEFAULT 3600,
+    verify_token_lifetime INTEGER NOT NULL DEFAULT 3600,
+    auth_code_lifetime INTEGER NOT NULL DEFAULT 600,
     metadata JSONB
 );
 

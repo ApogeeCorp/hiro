@@ -21,7 +21,6 @@ package hiro
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -48,80 +47,85 @@ type (
 
 	// Instance is the database model for an instance
 	Instance struct {
-		ID              ID                   `json:"id" db:"id"`
-		Name            string               `json:"name" db:"name"`
-		Slug            string               `json:"slug" db:"slug"`
-		Audience        *string              `json:"audience,omitempty" db:"audience"`
-		Description     *string              `json:"description,omitempty" db:"description"`
-		TokenSecrets    []oauth.TokenSecret  `json:"-" db:"-"`
-		SessionKeys     []SessionKey         `json:"-" db:"-"`
-		Secrets         []*Secret            `json:"secrets,omitempty" db:"-"`
-		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
-		TokenLifetime   time.Duration        `json:"token_lifetime" db:"token_lifetime"`
-		SessionLifetime time.Duration        `json:"session_lifetime,omitempty" db:"session_lifetime"`
-		CreatedAt       time.Time            `json:"created_at" db:"created_at"`
-		UpdatedAt       *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
-		Permissions     oauth.Scope          `json:"permissions,omitempty" db:"-"`
-		Metadata        common.Map           `json:"metadata,omitempty" db:"metadata"`
+		ID                   ID                   `json:"id" db:"id"`
+		Name                 string               `json:"name" db:"name"`
+		Slug                 string               `json:"slug" db:"slug"`
+		Audience             string               `json:"audience" db:"audience"`
+		Description          *string              `json:"description,omitempty" db:"description"`
+		TokenSecrets         []oauth.TokenSecret  `json:"-" db:"-"`
+		SessionKeys          []SessionKey         `json:"-" db:"-"`
+		Secrets              []Secret             `json:"secrets,omitempty" db:"-"`
+		TokenAlgorithm       oauth.TokenAlgorithm `json:"token_algorithm" db:"token_algorithm"`
+		TokenLifetime        time.Duration        `json:"token_lifetime" db:"token_lifetime"`
+		SessionLifetime      time.Duration        `json:"session_lifetime" db:"session_lifetime"`
+		RefreshTokenLifetime time.Duration        `json:"refresh_token_lifetime" db:"refresh_token_lifetime"`
+		LoginTokenLifetime   time.Duration        `json:"login_token_lifetime" db:"login_token_lifetime"`
+		InviteTokenLifetime  time.Duration        `json:"invite_token_lifetime" db:"invite_token_lifetime"`
+		VerifyTokenLifetime  time.Duration        `json:"verify_token_lifetime" db:"verify_token_lifetime"`
+		AuthCodeLifetime     time.Duration        `json:"auth_code_lifetime" db:"auth_code_lifetime"`
+		CreatedAt            time.Time            `json:"created_at" db:"created_at"`
+		UpdatedAt            *time.Time           `json:"updated_at,omitempty" db:"updated_at"`
+		Roles                []Role               `json:"roles,omitempty" db:"-"`
+		Permissions          []Permission         `json:"permissions,omitempty,omitempty" db:"-"`
+		Metadata             common.Map           `json:"metadata,omitempty" db:"metadata"`
 	}
 
-	// InstanceInitializeInput is the input to the instance initialization
-	InstanceInitializeInput struct {
-		Name            string                `json:"name"`
-		Description     *string               `json:"description,omitempty"`
-		Audience        *string               `json:"audience,omitempty" db:"audience"`
-		TokenLifetime   *time.Duration        `json:"token_lifetime"`
-		TokenAlgorithm  *oauth.TokenAlgorithm `json:"token_algorithm"`
-		SessionLifetime *time.Duration        `json:"session_lifetime,omitempty"`
-		Permissions     oauth.Scope           `json:"permissions,omitempty"`
-		Metadata        common.Map            `json:"metadata,omitempty"`
-		Roles           oauth.ScopeSet        `json:"roles,omitempty"`
+	// Permission is an application permission entry
+	Permission struct {
+		InstanceID  ID     `json:"instance_id"`
+		Permission  string `json:"permission"`
+		Description string `json:"description,omitempty"`
 	}
 
 	// InstanceCreateInput is the instance create request
 	InstanceCreateInput struct {
-		Name            string               `json:"name"`
-		Description     *string              `json:"description,omitempty"`
-		Audience        *string              `json:"audience,omitempty" db:"audience"`
-		TokenLifetime   time.Duration        `json:"token_lifetime"`
-		TokenAlgorithm  oauth.TokenAlgorithm `json:"token_algorithm"`
-		SessionLifetime time.Duration        `json:"session_lifetime,omitempty"`
-		Permissions     oauth.Scope          `json:"permissions,omitempty"`
-		Metadata        common.Map           `json:"metadata,omitempty"`
+		Name                 string               `json:"name"`
+		Description          *string              `json:"description,omitempty"`
+		Audience             *string              `json:"audience,omitempty" db:"audience"`
+		TokenLifetime        *time.Duration       `json:"token_lifetime,omitempty"`
+		TokenAlgorithm       oauth.TokenAlgorithm `json:"token_algorithm"`
+		SessionLifetime      *time.Duration       `json:"session_lifetime,omitempty"`
+		RefreshTokenLifetime *time.Duration       `json:"refresh_token_lifetime,omitempty"`
+		LoginTokenLifetime   *time.Duration       `json:"login_token_lifetime,omitempty"`
+		InviteTokenLifetime  *time.Duration       `json:"invite_token_lifetime,omitempty"`
+		VerifyTokenLifetime  *time.Duration       `json:"verify_token_lifetime,omitempty"`
+		AuthCodeLifetime     *time.Duration       `json:"auth_code_lifetime,omitempty"`
+		Permissions          []Permission         `json:"permissions,omitempty"`
+		Metadata             common.Map           `json:"metadata,omitempty"`
 	}
 
 	// InstanceUpdateInput is the instance update request
 	InstanceUpdateInput struct {
-		InstanceID      ID                         `json:"instance_id" structs:"-"`
-		Name            *string                    `json:"name" structs:"name,omitempty"`
-		Description     *string                    `json:"description,omitempty" structs:"description,omitempty"`
-		Audience        *string                    `json:"audience,omitempty" structs:"audience,omitempty"`
-		TokenAlgorithm  *oauth.TokenAlgorithm      `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
-		TokenLifetime   *time.Duration             `json:"token_lifetime" structs:"token_lifetime,omitempty"`
-		SessionLifetime *time.Duration             `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
-		Permissions     *InstancePermissionsUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata        common.Map                 `json:"metadata,omitempty" structs:"-"`
-	}
-
-	// InstancePermissionsUpdate is used to update instance permissions
-	InstancePermissionsUpdate struct {
-		Add       oauth.Scope `json:"add,omitempty"`
-		Remove    oauth.Scope `json:"remove,omitempty"`
-		Overwrite bool        `json:"overrite"`
+		InstanceID           ID                    `json:"instance_id" structs:"-"`
+		Name                 *string               `json:"name" structs:"name,omitempty"`
+		Description          *string               `json:"description,omitempty" structs:"description,omitempty"`
+		Audience             string                `json:"audience" structs:"audience"`
+		TokenAlgorithm       *oauth.TokenAlgorithm `json:"token_algorithm,omitempty" structs:"token_algorithm,omitempty"`
+		TokenLifetime        *time.Duration        `json:"token_lifetime" structs:"token_lifetime,omitempty"`
+		SessionLifetime      *time.Duration        `json:"session_lifetime,omitempty" structs:"session_lifetime,omitempty"`
+		RefreshTokenLifetime *time.Duration        `json:"refresh_token_lifetime,omitempty" structs:"refresh_token_lifetime,omitempty"`
+		LoginTokenLifetime   *time.Duration        `json:"login_token_lifetime,omitempty" structs:"login_token_lifetime,omitempty"`
+		InviteTokenLifetime  *time.Duration        `json:"invite_token_lifetime,omitempty" structs:"invite_token_lifetime,omitempty"`
+		VerifyTokenLifetime  *time.Duration        `json:"verify_token_lifetime,omitempty" structs:"verify_token_lifetime,omitempty"`
+		AuthCodeLifetime     *time.Duration        `json:"auth_code_lifetime,omitempty" structs:"auth_code_lifetime,omitempty"`
+		Permissions          PermissionUpdate      `json:"permissions,omitempty" structs:"-"`
+		Metadata             common.Map            `json:"metadata,omitempty" structs:"-"`
 	}
 
 	// InstanceGetInput is used to get an instance for the id
 	InstanceGetInput struct {
-		InstanceID *ID     `json:"instance_id,omitempty"`
-		Name       *string `json:"name,omitempty"`
-		Domain     *string `json:"domain,omitempty"`
+		InstanceID *ID                `json:"instance_id,omitempty"`
+		Name       *string            `json:"-"`
+		Audience   *string            `json:"-"`
+		Expand     common.StringSlice `json:"expand,omitempty"`
 	}
 
 	// InstanceListInput is the instance list request
 	InstanceListInput struct {
-		Limit  *uint64 `json:"limit,omitempty"`
-		Offset *uint64 `json:"offset,omitempty"`
-		Count  *uint64 `json:"count,omitempty"`
+		Limit  *uint64            `json:"limit,omitempty"`
+		Offset *uint64            `json:"offset,omitempty"`
+		Count  *uint64            `json:"count,omitempty"`
+		Expand common.StringSlice `json:"expand,omitempty"`
 	}
 
 	// InstanceDeleteInput is the instance delete request input
@@ -130,14 +134,6 @@ type (
 	}
 )
 
-// ValidateWithContext handles validation of the InstanceInitializeInput struct
-func (a InstanceInitializeInput) ValidateWithContext(ctx context.Context) error {
-	return validation.ValidateStruct(&a,
-		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
-		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
-	)
-}
-
 // ValidateWithContext handles validation of the InstanceCreateInput struct
 func (a InstanceCreateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
@@ -145,8 +141,13 @@ func (a InstanceCreateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.Audience, validation.Required, is.Domain),
 		validation.Field(&a.Permissions, validation.Required),
 		validation.Field(&a.TokenAlgorithm, validation.Required),
-		validation.Field(&a.TokenLifetime, validation.Required),
-		validation.Field(&a.SessionLifetime, validation.Required),
+		validation.Field(&a.TokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
+		validation.Field(&a.SessionLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
+		validation.Field(&a.RefreshTokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
+		validation.Field(&a.LoginTokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Minute)),
+		validation.Field(&a.InviteTokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Minute)),
+		validation.Field(&a.VerifyTokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Minute)),
+		validation.Field(&a.AuthCodeLifetime, validation.NilOrNotEmpty, validation.Min(time.Minute)),
 	)
 }
 
@@ -158,6 +159,9 @@ func (a InstanceUpdateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.Audience, validation.NilOrNotEmpty, is.Domain),
 		validation.Field(&a.TokenAlgorithm, validation.NilOrNotEmpty),
 		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
+		validation.Field(&a.TokenLifetime, validation.NilOrNotEmpty, validation.Min(time.Hour)),
+		validation.Field(&a.SessionLifetime, validation.Required, validation.Min(time.Hour)),
+		validation.Field(&a.RefreshTokenLifetime, validation.Required, validation.Min(time.Hour)),
 	)
 }
 
@@ -178,158 +182,8 @@ func (a InstanceDeleteInput) ValidateWithContext(ctx context.Context) error {
 	)
 }
 
-// InstanceInitialize will create or update and instance, intialize a default application and secrets
-func (b *Hiro) InstanceInitialize(ctx context.Context, params InstanceInitializeInput) (*Instance, error) {
-	var inst *Instance
-	var err error
-
-	log := Log(ctx).WithField("operation", "InstanceInitialize").WithField("name", params.Name)
-
-	if err := params.ValidateWithContext(ctx); err != nil {
-		log.Error(err.Error())
-
-		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
-	}
-
-	if params.TokenAlgorithm == nil {
-		params.TokenAlgorithm = DefaultTokenAlgorithm.Ptr()
-	}
-
-	if params.TokenLifetime == nil {
-		params.TokenLifetime = ptr.Duration(DefaultTokenLifetime)
-	}
-
-	if params.SessionLifetime == nil {
-		params.SessionLifetime = ptr.Duration(DefaultSessionLifetime)
-	}
-
-	if params.Permissions == nil {
-		params.Permissions = make(oauth.Scope, 0)
-	}
-
-	// always include hiro and oauth scopes
-	params.Permissions = append(params.Permissions, Scopes...)
-	params.Permissions = append(params.Permissions, oauth.Scopes...)
-	params.Permissions = params.Permissions.Unique()
-
-	// do the initialization in a single transaction
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
-		inst, err = b.InstanceCreate(ctx, InstanceCreateInput{
-			Name:            params.Name,
-			Description:     params.Description,
-			Audience:        params.Audience,
-			TokenLifetime:   params.TokenLifetime.Round(time.Second),
-			TokenAlgorithm:  *params.TokenAlgorithm,
-			SessionLifetime: *params.SessionLifetime,
-			Metadata:        params.Metadata,
-			Permissions:     params.Permissions,
-		})
-		if err != nil && !errors.Is(err, ErrDuplicateObject) {
-			return err
-		}
-
-		// ensure the permissions are consistent
-		if _, err := b.InstanceUpdate(ctx, InstanceUpdateInput{
-			InstanceID: inst.ID,
-			Permissions: &InstancePermissionsUpdate{
-				Add: params.Permissions,
-			},
-		}); err != nil {
-			return err
-		}
-
-		log.Infof("instance %s [%s] initialized", inst.Name, inst.ID)
-
-		// generate secrets is none exist
-		if len(inst.TokenSecrets) == 0 {
-			if _, err := b.SecretCreate(ctx, SecretCreateInput{
-				InstanceID: inst.ID,
-				Type:       SecretTypeToken,
-				Algorithm:  &inst.TokenAlgorithm,
-			}); err != nil {
-				return fmt.Errorf("%w: failed to create instance token secret", err)
-			}
-		}
-
-		// generate a session key if none exists
-		if len(inst.SessionKeys) == 0 {
-			if _, err := b.SecretCreate(ctx, SecretCreateInput{
-				InstanceID: inst.ID,
-				Type:       SecretTypeSession,
-			}); err != nil {
-				return fmt.Errorf("%w: failed to create instance session key", err)
-			}
-		}
-
-		// create a new application for the instance
-		app, err := b.ApplicationCreate(ctx, ApplicationCreateInput{
-			Name: inst.Name,
-			Type: oauth.ClientTypeMachine,
-			Permissions: oauth.ScopeSet{
-				inst.Name: inst.Permissions,
-				"hiro":    append(Scopes, oauth.Scopes...),
-			},
-			Grants: oauth.Grants{
-				inst.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-				"hiro":    {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-			},
-		})
-		if err != nil && !errors.Is(err, ErrDuplicateObject) {
-			return err
-		}
-		if _, err := b.ApplicationUpdate(ctx, ApplicationUpdateInput{
-			ApplicationID: app.ID,
-			Grants: oauth.Grants{
-				inst.Name: {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-				"hiro":    {oauth.GrantTypeClientCredentials, oauth.GrantTypeAuthCode, oauth.GrantTypeRefreshToken},
-			},
-			Permissions: &PermissionUpdate{
-				Add: oauth.ScopeSet{
-					inst.Name: inst.Permissions,
-					"hiro":    append(Scopes, oauth.Scopes...),
-				},
-			},
-		}); err != nil {
-			return err
-		}
-
-		for r, p := range params.Roles {
-			role, err := b.RoleCreate(ctx, RoleCreateInput{
-				InstanceID: inst.ID,
-				Name:       r,
-				Permissions: oauth.ScopeSet{
-					inst.Slug: p,
-				},
-			})
-			if err != nil && !errors.Is(err, ErrDuplicateObject) {
-				return err
-			}
-
-			if _, err := b.RoleUpdate(ctx, RoleUpdateInput{
-				RoleID: role.ID,
-				Permissions: &PermissionUpdate{
-					Add: oauth.ScopeSet{
-						inst.Slug: p,
-					},
-				},
-			}); err != nil {
-				return err
-			}
-		}
-
-		log.Infof("application %s initialized, client_id = %q, client_secret=%q", app.Slug, app.ID, safe.String(app.SecretKey))
-
-		// return a txcommit error to ensure the transaction is committed
-		return ErrTxCommit(nil)
-	}, ErrDuplicateObject); err != nil {
-		return nil, err
-	}
-
-	return inst, nil
-}
-
 // InstanceCreate create a new permission object
-func (b *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (*Instance, error) {
+func (h *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (*Instance, error) {
 	var inst Instance
 
 	log := Log(ctx).WithField("operation", "InstanceCreate").WithField("name", params.Name)
@@ -340,25 +194,63 @@ func (b *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if params.TokenLifetime == nil {
+		params.TokenLifetime = ptr.Duration(time.Hour)
+	}
+
+	if params.SessionLifetime == nil {
+		params.SessionLifetime = ptr.Duration(time.Hour * 24 * 7)
+	}
+
+	if params.RefreshTokenLifetime == nil {
+		params.RefreshTokenLifetime = ptr.Duration(time.Hour * 24 * 7)
+	}
+
+	if params.LoginTokenLifetime == nil {
+		params.LoginTokenLifetime = ptr.Duration(time.Minute * 15)
+	}
+
+	if params.InviteTokenLifetime == nil {
+		params.InviteTokenLifetime = ptr.Duration(time.Hour * 24 * 7)
+	}
+
+	if params.VerifyTokenLifetime == nil {
+		params.VerifyTokenLifetime = ptr.Duration(time.Hour * 24)
+	}
+
+	if params.AuthCodeLifetime == nil {
+		params.AuthCodeLifetime = ptr.Duration(time.Minute * 10)
+	}
+
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new instance")
 
 		stmt, args, err := sq.Insert("hiro.instances").
 			Columns(
 				"name",
 				"description",
-				"domain",
+				"audience",
 				"token_algorithm",
 				"token_lifetime",
 				"session_lifetime",
+				"refresh_token_lifetime",
+				"login_token_lifetime",
+				"invite_token_lifetime",
+				"verify_token_lifetime",
+				"auth_code_lifetime",
 				"metadata").
 			Values(
 				params.Name,
 				null.String(params.Description),
 				null.String(params.Audience),
 				params.TokenAlgorithm,
-				params.TokenLifetime.Round(time.Second),
-				params.SessionLifetime,
+				int64(params.TokenLifetime.Round(time.Second).Seconds()),
+				int64(params.SessionLifetime.Round(time.Second).Seconds()),
+				int64(params.RefreshTokenLifetime.Round(time.Second).Seconds()),
+				int64(params.LoginTokenLifetime.Round(time.Second).Seconds()),
+				int64(params.InviteTokenLifetime.Round(time.Second).Seconds()),
+				int64(params.VerifyTokenLifetime.Round(time.Second).Seconds()),
+				int64(params.AuthCodeLifetime.Round(time.Second).Seconds()),
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -372,14 +264,8 @@ func (b *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 			return ParseSQLError(err)
 		}
 
-		return b.instanceUpdatePermissions(ctx, &inst, &InstancePermissionsUpdate{Add: params.Permissions})
+		return h.instanceUpdatePermissions(ctx, &inst, PermissionUpdate{Add: params.Permissions})
 	}); err != nil {
-		if errors.Is(err, ErrDuplicateObject) {
-			return b.InstanceGet(ctx, InstanceGetInput{
-				Name: &params.Name,
-			})
-		}
-
 		log.Error(err.Error())
 
 		return nil, err
@@ -387,11 +273,11 @@ func (b *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 
 	log.Debugf("instance %s created", inst.ID)
 
-	return &inst, nil
+	return h.instanceExpand(ctx, &inst, expandAll)
 }
 
 // InstanceUpdate updates an application by id, including child objects
-func (b *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (*Instance, error) {
+func (h *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (*Instance, error) {
 	var inst Instance
 
 	log := Log(ctx).WithField("operation", "InstanceUpdate").WithField("id", params.InstanceID)
@@ -402,14 +288,38 @@ func (b *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("updating instance")
 
 		q := sq.Update("hiro.instances").
 			PlaceholderFormat(sq.Dollar)
 
 		if params.TokenLifetime != nil {
-			*params.TokenLifetime = params.TokenLifetime.Round(time.Second)
+			*params.TokenLifetime = time.Duration(params.TokenLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.SessionLifetime != nil {
+			*params.SessionLifetime = time.Duration(params.SessionLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.RefreshTokenLifetime != nil {
+			*params.RefreshTokenLifetime = time.Duration(params.RefreshTokenLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.LoginTokenLifetime != nil {
+			*params.LoginTokenLifetime = time.Duration(params.LoginTokenLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.InviteTokenLifetime != nil {
+			*params.InviteTokenLifetime = time.Duration(params.InviteTokenLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.VerifyTokenLifetime != nil {
+			*params.VerifyTokenLifetime = time.Duration(params.VerifyTokenLifetime.Round(time.Second).Seconds())
+		}
+
+		if params.AuthCodeLifetime != nil {
+			*params.AuthCodeLifetime = time.Duration(params.AuthCodeLifetime.Round(time.Second).Seconds())
 		}
 
 		updates := structs.Map(params)
@@ -435,7 +345,7 @@ func (b *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (
 				return ParseSQLError(err)
 			}
 		} else {
-			a, err := b.InstanceGet(ctx, InstanceGetInput{
+			a, err := h.InstanceGet(ctx, InstanceGetInput{
 				InstanceID: &params.InstanceID,
 			})
 			if err != nil {
@@ -444,18 +354,18 @@ func (b *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (
 			inst = *a
 		}
 
-		return b.instanceUpdatePermissions(ctx, &inst, params.Permissions)
+		return h.instanceUpdatePermissions(ctx, &inst, params.Permissions)
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("instance %s updated", inst.Name)
 
-	return &inst, b.instancePreload(ctx, &inst)
+	return h.instanceExpand(ctx, &inst, expandAll)
 }
 
 // InstanceGet gets an instance by id and optionally preloads child objects
-func (b *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Instance, error) {
+func (h *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Instance, error) {
 	var suffix string
 
 	log := Log(ctx).WithField("operation", "InstanceGet").WithField("params", params)
@@ -466,7 +376,7 @@ func (b *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Insta
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	if IsTransaction(db) {
 		suffix = "FOR UPDATE"
@@ -483,13 +393,13 @@ func (b *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Insta
 			sq.Eq{"name": *params.Name},
 			sq.Eq{"slug": *params.Name},
 		})
-	} else if params.Domain != nil {
+	} else if params.Audience != nil {
 		query = query.Where(sq.Or{
-			sq.Eq{"domain": *params.Domain},
-			sq.Expr("? ~ domain", *params.Domain),
+			sq.Eq{"audience": *params.Audience},
+			sq.Expr("? ~ audience", *params.Audience),
 		})
 	} else {
-		return nil, fmt.Errorf("%w: instance id, name, or domain required", ErrInputValidation)
+		return nil, fmt.Errorf("%w: instance id, name, or audience required", ErrInputValidation)
 	}
 
 	stmt, args, err := query.
@@ -510,11 +420,11 @@ func (b *Hiro) InstanceGet(ctx context.Context, params InstanceGetInput) (*Insta
 		return nil, ParseSQLError(err)
 	}
 
-	return inst, b.instancePreload(ctx, inst)
+	return h.instanceExpand(ctx, inst, params.Expand)
 }
 
 // InstanceList returns a listing of instances
-func (b *Hiro) InstanceList(ctx context.Context, params InstanceListInput) ([]*Instance, error) {
+func (h *Hiro) InstanceList(ctx context.Context, params InstanceListInput) ([]*Instance, error) {
 	log := Log(ctx).WithField("operation", "InstanceList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -522,7 +432,7 @@ func (b *Hiro) InstanceList(ctx context.Context, params InstanceListInput) ([]*I
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	target := "*"
 	if params.Count != nil {
@@ -553,22 +463,22 @@ func (b *Hiro) InstanceList(ctx context.Context, params InstanceListInput) ([]*I
 		return nil, nil
 	}
 
-	auds := make([]*Instance, 0)
-	if err := db.SelectContext(ctx, &auds, stmt, args...); err != nil {
+	insts := make([]*Instance, 0)
+	if err := db.SelectContext(ctx, &insts, stmt, args...); err != nil {
 		return nil, ParseSQLError(err)
 	}
 
-	for _, inst := range auds {
-		if err := b.instancePreload(ctx, inst); err != nil {
+	for _, inst := range insts {
+		if _, err := h.instanceExpand(ctx, inst, params.Expand); err != nil {
 			return nil, err
 		}
 	}
 
-	return auds, nil
+	return insts, nil
 }
 
 // InstanceDelete deletes an instance by id
-func (b *Hiro) InstanceDelete(ctx context.Context, params InstanceDeleteInput) error {
+func (h *Hiro) InstanceDelete(ctx context.Context, params InstanceDeleteInput) error {
 	log := Log(ctx).WithField("operation", "InstanceDelete").WithField("instance", params.InstanceID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -576,7 +486,7 @@ func (b *Hiro) InstanceDelete(ctx context.Context, params InstanceDeleteInput) e
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 	if _, err := sq.Delete("hiro.instances").
 		Where(
 			sq.Eq{"id": params.InstanceID},
@@ -591,39 +501,18 @@ func (b *Hiro) InstanceDelete(ctx context.Context, params InstanceDeleteInput) e
 	return nil
 }
 
-func (b *Hiro) instanceUpdatePermissions(ctx context.Context, inst *Instance, perms *InstancePermissionsUpdate) error {
+func (h *Hiro) instanceUpdatePermissions(ctx context.Context, inst *Instance, perms PermissionUpdate) error {
 	log := Log(ctx).WithField("operation", "instanceUpdatePermissions").WithField("instance", inst.ID)
 
-	if perms == nil {
-		return nil
-	}
+	db := h.DB(ctx)
 
-	if len(perms.Add) == 0 && len(perms.Remove) == 0 {
-		return nil
-	}
-
-	db := b.DB(ctx)
-
-	if perms.Overwrite {
-		if _, err := sq.Delete("hiro.instance_permissions").
-			Where(
-				sq.Eq{"instance_id": inst.ID},
-			).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete instance permissions %s: %s", inst.ID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, p := range perms.Add.Unique() {
+	for _, p := range perms.Add {
 		_, err := sq.Insert("hiro.instance_permissions").
-			Columns("instance_id", "permission").
+			Columns("instance_id", "permission", "description").
 			Values(
 				inst.ID,
-				p,
+				p.Permission,
+				p.Description,
 			).
 			Suffix("ON CONFLICT DO NOTHING").
 			RunWith(db).
@@ -636,11 +525,13 @@ func (b *Hiro) instanceUpdatePermissions(ctx context.Context, inst *Instance, pe
 		}
 	}
 
-	for _, p := range perms.Remove.Unique() {
+	for _, p := range perms.Remove {
 		if _, err := sq.Delete("hiro.instance_permissions").
 			Where(
-				sq.Eq{"instance_id": inst.ID},
-				sq.Eq{"permission": p},
+				sq.Eq{
+					"instance_id": inst.ID,
+					"permission":  p.Permission,
+				},
 			).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
@@ -654,52 +545,70 @@ func (b *Hiro) instanceUpdatePermissions(ctx context.Context, inst *Instance, pe
 	return nil
 }
 
-func (b *Hiro) instancePreload(ctx context.Context, inst *Instance) error {
-	log := Log(ctx).WithField("operation", "instancePreload").WithField("instance", inst.ID)
+func (h *Hiro) instanceExpand(ctx context.Context, inst *Instance, expand common.StringSlice) (*Instance, error) {
+	log := Log(ctx).WithField("operation", "instanceExpand").WithField("instance", inst.ID)
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
-	if err := db.SelectContext(
-		ctx,
-		&inst.Permissions,
-		`SELECT permission 
+	if expand.ContainsAny("permissions", "*") {
+		if err := db.SelectContext(
+			ctx,
+			&inst.Permissions,
+			`SELECT * 
 		 FROM hiro.instance_permissions 
 		 WHERE instance_id=$1`,
-		inst.ID); err != nil {
-		log.Errorf("failed to load instance permissions %s: %s", inst.ID, err)
+			inst.ID); err != nil {
+			log.Errorf("failed to load instance permissions %s: %s", inst.ID, err)
 
-		return ParseSQLError(err)
-	}
-
-	if err := db.SelectContext(
-		ctx,
-		&inst.Secrets,
-		`SELECT * 
-		 FROM hiro.secrets 
-		 WHERE instance_id=$1`,
-		inst.ID); err != nil {
-		log.Errorf("failed to load instance secrets %s: %s", inst.ID, err)
-
-		return ParseSQLError(err)
-	}
-
-	inst.TokenSecrets = make([]oauth.TokenSecret, 0)
-	inst.SessionKeys = make([]SessionKey, 0)
-
-	for _, s := range inst.Secrets {
-		if s.Type == SecretTypeToken {
-			if *s.Algorithm == inst.TokenAlgorithm {
-				k, err := TokenSecret(s)
-				if err != nil {
-					return err
-				}
-
-				inst.TokenSecrets = append(inst.TokenSecrets, k)
-			}
-		} else {
-			inst.SessionKeys = append(inst.SessionKeys, SessionKey(*s))
+			return nil, ParseSQLError(err)
 		}
 	}
 
-	return nil
+	if expand.ContainsAny("secrets", "*") {
+		if err := db.SelectContext(
+			ctx,
+			&inst.Secrets,
+			`SELECT * 
+		 FROM hiro.secrets 
+		 WHERE instance_id=$1`,
+			inst.ID); err != nil {
+			log.Errorf("failed to load instance secrets %s: %s", inst.ID, err)
+
+			return nil, ParseSQLError(err)
+		}
+
+		inst.TokenSecrets = make([]oauth.TokenSecret, 0)
+		inst.SessionKeys = make([]SessionKey, 0)
+
+		for _, s := range inst.Secrets {
+			if s.Type == SecretTypeToken {
+				if *s.Algorithm == inst.TokenAlgorithm {
+					k, err := TokenSecret(&s)
+					if err != nil {
+						return nil, err
+					}
+
+					inst.TokenSecrets = append(inst.TokenSecrets, k)
+				}
+			} else {
+				inst.SessionKeys = append(inst.SessionKeys, SessionKey(s))
+			}
+		}
+	}
+
+	if expand.ContainsAny("roles", "*") {
+		if err := db.SelectContext(
+			ctx,
+			&inst.Roles,
+			`SELECT * 
+		 FROM hiro.roles 
+		 WHERE instance_id=$1`,
+			inst.ID); err != nil {
+			log.Errorf("failed to load instance roles %s: %s", inst.ID, err)
+
+			return nil, ParseSQLError(err)
+		}
+	}
+
+	return inst, nil
 }

@@ -28,7 +28,6 @@ import (
 
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/ModelRocket/hiro/pkg/safe"
 	"github.com/dustin/go-humanize"
 	"github.com/lensesio/tableprinter"
@@ -118,55 +117,13 @@ var (
 )
 
 type (
-	permArg  oauth.ScopeSet
-	grantArg oauth.Grants
+	permArg  map[string]oauth.Scope
+	grantArg map[string]oauth.GrantType
 )
 
 func applicationCreate(c *cli.Context) error {
-	var err error
 
-	perms := oauth.ScopeSet(c.Generic("permissions").(permArg))
-	grants := oauth.Grants(c.Generic("grants").(grantArg))
-
-	// default to hiro permissions
-	if len(perms) == 0 {
-		perms = oauth.ScopeSet{
-			"hiro": append(oauth.Scopes, hiro.Scopes...),
-		}
-	}
-
-	// default to safe grants
-	if len(grants) == 0 {
-		grants = oauth.Grants{
-			"hiro": oauth.GrantList{
-				oauth.GrantTypeAuthCode,
-				oauth.GrantTypeClientCredentials,
-				oauth.GrantTypeRefreshToken,
-			},
-		}
-	}
-
-	app, err := h.ApplicationCreate(context.Background(), hiro.ApplicationCreateInput{
-		Name:        c.String("name"),
-		Description: ptr.NilString(c.String("description")),
-		Type:        oauth.ClientType(c.String("type")),
-		Permissions: perms,
-		Grants:      grants,
-		URIs:        oauth.MakeURIList(c.StringSlice("uri")...),
-	})
-	if err != nil {
-		if errors.Is(err, hiro.ErrDuplicateObject) {
-			fmt.Printf("Application with name %s already exists\n", c.String("name"))
-			return nil
-		}
-		return err
-	}
-
-	fmt.Printf("Application %s [%s] created.\n", app.Name, app.ID)
-
-	dumpValue(app)
-
-	return err
+	return nil
 }
 
 func applicationGet(c *cli.Context) error {
@@ -268,7 +225,7 @@ func applicationUpdate(c *cli.Context) error {
 	}
 
 	if uris := c.StringSlice("uri"); len(uris) > 0 {
-		params.URIs = oauth.MakeURIList(c.StringSlice("uri")...)
+		params.Endpoints = oauth.MakeURIList(c.StringSlice("uri")...)
 	}
 
 	app, err := h.ApplicationUpdate(context.Background(), params)

@@ -98,7 +98,7 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		name:        defaultName,
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
-		backOptions: []HiroOption{Automigrate(), Initialize()},
+		backOptions: []HiroOption{Automigrate()},
 		hiroPath:    defaultHiroPath,
 		oauthPath:   defaultOAuthPath,
 		webRPCPath:  defaultWebRPCPath,
@@ -397,7 +397,7 @@ func (d *Service) validateToken(ctx context.Context) error {
 	}
 
 	_, err := oauth.ParseBearer(auth[0], func(kid string, c oauth.Claims) (oauth.TokenSecret, error) {
-		inst, err := d.oauthCtrl.AudienceGet(ctx, c.Audience())
+		inst, err := d.oauthCtrl.AudienceGet(ctx, oauth.AudienceGetInput{Audience: c.Audience()})
 		if err != nil {
 			return nil, err
 		}

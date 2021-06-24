@@ -12,15 +12,16 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     slug VARCHAR(64) NOT NULL,
     description VARCHAR(1024),
     type TEXT NOT NULL DEFAULT 'web',
-    secret_id UUID,
+    client_id CHAR(22),
+    client_secret CHAR(32),
     uris JSONB,
     metadata JSONB,
-    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
-    FOREIGN KEY (secret_id) REFERENCES hiro.secrets(id) ON DELETE CASCADE
+    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS application_client_id ON hiro.applications(instance_id, client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS application_name ON hiro.applications(instance_id, name);
-CREATE UNIQUE INDEX IF NOT EXISTS application_name ON hiro.applications(instance_id, slug);
+CREATE UNIQUE INDEX IF NOT EXISTS application_slug ON hiro.applications(instance_id, slug);
 
 DROP TRIGGER IF EXISTS update_timestamp ON hiro.applications;
 

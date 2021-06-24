@@ -58,14 +58,9 @@ func (h *Hiro) SessionCreate(ctx context.Context, sess *session.Session) error {
 
 	log := Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
-	var p InstanceGetInput
-	if !ID(sess.Audience).Valid() {
-		p.Name = &sess.Audience
-	} else {
-		p.InstanceID = ID(sess.Audience)
-	}
-
-	inst, err := h.InstanceGet(ctx, p)
+	inst, err := h.InstanceGet(ctx, InstanceGetInput{
+		Audience: &sess.Audience,
+	})
 	if err != nil {
 		return err
 	}
@@ -240,14 +235,9 @@ func (h *Hiro) SessionDestroy(ctx context.Context, id string) error {
 }
 
 func (h *Hiro) SessionOptions(ctx context.Context, id string) (session.Options, error) {
-	var p InstanceGetInput
-	if !ID(id).Valid() {
-		p.Name = &id
-	} else {
-		p.InstanceID = ID(id)
-	}
-
-	inst, err := h.InstanceGet(ctx, p)
+	inst, err := h.InstanceGet(ctx, InstanceGetInput{
+		InstanceID: (*ID)(&id),
+	})
 	if err != nil {
 		return session.Options{}, err
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/env"
 	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/apex/log"
 	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
@@ -43,7 +42,6 @@ type (
 		assetVolume   string
 		automigrate   bool
 		initialize    bool
-		instances     []InstanceInitializeInput
 		timeout       time.Duration
 		retryInterval time.Duration
 		passwords     PasswordManager
@@ -77,7 +75,7 @@ var (
 	}
 
 	// Roles is the list of hiro roles by name
-	Roles = oauth.ScopeSet{
+	Roles = map[string]oauth.Scope{
 		"admin": Scopes,
 	}
 
@@ -167,24 +165,6 @@ func New(opts ...HiroOption) (*Hiro, error) {
 		}
 	}
 
-	if b.initialize {
-		if _, err := b.InstanceInitialize(context.Background(), InstanceInitializeInput{
-			Name:            "hiro",
-			TokenAlgorithm:  DefaultTokenAlgorithm.Ptr(),
-			TokenLifetime:   ptr.Duration(DefaultTokenLifetime),
-			SessionLifetime: ptr.Duration(DefaultSessionLifetime),
-			Permissions:     append(Scopes, oauth.Scopes...),
-		}); err != nil {
-			return nil, err
-		}
-
-		for _, a := range b.instances {
-			if _, err := b.InstanceInitialize(context.Background(), a); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	return b, nil
 }
 
@@ -235,14 +215,6 @@ func Automigrate(m ...Migration) HiroOption {
 	return func(h *Hiro) {
 		h.automigrate = true
 		h.migrations = append(h.migrations, m...)
-	}
-}
-
-// Initialize will create the default hiro instance and application to use for management
-func Initialize(a ...InstanceInitializeInput) HiroOption {
-	return func(h *Hiro) {
-		h.initialize = true
-		h.instances = a
 	}
 }
 

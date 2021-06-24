@@ -79,7 +79,7 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 		return nil, err
 	}
 
-	return &pb.Instance{
+	rval := &pb.Instance{
 		Id:              a.ID.String(),
 		Name:            a.Name,
 		Slug:            a.Slug,
@@ -88,23 +88,31 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 		TokenAlgorithm:  apiAlgoMap[a.TokenAlgorithm],
 		TokenLifetime:   uint64(a.TokenLifetime.Seconds()),
 		SessionLifetime: uint64(a.TokenLifetime.Seconds()),
-		Permissions:     a.Permissions,
+		Permissions:     make([]string, 0),
 		Metadata:        meta,
 		CreatedAt:       createdAt,
 		UpdatedAt:       updatedAt,
-	}, err
+	}
+
+	for _, p := range a.Permissions {
+		if p.InstanceID == a.ID {
+			rval.Permissions = append(rval.Permissions, p.Permission)
+		}
+	}
+
+	return rval, err
 }
 
 // FromProto convert the proto instance to an api instance
 func (a *Instance) FromProto(p *pb.Instance) {
-	a.Secrets = make([]*Secret, 0)
+	a.Secrets = make([]Secret, 0)
 
 	for _, s := range p.Secrets {
 		var sec Secret
 
 		sec.FromProto(s)
 
-		a.Secrets = append(a.Secrets, &sec)
+		a.Secrets = append(a.Secrets, sec)
 	}
 
 	if p.CreatedAt != nil {
@@ -122,21 +130,37 @@ func (a *Instance) FromProto(p *pb.Instance) {
 	a.TokenAlgorithm = pbAlgoMap[p.TokenAlgorithm]
 	a.TokenLifetime = time.Duration(p.TokenLifetime) * time.Second
 	a.SessionLifetime = time.Duration(p.SessionLifetime) * time.Second
-	a.Permissions = p.Permissions
+
+	a.Permissions = make([]Permission, 0)
+	for _, p := range p.Permissions {
+		a.Permissions = append(a.Permissions, Permission{
+			InstanceID: a.ID,
+			Permission: p,
+		})
+	}
+
 	a.Metadata = p.Metadata.AsMap()
 }
 
 // InstanceCreate implements the pb.HiroServer interface
 func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreateRequest) (*pb.Instance, error) {
-	inst, err := s.Controller.InstanceCreate(ctx, InstanceCreateInput{
+	in := InstanceCreateInput{
 		Name:            params.Name,
 		Description:     params.Description,
 		TokenAlgorithm:  pbAlgoMap[params.TokenAlgorithm],
-		TokenLifetime:   time.Duration(params.TokenLifetime) * time.Second,
-		SessionLifetime: time.Duration(params.SessionLifetime) * time.Second,
-		Permissions:     params.Permissions,
+		TokenLifetime:   ptr.Duration(time.Duration(params.TokenLifetime) * time.Second),
+		SessionLifetime: ptr.Duration(time.Duration(params.SessionLifetime) * time.Second),
+		Permissions:     make([]Permission, 0),
 		Metadata:        params.Metadata.AsMap(),
-	})
+	}
+
+	for _, p := range params.Permissions {
+		in.Permissions = append(in.Permissions, Permission{
+			Permission: p,
+		})
+	}
+
+	inst, err := s.Controller.InstanceCreate(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +172,10 @@ func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreat
 func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdateRequest) (*pb.Instance, error) {
 	var algo *oauth.TokenAlgorithm
 	var tl, sl *time.Duration
-	var perms *InstancePermissionsUpdate
+	perms := PermissionUpdate{
+		Add:    make([]Permission, 0),
+		Remove: make([]Permission, 0),
+	}
 
 	if params.TokenAlgorithm != nil {
 		a := pbAlgoMap[*params.TokenAlgorithm]
@@ -164,10 +191,17 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 	}
 
 	if params.Permissions != nil {
-		perms = &InstancePermissionsUpdate{
-			Add:       params.Permissions.Add,
-			Remove:    params.Permissions.Remove,
-			Overwrite: params.Permissions.Overwrite,
+		for _, p := range params.Permissions.Add {
+			perms.Add = append(perms.Add, Permission{
+				InstanceID: ID(params.Id),
+				Permission: p,
+			})
+		}
+		for _, p := range params.Permissions.Remove {
+			perms.Remove = append(perms.Remove, Permission{
+				InstanceID: ID(params.Id),
+				Permission: p,
+			})
 		}
 	}
 
@@ -189,8 +223,15 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 
 // InstanceGet implements the pb.HiroServer interface
 func (s *RPCServer) InstanceGet(ctx context.Context, params *pb.InstanceGetRequest) (*pb.Instance, error) {
+	var id *ID
+
+	tmp := ID(params.GetId())
+	if tmp.Valid() {
+		id = &tmp
+	}
+
 	a, err := s.Controller.InstanceGet(ctx, InstanceGetInput{
-		InstanceID: ID(params.GetId()),
+		InstanceID: id,
 		Name:       ptr.NilString(params.GetName()),
 	})
 	if err != nil {

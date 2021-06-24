@@ -28,7 +28,6 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/common"
 	"github.com/ModelRocket/hiro/pkg/null"
-	"github.com/ModelRocket/hiro/pkg/oauth"
 	"github.com/fatih/structs"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
@@ -45,51 +44,59 @@ type (
 
 	// Role is the database model for an role
 	Role struct {
-		ID          ID             `json:"id" db:"id"`
-		InstanceID  ID             `json:"instance_id" db:"instance_id"`
-		Name        string         `json:"name" db:"name"`
-		Slug        string         `json:"slug" db:"slug"`
-		Description *string        `json:"description,omitempty" db:"description"`
-		Permissions oauth.ScopeSet `json:"permissions,omitempty" db:"-"`
-		CreatedAt   time.Time      `json:"created_at" db:"created_at"`
-		UpdatedAt   *time.Time     `json:"updated_at,omitempty" db:"updated_at"`
-		Metadata    common.Map     `json:"metadata,omitempty" db:"metadata"`
+		ID          ID           `json:"id" db:"id"`
+		InstanceID  ID           `json:"instance_id" db:"instance_id"`
+		Name        string       `json:"name" db:"name"`
+		Slug        string       `json:"slug" db:"slug"`
+		Description *string      `json:"description,omitempty" db:"description"`
+		Default     bool         `json:"default": db:"default"`
+		Permissions []Permission `json:"permissions,omitempty" db:"-"`
+		CreatedAt   time.Time    `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time   `json:"updated_at,omitempty" db:"updated_at"`
+		Metadata    common.Map   `json:"metadata,omitempty" db:"metadata"`
 	}
 
 	// RoleCreateInput is the role create request
 	RoleCreateInput struct {
-		InstanceID  ID             `json:"instance_id"`
-		Name        string         `json:"name"`
-		Description *string        `json:"description,omitempty"`
-		Permissions oauth.ScopeSet `json:"permissions,omitempty"`
-		Metadata    common.Map     `json:"metadata,omitempty"`
+		InstanceID  ID           `json:"instance_id"`
+		Name        string       `json:"name"`
+		Description *string      `json:"description,omitempty"`
+		Default     bool         `json:"default"`
+		Permissions []Permission `json:"permissions,omitempty"`
+		Metadata    common.Map   `json:"metadata,omitempty"`
 	}
 
 	// RoleUpdateInput is the role update request
 	RoleUpdateInput struct {
-		RoleID      ID                 `json:"id" structs:"-"`
-		Name        *string            `json:"name" structs:"name,omitempty"`
-		Description *string            `json:"description,omitempty" structs:"description,omitempty"`
-		Permissions *PermissionUpdate `json:"permissions,omitempty" structs:"-"`
-		Metadata    common.Map         `json:"metadata,omitempty" structs:"metadata,omitempty"`
+		InstanceID  ID               `json:"-"`
+		RoleID      ID               `json:"id" structs:"-"`
+		Name        *string          `json:"name" structs:"name,omitempty"`
+		Description *string          `json:"description,omitempty" structs:"description,omitempty"`
+		Default     *bool            `json:"default,omitempty" structs:"default,omitempty"`
+		Permissions PermissionUpdate `json:"permissions,omitempty" structs:"-"`
+		Metadata    common.Map       `json:"metadata,omitempty" structs:"metadata,omitempty"`
 	}
 
 	// RoleGetInput is used to get an role for the id
 	RoleGetInput struct {
-		RoleID  *ID     `json:"role_id,omitempty"`
-		Name    *string `json:"name,omitempty"`
-		Preload *bool   `json:"preload,omitempty"`
+		RoleID     *ID                `json:"role_id,omitempty"`
+		InstanceID ID                 `json:"-"`
+		Expand     common.StringSlice `json:"expand,omitempty"`
+		Name       *string            `json:"-"`
 	}
 
 	// RoleListInput is the role list request
 	RoleListInput struct {
-		Limit  *uint64 `json:"limit,omitempty"`
-		Offset *uint64 `json:"offset,omitempty"`
+		InstanceID ID                 `json:"-"`
+		Expand     common.StringSlice `json:"expand,omitempty"`
+		Limit      *uint64            `json:"limit,omitempty"`
+		Offset     *uint64            `json:"offset,omitempty"`
 	}
 
 	// RoleDeleteInput is the role delete request input
 	RoleDeleteInput struct {
-		RoleID ID `json:"role_id"`
+		InstanceID ID `json:"-"`
+		RoleID     ID `json:"role_id"`
 	}
 
 	// RoleType defines an role type
@@ -97,7 +104,7 @@ type (
 
 	rolePatchInput struct {
 		Role        *Role
-		Permissions *PermissionUpdate
+		Permissions PermissionUpdate
 	}
 )
 
@@ -107,13 +114,14 @@ func (a RoleCreateInput) ValidateWithContext(ctx context.Context) error {
 		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.Name, validation.Required, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
-		validation.Field(&a.Permissions, validation.NilOrNotEmpty),
+		validation.Field(&a.Permissions, validation.Required),
 	)
 }
 
 // ValidateWithContext handles validation of the RoleUpdateInput struct
 func (a RoleUpdateInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.RoleID, validation.Required),
 		validation.Field(&a.Name, validation.NilOrNotEmpty, validation.Length(3, 64)),
 		validation.Field(&a.Description, validation.NilOrNotEmpty),
@@ -124,6 +132,7 @@ func (a RoleUpdateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the RoleGetInput struct
 func (a RoleGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.RoleID, validation.When(a.Name == nil, validation.Required).Else(validation.Nil)),
 		validation.Field(&a.Name, validation.When(a.RoleID == nil, validation.Required).Else(validation.Nil)),
 	)
@@ -131,18 +140,21 @@ func (a RoleGetInput) ValidateWithContext(ctx context.Context) error {
 
 // ValidateWithContext handles validation of the RoleListInput struct
 func (a RoleListInput) ValidateWithContext(context.Context) error {
-	return nil
+	return validation.ValidateStruct(&a,
+		validation.Field(&a.InstanceID, validation.Required),
+	)
 }
 
 // ValidateWithContext handles validation of the RoleDeleteInput
 func (a RoleDeleteInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
+		validation.Field(&a.InstanceID, validation.Required),
 		validation.Field(&a.RoleID, validation.Required),
 	)
 }
 
 // RoleCreate create a new permission object
-func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error) {
+func (h *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, error) {
 	var role Role
 
 	log := Log(ctx).WithField("operation", "RoleCreate").WithField("name", params.Name)
@@ -153,7 +165,7 @@ func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, e
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new role")
 
 		stmt, args, err := sq.Insert("hiro.roles").
@@ -161,11 +173,13 @@ func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, e
 				"instance_id",
 				"name",
 				"description",
+				"default",
 				"metadata").
 			Values(
 				params.InstanceID,
 				params.Name,
 				null.String(params.Description),
+				params.Default,
 				null.JSON(params.Metadata),
 			).
 			PlaceholderFormat(sq.Dollar).
@@ -181,10 +195,15 @@ func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, e
 			return ParseSQLError(err)
 		}
 
-		return b.rolePatch(ctx, rolePatchInput{&role, &PermissionUpdate{Add: params.Permissions}})
+		return h.rolePatch(ctx, rolePatchInput{
+			Role: &role,
+			Permissions: PermissionUpdate{
+				Add: params.Permissions,
+			},
+		})
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
-			r, err := b.RoleGet(ctx, RoleGetInput{
+			r, err := h.RoleGet(ctx, RoleGetInput{
 				Name: &params.Name,
 			})
 			if err != nil {
@@ -201,11 +220,11 @@ func (b *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, e
 
 	log.Debugf("role %s created", role.ID)
 
-	return b.rolePreload(ctx, &role)
+	return h.roleExpand(ctx, &role, expandAll)
 }
 
 // RoleUpdate updates an role by id, including child objects
-func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error) {
+func (h *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, error) {
 	var role Role
 
 	log := Log(ctx).WithField("operation", "RoleUpdate").WithField("id", params.RoleID)
@@ -216,7 +235,7 @@ func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, e
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("updating role")
 
 		q := sq.Update("hiro.roles").
@@ -229,7 +248,10 @@ func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, e
 		}
 
 		if len(updates) > 0 {
-			stmt, args, err := q.Where(sq.Eq{"id": params.RoleID}).
+			stmt, args, err := q.Where(sq.Eq{
+				"instance_id": params.InstanceID,
+				"id":          params.RoleID,
+			}).
 				SetMap(updates).
 				Suffix("RETURNING *").
 				ToSql()
@@ -245,7 +267,7 @@ func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, e
 				return ParseSQLError(err)
 			}
 		} else {
-			a, err := b.RoleGet(ctx, RoleGetInput{
+			a, err := h.RoleGet(ctx, RoleGetInput{
 				RoleID: &params.RoleID,
 			})
 			if err != nil {
@@ -254,18 +276,21 @@ func (b *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, e
 			role = *a
 		}
 
-		return b.rolePatch(ctx, rolePatchInput{&role, params.Permissions})
+		return h.rolePatch(ctx, rolePatchInput{
+			Role:        &role,
+			Permissions: params.Permissions,
+		})
 	}); err != nil {
 		return nil, err
 	}
 
 	log.Debugf("role %s updated", role.Name)
 
-	return b.rolePreload(ctx, &role)
+	return h.roleExpand(ctx, &role, expandAll)
 }
 
 // RoleGet gets an role by id and optionally preloads child objects
-func (b *Hiro) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) {
+func (h *Hiro) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) {
 	var suffix string
 
 	log := Log(ctx).WithField("operation", "RoleGet").
@@ -278,15 +303,12 @@ func (b *Hiro) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) 
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
-
-	if IsTransaction(db) {
-		suffix = "FOR UPDATE"
-	}
+	db := h.DB(ctx)
 
 	query := sq.Select("*").
 		From("hiro.roles").
-		PlaceholderFormat(sq.Dollar)
+		PlaceholderFormat(sq.Dollar).
+		Where(sq.Eq{"instance_id": params.InstanceID})
 
 	if params.RoleID != nil {
 		query = query.Where(sq.Eq{"id": *params.RoleID})
@@ -317,15 +339,11 @@ func (b *Hiro) RoleGet(ctx context.Context, params RoleGetInput) (*Role, error) 
 		return nil, ParseSQLError(err)
 	}
 
-	if params.Preload != nil && !*params.Preload {
-		return &role, nil
-	}
-
-	return b.rolePreload(ctx, &role)
+	return h.roleExpand(ctx, &role, params.Expand)
 }
 
 // RoleList returns a listing of roles
-func (b *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, error) {
+func (h *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, error) {
 	log := Log(ctx).WithField("operation", "RoleList")
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -333,10 +351,11 @@ func (b *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, err
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	query := sq.Select("*").
-		From("hiro.roles")
+		From("hiro.roles").
+		Where(sq.Eq{"instance_id": params.InstanceID})
 
 	if params.Limit != nil {
 		query = query.Limit(*params.Limit)
@@ -357,7 +376,7 @@ func (b *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, err
 	}
 
 	for _, role := range roles {
-		if _, err = b.rolePreload(ctx, role); err != nil {
+		if _, err = h.roleExpand(ctx, role, params.Expand); err != nil {
 			return nil, err
 		}
 	}
@@ -365,134 +384,53 @@ func (b *Hiro) RoleList(ctx context.Context, params RoleListInput) ([]*Role, err
 	return roles, nil
 }
 
-func (b *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
+func (h *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
 	log := Log(ctx).WithField("operation", "rolePatch").WithField("role", params.Role.ID)
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
-	for audID, perms := range params.Permissions.Add {
-		if !ID(audID).Valid() {
-			inst, err := b.InstanceGet(ctx, InstanceGetInput{
-				Name: &audID,
-			})
-			if err != nil {
-				err = fmt.Errorf("%w: lookup for instance named %s failed", err, audID)
+	for _, p := range params.Permissions.Add {
+		_, err := sq.Insert("hiro.role_permissions").
+			Columns("role_id", "instance_id", "permission").
+			Values(
+				params.Role.ID,
+				p.InstanceID,
+				p.Permission,
+			).
+			Suffix("ON CONFLICT DO NOTHING").
+			RunWith(db).
+			PlaceholderFormat(sq.Dollar).
+			ExecContext(ctx)
+		if err != nil {
+			log.Errorf("failed to update instance permissions %s: %s", p.InstanceID, err)
 
-				log.Error(err.Error())
-
-				return err
-			}
-
-			audID = inst.ID.String()
-		}
-
-		if params.Permissions.Overwrite {
-			if _, err := sq.Delete("hiro.role_permissions").
-				Where(
-					sq.Eq{
-						"instance_id": ID(audID),
-						"role_id":     params.Role.ID,
-					}).
-				PlaceholderFormat(sq.Dollar).
-				RunWith(db).
-				ExecContext(ctx); err != nil {
-				log.Errorf("failed to delete permissions for instance: %s", audID, err)
-
-				return ParseSQLError(err)
-			}
-		}
-
-		for _, p := range perms.Unique() {
-			_, err := sq.Insert("hiro.role_permissions").
-				Columns("role_id", "instance_id", "permission").
-				Values(
-					params.Role.ID,
-					ID(audID),
-					p,
-				).
-				Suffix("ON CONFLICT DO NOTHING").
-				RunWith(db).
-				PlaceholderFormat(sq.Dollar).
-				ExecContext(ctx)
-			if err != nil {
-				log.Errorf("failed to update instance permissions %s: %s", audID, err)
-
-				return ParseSQLError(err)
-			}
+			return ParseSQLError(err)
 		}
 	}
 
-	for audID, perms := range params.Permissions.Remove {
-		if !ID(audID).Valid() {
-			inst, err := b.InstanceGet(ctx, InstanceGetInput{
-				Name: &audID,
-			})
-			if err != nil {
-				err = fmt.Errorf("%w: lookup for instance named %s failed", err, audID)
+	for _, p := range params.Permissions.Remove {
+		if _, err := sq.Delete("hiro.role_permissions").
+			Where(
+				sq.Eq{
+					"instance_id": p.InstanceID,
+					"role_id":     params.Role.ID,
+					"permission":  p.Permission,
+				}).
+			PlaceholderFormat(sq.Dollar).
+			RunWith(db).
+			ExecContext(ctx); err != nil {
+			log.Errorf("failed to delete permissions for instance: %s", p.InstanceID, err)
 
-				log.Error(err.Error())
-
-				return err
-			}
-
-			audID = inst.ID.String()
+			return ParseSQLError(err)
 		}
 
-		for _, p := range perms {
-			if _, err := sq.Delete("hiro.role_permissions").
-				Where(
-					sq.Eq{
-						"instance_id": ID(audID),
-						"role_id":     params.Role.ID,
-						"permission":  p,
-					}).
-				PlaceholderFormat(sq.Dollar).
-				RunWith(db).
-				ExecContext(ctx); err != nil {
-				log.Errorf("failed to delete permissions for instance: %s", audID, err)
-
-				return ParseSQLError(err)
-			}
-		}
 	}
 
 	return nil
 }
 
-func (b *Hiro) rolePreload(ctx context.Context, role *Role) (*Role, error) {
-	log := Log(ctx).WithField("operation", "rolePreload").WithField("role", role.ID)
-
-	db := b.DB(ctx)
-
-	perms := []struct {
-		Instance   string `db:"instance"`
-		Permission string `db:"permission"`
-	}{}
-
-	if err := db.SelectContext(
-		ctx,
-		&perms,
-		`SELECT a.name as instance, p.permission 
-		  FROM hiro.role_permissions p
-		  LEFT JOIN hiro.instances a
-			  ON  a.id = p.instance_id
-		  WHERE p.role_id=$1`,
-		role.ID); err != nil {
-		log.Errorf("failed to load role permissions %s: %s", role.ID, err)
-
-		return nil, ParseSQLError(err)
-	}
-
-	role.Permissions = make(oauth.ScopeSet)
-	for _, p := range perms {
-		role.Permissions.Append(p.Instance, p.Permission)
-	}
-
-	return role, nil
-}
-
 // RoleDelete deletes an role by id
-func (b *Hiro) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
+func (h *Hiro) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
 	log := Log(ctx).WithField("operation", "RoleDelete").WithField("role", params.RoleID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -500,7 +438,7 @@ func (b *Hiro) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 	if _, err := sq.Delete("hiro.roles").
 		Where(
 			sq.Eq{"id": params.RoleID},
@@ -513,4 +451,26 @@ func (b *Hiro) RoleDelete(ctx context.Context, params RoleDeleteInput) error {
 	}
 
 	return nil
+}
+
+func (h *Hiro) roleExpand(ctx context.Context, role *Role, expand common.StringSlice) (*Role, error) {
+	log := Log(ctx).WithField("operation", "roleExpand").WithField("role", role.ID)
+
+	db := h.DB(ctx)
+
+	if expand.ContainsAny("permissions", "*") {
+		if err := db.SelectContext(
+			ctx,
+			&role.Permissions,
+			`SELECT instance_id, permission 
+		  FROM hiro.role_permissions
+		  WHERE role_id=$1`,
+			role.ID); err != nil {
+			log.Errorf("failed to load role permissions %s: %s", role.ID, err)
+
+			return nil, ParseSQLError(err)
+		}
+	}
+
+	return role, nil
 }

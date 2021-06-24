@@ -73,6 +73,8 @@ type (
 
 var (
 	contextKeyTx contextKey = "hiro:context:tx"
+
+	expandAll = []string{"*"}
 )
 
 // ErrTxCommit is used to return an error from within a tx handler but still commit
