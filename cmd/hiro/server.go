@@ -20,6 +20,9 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/ModelRocket/hiro/api/swagger"
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/urfave/cli/v2"
@@ -27,19 +30,19 @@ import (
 
 var (
 	serverCommand = &cli.Command{
-		Name:    "server",
-		Aliases: []string{"aud"},
-		Usage:   "Starts a local hiro server",
+		Name:  "server",
+		Usage: "Starts a local hiro server",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "db",
-				Usage:   "specify the database path",
-				EnvVars: []string{"DB_SOURCE"},
+				Name:     "db",
+				Usage:    "Specify the database path",
+				EnvVars:  []string{"DB_SOURCE"},
+				Required: true,
 			},
 			&cli.StringFlag{
 				Name:    "server-addr",
-				Usage:   "specify the hiro server listen address",
-				Value:   "127.0.0.1:9000",
+				Usage:   "Specify the hiro server listen address",
+				Value:   "0.0.0.0:9000",
 				EnvVars: []string{"SERVER_ADDR"},
 			},
 			&cli.StringSliceFlag{
@@ -53,21 +56,43 @@ var (
 				Usage:   "Enable http tracing",
 				EnvVars: []string{"HTTP_TRACE_ENABLE"},
 			},
+			&cli.BoolFlag{
+				Name:  "auto-migrate",
+				Usage: "Auto-Migrate the database to the latest version",
+			},
+		},
+		Subcommands: []*cli.Command{
+			{
+				Name:    "initialize",
+				Aliases: []string{"init"},
+				Usage:   "initialize the server",
+				Action:  serverInitialize,
+			},
+		},
+		Before: func(c *cli.Context) error {
+			var err error
+
+			opts := []hiro.HiroOption{
+				hiro.WithDBSource(c.String("db")),
+			}
+
+			if c.Bool("auto-migrate") {
+				opts = append(opts, hiro.Automigrate())
+			}
+
+			h, err = hiro.New(opts...)
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 		Action: serverMain,
 	}
 )
 
 func serverMain(c *cli.Context) error {
-	h, err := hiro.New(
-		hiro.WithDBSource(c.String("db")),
-		hiro.Automigrate(),
-	)
-	if err != nil {
-		return err
-	}
-
-	d, err := hiro.NewService(
+	s, err := hiro.NewService(
 		hiro.WithServerAddr(c.String("server-addr")),
 		hiro.WithController(h),
 		hiro.WithAPIOptions(
@@ -75,8 +100,19 @@ func serverMain(c *cli.Context) error {
 			api.WithCORS(c.StringSlice("cors-allowed-origin")...)),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start hiro service: %w", err)
 	}
 
-	return d.Run()
+	return s.Run()
+}
+
+func serverInitialize(c *cli.Context) error {
+	_, err := h.APIImport(c.Context, hiro.APIImportParams{
+		Spec: string(swagger.HiroSwaggerSpec),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create hiro api: %w", err)
+	}
+
+	return nil
 }

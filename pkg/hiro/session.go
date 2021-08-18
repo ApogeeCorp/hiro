@@ -284,14 +284,14 @@ func (h *Hiro) SessionCleanup(ctx context.Context) error {
 
 // Hash returns the session key hash
 func (s SessionKey) Hash() []byte {
-	v := []byte(s.Key)
+	v := []byte(s.RawKey)
 
 	return v[0:32]
 }
 
 // Block returns the session key block
 func (s SessionKey) Block() []byte {
-	v := []byte(s.Key)
+	v := []byte(s.RawKey)
 
 	return v[32:64]
 }

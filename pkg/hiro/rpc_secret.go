@@ -40,7 +40,7 @@ func (s Secret) ToProto() *pb.Secret {
 		Type:       apiSecretMap[s.Type],
 		InstanceId: s.InstanceID.String(),
 		Algorithm:  &algo,
-		Key:        s.Key,
+		Key:        s.RawKey,
 	}
 }
 
@@ -56,7 +56,7 @@ func (s *Secret) FromProto(p *pb.Secret) {
 	s.Type = pbSecretMap[p.Type]
 	s.Algorithm = &algo
 	s.InstanceID = ID(p.InstanceId)
-	s.Key = p.Key
+	s.RawKey = p.Key
 }
 
 // SecretCreate implements the pb.HiroServer interface

@@ -50,8 +50,8 @@ var (
 			Usage: "The instance description",
 		},
 		&cli.StringFlag{
-			Name:     "audience",
-			Usage:    "The instance audience domain",
+			Name:     "domain",
+			Usage:    "The instance oauth domain",
 			Required: true,
 		},
 		&cli.DurationFlag{
@@ -151,8 +151,8 @@ var (
 				Usage: "The instance id",
 			},
 			&cli.StringFlag{
-				Name:  "audience",
-				Usage: "The instance audience",
+				Name:  "instance",
+				Usage: "The instance instance",
 			},
 		},
 		Subcommands: []*cli.Command{

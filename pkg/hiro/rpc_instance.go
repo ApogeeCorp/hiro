@@ -82,7 +82,6 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 	rval := &pb.Instance{
 		Id:              a.ID.String(),
 		Name:            a.Name,
-		Slug:            a.Slug,
 		Description:     a.Description,
 		Secrets:         secrets,
 		TokenLifetime:   uint64(a.TokenLifetime.Seconds()),
@@ -92,16 +91,16 @@ func (a Instance) ToProto() (*pb.Instance, error) {
 		CreatedAt:       createdAt,
 		UpdatedAt:       updatedAt,
 	}
-
-	for _, p := range a.Permissions {
-		if p.InstanceID == a.ID {
-			rval.Permissions = append(rval.Permissions, &pb.Instance_Permission{
-				InstanceId:  a.ID.String(),
-				Permission:  p.Permission,
-				Description: p.Description,
-			})
-		}
-	}
+	/*
+		for _, p := range a.Permissions {
+			if p.InstanceID == a.ID {
+				rval.Permissions = append(rval.Permissions, &pb.Instance_Permission{
+					InstanceId:  a.ID.String(),
+					Permission:  p.Permission,
+					Description: p.Description,
+				})
+			}
+		}*/
 
 	return rval, err
 }
@@ -128,7 +127,6 @@ func (a *Instance) FromProto(p *pb.Instance) {
 
 	a.ID = ID(p.Id)
 	a.Name = p.Name
-	a.Slug = p.Slug
 	a.Description = p.Description
 	a.TokenLifetime = time.Duration(p.TokenLifetime) * time.Second
 	a.SessionLifetime = time.Duration(p.SessionLifetime) * time.Second
@@ -136,8 +134,8 @@ func (a *Instance) FromProto(p *pb.Instance) {
 	a.Permissions = make([]Permission, 0)
 	for _, p := range p.Permissions {
 		a.Permissions = append(a.Permissions, Permission{
-			InstanceID:  ID(p.InstanceId),
-			Permission:  p.Permission,
+			//	InstanceID:  ID(p.InstanceId),
+			//	Permission:  p.Permission,
 			Description: p.Description,
 		})
 	}
@@ -151,8 +149,8 @@ func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreat
 		Name:        params.Name,
 		Description: params.Description,
 		Permissions: make([]Permission, 0),
-		Metadata:    params.Metadata.AsMap(),
 	}
+	in.Metadata = params.Metadata.AsMap()
 
 	if params.TokenLifetime != nil {
 		in.TokenLifetime = ptr.Duration(time.Duration(*params.TokenLifetime) * time.Second)
@@ -164,8 +162,8 @@ func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreat
 
 	for _, p := range params.Permissions {
 		in.Permissions = append(in.Permissions, Permission{
-			InstanceID:  ID(p.InstanceId),
-			Permission:  p.Permission,
+			//InstanceID:  ID(p.InstanceId),
+			//	Permission:  p.Permission,
 			Description: p.Description,
 		})
 	}
@@ -198,15 +196,15 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 	if params.Permissions != nil {
 		for _, p := range params.Permissions.Add {
 			perms.Add = append(perms.Add, Permission{
-				InstanceID:  ID(params.Id),
-				Permission:  p.Permission,
+				//	InstanceID:  ID(params.Id),
+				//	Permission:  p.Permission,
 				Description: p.Description,
 			})
 		}
 		for _, p := range params.Permissions.Remove {
 			perms.Remove = append(perms.Remove, Permission{
-				InstanceID:  ID(params.Id),
-				Permission:  p.Permission,
+				//	InstanceID:  ID(params.Id),
+				//	Permission:  p.Permission,
 				Description: p.Description,
 			})
 		}
@@ -218,7 +216,9 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 		TokenLifetime:   tl,
 		SessionLifetime: sl,
 		Permissions:     perms,
-		Metadata:        params.Metadata.AsMap(),
+		Params: Params{
+			Metadata: params.Metadata.AsMap(),
+		},
 	})
 	if err != nil {
 		return nil, err

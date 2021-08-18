@@ -45,7 +45,7 @@ type (
 		timeout       time.Duration
 		retryInterval time.Duration
 		passwords     PasswordManager
-		migrations    []Migration
+		migrations    []SchemaMigration
 	}
 
 	// HiroOption defines a backend option
@@ -57,6 +57,8 @@ type (
 var (
 	// Scopes is the spec defined oauth 2.0 scopes for the Hiro API
 	Scopes = append(oauth.Scopes,
+		ScopeInstanceRead,
+		ScopeInstanceWrite,
 		ScopeApplicationRead,
 		ScopeApplicationWrite,
 		ScopeUserRead,
@@ -73,6 +75,7 @@ var (
 	)
 
 	ScopesReadOnly = append(oauth.Scopes,
+		ScopeInstanceRead,
 		ScopeApplicationRead,
 		ScopeUserRead,
 		ScopeTokenRead,
@@ -86,9 +89,8 @@ var (
 
 	// Roles is the list of hiro roles by name
 	Roles = map[string]oauth.Scope{
-		RoleSuperAdmin: append(Scopes, ScopeInstanceRead, ScopeInstanceWrite),
-		RoleAdmin:      Scopes,
-		RoleUser:       append(ScopesReadOnly, ScopeUserWrite),
+		RoleAdmin: Scopes,
+		RoleUser:  append(ScopesReadOnly, ScopeUserWrite),
 	}
 
 	contextKeyHiro   contextKey = "hiro:context"
@@ -150,7 +152,7 @@ func New(opts ...HiroOption) (*Hiro, error) {
 		automigrate:   false,
 		initialize:    false,
 		passwords:     DefaultPasswordManager,
-		migrations:    make([]Migration, 0),
+		migrations:    make([]SchemaMigration, 0),
 		assetVolume:   defaultAssetVolume,
 	}
 
@@ -195,7 +197,7 @@ func New(opts ...HiroOption) (*Hiro, error) {
 
 		// migrate any other sources
 		for _, m := range b.migrations {
-			if _, err := db.Migrate(b.db.DB, "postgres", m.Schema, m.AssetMigrationSource, migrate.Up); err != nil {
+			if _, err := db.Migrate(b.db.DB, "postgres", m.Schema, m, migrate.Up); err != nil {
 				return nil, err
 			}
 		}
@@ -247,7 +249,7 @@ func WithAssetVolume(v string) HiroOption {
 }
 
 // Automigrate will perform the database initialization, creating tables and indexes.
-func Automigrate(m ...Migration) HiroOption {
+func Automigrate(m ...SchemaMigration) HiroOption {
 	return func(h *Hiro) {
 		h.automigrate = true
 		h.migrations = append(h.migrations, m...)

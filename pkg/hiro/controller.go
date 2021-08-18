@@ -22,7 +22,6 @@ package hiro
 type (
 	// Controller is the hiro API controller interface
 	Controller interface {
-		// API Controllers
 		InstanceController
 		SecretsController
 		ApplicationController

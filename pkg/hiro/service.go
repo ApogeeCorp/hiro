@@ -98,7 +98,7 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 		name:        defaultName,
 		serverAddr:  defaultServerAddr,
 		apiOptions:  []api.Option{api.WithLog(log.Log)},
-		backOptions: []HiroOption{Automigrate()},
+		backOptions: []HiroOption{},
 		hiroPath:    defaultHiroPath,
 		oauthPath:   defaultOAuthPath,
 		webRPCPath:  defaultWebRPCPath,
@@ -129,6 +129,55 @@ func NewService(opts ...ServiceOption) (*Service, error) {
 	if h, ok := d.ctrl.(*Hiro); ok && d.oauthCtrl == nil {
 		d.oauthCtrl = h.OAuthController()
 	}
+
+	/*
+		// create the local instance
+		inst, err := d.ctrl.InstanceGet(context.Background(), InstanceGetInput{
+			Audience: ptr.String("hiro.local"),
+			Expand:   expandAll,
+		})
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, fmt.Errorf("failed to lookup the local hiro instance: %w", err)
+		}
+
+		perms := make([]Permission, 0)
+			for _, _ := range Scopes {
+			perms = append(perms, Permission{
+				//	Permission: s,
+			})
+		}
+
+		if inst == nil {
+			inst, err = d.ctrl.InstanceCreate(context.Background(), InstanceCreateInput{
+				Name:        "Hiro",
+				Audience:    "hiro.local",
+				Permissions: perms,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// create the local app
+		app, err := d.ctrl.ApplicationGet(context.Background(), ApplicationGetInput{
+			InstanceID: inst.ID,
+			Name:       ptr.String("hiro.local"),
+		})
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, fmt.Errorf("failed to lookup the local hiro application: %w", err)
+		}
+
+		if app == nil {
+			app, err = d.ctrl.ApplicationCreate(context.Background(), ApplicationCreateInput{
+				InstanceID:  inst.ID,
+				Name:        "hiro.local",
+				Permissions: perms,
+				Grants:      nil,
+			})
+			if err != nil {
+				return nil, err
+			}
+		}*/
 
 	// The oauth.Controller doesn't define how tokens are managed, hiro
 	// starts a cron job to ensure expired and revoked tokens are periodically

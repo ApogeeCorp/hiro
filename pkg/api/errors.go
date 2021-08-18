@@ -52,10 +52,13 @@ var (
 	ErrServerError = Errorf("server error").WithStatus(http.StatusInternalServerError)
 
 	// ErrAuthUnacceptable should be returned when an authorizer could not find data to decode
-	ErrAuthUnacceptable = Errorf("no acceptable authorization data found").WithStatus(http.StatusUnauthorized)
+	ErrAuthUnacceptable = Errorf("no acceptable authorization data found").WithCode("unacceptable").WithStatus(http.StatusUnauthorized)
 
 	// ErrNotImplemented is returned when a method is not implemented
-	ErrNotImplemented = Errorf("operation is not implemented").WithStatus(http.StatusNotImplemented)
+	ErrNotImplemented = Errorf("operation is not implemented").WithCode("not_implemented").WithStatus(http.StatusNotImplemented)
+
+	// ErrTimeout is returned when a request or operation times out
+	ErrTimeout = Errorf("timeout").WithStatus(http.StatusRequestTimeout)
 )
 
 type (
@@ -216,5 +219,9 @@ func (e *StatusError) Is(target error) bool {
 		return false
 	}
 
-	return errors.Is(e.err, t.err)
+	if is := errors.Is(e.err, t.err); is {
+		return is
+	}
+
+	return t.status == e.status
 }

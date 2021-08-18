@@ -20,7 +20,7 @@ consumes:
   - "application/x-www-form-urlencoded"
 
 info:
-  title: "Hiro API"
+  title: "Hiro"
   version: "1.0.0"
   description: |
     This API provides the methods for managing hiro objects. This is not a user api

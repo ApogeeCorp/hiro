@@ -28,6 +28,9 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"unicode"
+
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
 type (
@@ -97,6 +100,9 @@ var (
 		ScopeTokenRead,
 		ScopeTokenRevoke,
 	}
+
+	// IsValidScope is used by validators to check if a scope atom is valid
+	IsValidScope = validation.NewStringRuleWithError(IsScope, validation.NewError("oauth_is_scope", "scope atoms must not contain whitespace"))
 )
 
 // BuildScope returns a []Scope from the string scope values
@@ -275,4 +281,16 @@ func (s *Scope) String() string {
 		return ""
 	}
 	return strings.Join([]string(*s), " ")
+}
+
+// IsScope ensures the scope conforms to oauth rfc spec
+func IsScope(s string) bool {
+	for i := 0; i < len(s); i++ {
+
+		if unicode.IsSpace(rune(s[i])) {
+			return false
+		}
+	}
+
+	return true
 }

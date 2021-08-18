@@ -2,7 +2,7 @@
  * This file is part of the Model Rocket Hiro Stack
  * Copyright (c) 2020 Model Rocket LLC.
  *
- * https://githuh.com/ModelRocket/hiro
+ * https://github.com/ModelRocket/hiro
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,40 +17,22 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package hiro
+package common
 
-import (
-	"github.com/ModelRocket/hiro/pkg/oauth"
-	"github.com/ModelRocket/hiro/pkg/oauth/openid"
-)
-
-type (
-	oauthUser struct {
-		*User
-		inst *Instance
-	}
-)
-
-func (u oauthUser) ID() string {
-	return u.User.ID.String()
-}
-
-func (u oauthUser) Audience() string {
-	return u.inst.Audience
-}
-
-func (u oauthUser) Permissions() oauth.Scope {
-	rval := make(oauth.Scope, 0)
-
-	for _, r := range u.Roles {
-		for _, p := range r.Permissions {
-			rval = append(rval, p.Scope)
+// CLen gets the C-string length
+func CLen(n []byte) int {
+	for i := 0; i < len(n); i++ {
+		if n[i] == 0 {
+			return i
 		}
 	}
-
-	return rval.Unique()
+	return len(n)
 }
 
-func (u oauthUser) Profile() *openid.Profile {
-	return u.User.Profile
+// CTrim trims a c function
+func CTrim(str string) string {
+	bstr := []byte(str)
+	nullIndex := CLen(bstr)
+	bstr = bstr[:nullIndex]
+	return string(bstr)
 }

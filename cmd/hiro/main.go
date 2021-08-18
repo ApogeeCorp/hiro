@@ -59,12 +59,6 @@ func main() {
 			EnvVars: []string{"RPC_NO_TLS"},
 		},
 		&cli.StringFlag{
-			Name:    "audience",
-			Usage:   "the hiro audience",
-			Value:   "hiro",
-			EnvVars: []string{"HIRO_AUDIENCE"},
-		},
-		&cli.StringFlag{
 			Name:    "client-id",
 			Usage:   "the hiro application client id",
 			EnvVars: []string{"CLIENT_ID"},
@@ -89,8 +83,6 @@ func main() {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		loadConfig(c)
-
 		if logLevel := c.String("log-level"); logLevel != "" {
 			if level, err := log.ParseLevel(logLevel); err == nil {
 				log.SetLevel(level)

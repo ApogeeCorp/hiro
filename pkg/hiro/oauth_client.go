@@ -41,7 +41,7 @@ func (c oauthClient) Permissions() oauth.Scope {
 	rval := make(oauth.Scope, 0)
 
 	for _, p := range c.Application.Permissions {
-		rval = append(rval, p.Permission)
+		rval = append(rval, p.Scope)
 	}
 
 	return rval.Unique()
@@ -58,8 +58,11 @@ func (c oauthClient) TokenSecret() oauth.TokenSecret {
 		return nil
 	}
 
-	if s, err := TokenSecret(c.Application.TokenSecret); err == nil {
-		return s
+	if s, err := c.Application.TokenSecret.Key(); err == nil {
+		return &oauthSecret{
+			Secret: c.Application.TokenSecret,
+			key:    s,
+		}
 	}
 
 	return nil

@@ -37,9 +37,18 @@ func (a oauthAudience) ID() string {
 
 func (a oauthAudience) Secrets() []oauth.TokenSecret {
 	rval := make([]oauth.TokenSecret, 0)
-	for _, s := range a.TokenSecrets {
-		if s.Algorithm() == oauth.TokenAlgorithmRS256 {
-			rval = append(rval, s)
+	for _, s := range a.Instance.Secrets {
+		if s.Type != SecretTypeToken {
+			continue
+		}
+
+		if *s.Algorithm == oauth.TokenAlgorithmRS256 {
+			if k, err := s.Key(); err == nil {
+				rval = append(rval, &oauthSecret{
+					Secret: &s,
+					key:    k,
+				})
+			}
 		}
 	}
 
@@ -50,7 +59,7 @@ func (a oauthAudience) Permissions() oauth.Scope {
 	rval := make(oauth.Scope, 0)
 
 	for _, p := range a.Instance.Permissions {
-		rval = append(rval, p.Permission)
+		rval = append(rval, p.Scope)
 	}
 
 	return rval

@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS hiro.user_roles(
   PRIMARY KEY(user_id, role_id)
 );
 
+CREATE TABLE IF NOT EXISTS hiro.user_permissions(
+  user_id UUID NOT NULL,
+  instance_id UUID NOT NULL,
+  permission_id UUID NOT NULL,
+  PRIMARY KEY(user_id, instance_id, permission_id),
+  FOREIGN KEY (user_id) REFERENCES hiro.users(id) ON DELETE CASCADE,
+  FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
+  FOREIGN KEY (permission_id) REFERENCES hiro.api_permissions(id) ON DELETE CASCADE
+);
+
 -- +migrate Down
 -- SQL in section 'Up' is executed when this migration is applied
 DROP TABLE hiro.users;

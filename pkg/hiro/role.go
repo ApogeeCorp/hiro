@@ -47,7 +47,6 @@ type (
 		ID          ID           `json:"id" db:"id"`
 		InstanceID  ID           `json:"instance_id" db:"instance_id"`
 		Name        string       `json:"name" db:"name"`
-		Slug        string       `json:"slug" db:"slug"`
 		Description *string      `json:"description,omitempty" db:"description"`
 		Default     bool         `json:"default" db:"is_default"`
 		Permissions []Permission `json:"permissions,omitempty" db:"-"`
@@ -394,15 +393,15 @@ func (h *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
 			Columns("role_id", "instance_id", "permission").
 			Values(
 				params.Role.ID,
-				p.InstanceID,
-				p.Permission,
+				params.Role.InstanceID,
+				p.Scope,
 			).
 			Suffix("ON CONFLICT DO NOTHING").
 			RunWith(db).
 			PlaceholderFormat(sq.Dollar).
 			ExecContext(ctx)
 		if err != nil {
-			log.Errorf("failed to update instance permissions %s: %s", p.InstanceID, err)
+			log.Errorf("failed to update instance permissions %s: %s", params.Role.InstanceID, err)
 
 			return ParseSQLError(err)
 		}
@@ -412,14 +411,14 @@ func (h *Hiro) rolePatch(ctx context.Context, params rolePatchInput) error {
 		if _, err := sq.Delete("hiro.role_permissions").
 			Where(
 				sq.Eq{
-					"instance_id": p.InstanceID,
+					"instance_id": params.Role.InstanceID,
 					"role_id":     params.Role.ID,
-					"permission":  p.Permission,
+					"permission":  p.Scope,
 				}).
 			PlaceholderFormat(sq.Dollar).
 			RunWith(db).
 			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete roles for instance %s: %s", p.InstanceID, err)
+			log.Errorf("failed to delete roles for instance %s: %s", params.Role.InstanceID, err)
 
 			return ParseSQLError(err)
 		}

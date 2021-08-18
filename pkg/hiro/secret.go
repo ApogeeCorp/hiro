@@ -51,10 +51,12 @@ type (
 		Type       SecretType            `json:"type"`
 		InstanceID ID                    `json:"instance_id" db:"instance_id"`
 		Algorithm  *oauth.TokenAlgorithm `json:"algorithm,omitempty" db:"algorithm"`
-		Key        string                `json:"key" db:"key"`
+		RawKey     string                `json:"key" db:"key"`
 		CreatedAt  time.Time             `json:"created_at" db:"created_at"`
 		ExpiresAt  *time.Time            `json:"expires_at,omitempty" db:"expires_at"`
 		Default    bool                  `json:"default" db:"is_default"`
+
+		key interface{}
 	}
 
 	// SecretCreateInput is the params used to create a secret
@@ -69,7 +71,8 @@ type (
 
 	// SecretDeleteInput is the secret delete request input
 	SecretDeleteInput struct {
-		SecretID ID `json:"secret_id"`
+		InstanceID ID `json:"instance_id"`
+		SecretID   ID `json:"secret_id"`
 	}
 
 	// SecretType is a secret type
@@ -101,12 +104,13 @@ func (s SecretCreateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the SecretDeleteInput
 func (s SecretDeleteInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&s,
+		validation.Field(&s.InstanceID, validation.Required),
 		validation.Field(&s.SecretID, validation.Required),
 	)
 }
 
 // SecretCreate creates a new secret, generating the key if not is provided
-func (b *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error) {
+func (h *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Secret, error) {
 	var secret Secret
 
 	log := Log(ctx).WithField("operation", "SecretCreate").WithField("secret_type", params.Type)
@@ -187,7 +191,7 @@ func (b *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Sec
 		}
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new secert")
 
 		stmt, args, err := sq.Insert("hiro.secrets").
@@ -233,7 +237,7 @@ func (b *Hiro) SecretCreate(ctx context.Context, params SecretCreateInput) (*Sec
 }
 
 // SecretDelete deletes an instance by id
-func (b *Hiro) SecretDelete(ctx context.Context, params SecretDeleteInput) error {
+func (h *Hiro) SecretDelete(ctx context.Context, params SecretDeleteInput) error {
 	log := Log(ctx).WithField("operation", "SecretDelete").WithField("instance", params.SecretID)
 
 	if err := params.ValidateWithContext(ctx); err != nil {
@@ -241,7 +245,7 @@ func (b *Hiro) SecretDelete(ctx context.Context, params SecretDeleteInput) error
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 	if _, err := sq.Delete("hiro.secrets").
 		Where(
 			sq.Eq{"id": params.SecretID},
@@ -254,6 +258,30 @@ func (b *Hiro) SecretDelete(ctx context.Context, params SecretDeleteInput) error
 	}
 
 	return nil
+}
+
+func (s *Secret) Key() (interface{}, error) {
+	if s.key != nil {
+		return s.key, nil
+	}
+
+	data, err := base64.RawURLEncoding.DecodeString(s.RawKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to decode key data", err)
+	}
+
+	switch *s.Algorithm {
+	case oauth.TokenAlgorithmHS256:
+		s.key = data
+
+	case oauth.TokenAlgorithmRS256:
+		s.key, err = jwt.ParseRSAPrivateKeyFromPEM(data)
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to decode rsa token secret", err)
+		}
+	}
+
+	return s.key, err
 }
 
 func (s oauthSecret) ID() string {
@@ -285,30 +313,4 @@ func (s oauthSecret) VerifyKey() interface{} {
 
 func (s oauthSecret) ExpiresAt() *time.Time {
 	return s.Secret.ExpiresAt
-}
-
-// TokenSecret retuns a token secret from the Secret key
-func TokenSecret(s *Secret) (oauth.TokenSecret, error) {
-	var key interface{}
-
-	data, err := base64.RawURLEncoding.DecodeString(s.Key)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to decode key data", err)
-	}
-
-	switch *s.Algorithm {
-	case oauth.TokenAlgorithmHS256:
-		key = data
-
-	case oauth.TokenAlgorithmRS256:
-		key, err = jwt.ParseRSAPrivateKeyFromPEM(data)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to decode rsa token secret", err)
-		}
-	}
-
-	return &oauthSecret{
-		Secret: s,
-		key:    key,
-	}, nil
 }

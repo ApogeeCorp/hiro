@@ -18,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type HiroClient interface {
+	APICreate(ctx context.Context, in *APICreateRequest, opts ...grpc.CallOption) (*API, error)
 	InstanceCreate(ctx context.Context, in *InstanceCreateRequest, opts ...grpc.CallOption) (*Instance, error)
 	InstanceUpdate(ctx context.Context, in *InstanceUpdateRequest, opts ...grpc.CallOption) (*Instance, error)
 	InstanceGet(ctx context.Context, in *InstanceGetRequest, opts ...grpc.CallOption) (*Instance, error)
@@ -38,6 +39,15 @@ type hiroClient struct {
 
 func NewHiroClient(cc grpc.ClientConnInterface) HiroClient {
 	return &hiroClient{cc}
+}
+
+func (c *hiroClient) APICreate(ctx context.Context, in *APICreateRequest, opts ...grpc.CallOption) (*API, error) {
+	out := new(API)
+	err := c.cc.Invoke(ctx, "/hiro.Hiro/APICreate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *hiroClient) InstanceCreate(ctx context.Context, in *InstanceCreateRequest, opts ...grpc.CallOption) (*Instance, error) {
@@ -198,6 +208,7 @@ func (c *hiroClient) SecreteDelete(ctx context.Context, in *SecretDeleteRequest,
 // All implementations must embed UnimplementedHiroServer
 // for forward compatibility
 type HiroServer interface {
+	APICreate(context.Context, *APICreateRequest) (*API, error)
 	InstanceCreate(context.Context, *InstanceCreateRequest) (*Instance, error)
 	InstanceUpdate(context.Context, *InstanceUpdateRequest) (*Instance, error)
 	InstanceGet(context.Context, *InstanceGetRequest) (*Instance, error)
@@ -217,6 +228,9 @@ type HiroServer interface {
 type UnimplementedHiroServer struct {
 }
 
+func (UnimplementedHiroServer) APICreate(context.Context, *APICreateRequest) (*API, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method APICreate not implemented")
+}
 func (UnimplementedHiroServer) InstanceCreate(context.Context, *InstanceCreateRequest) (*Instance, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstanceCreate not implemented")
 }
@@ -264,6 +278,24 @@ type UnsafeHiroServer interface {
 
 func RegisterHiroServer(s grpc.ServiceRegistrar, srv HiroServer) {
 	s.RegisterService(&_Hiro_serviceDesc, srv)
+}
+
+func _Hiro_APICreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(APICreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HiroServer).APICreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hiro.Hiro/APICreate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HiroServer).APICreate(ctx, req.(*APICreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Hiro_InstanceCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -492,6 +524,10 @@ var _Hiro_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "hiro.Hiro",
 	HandlerType: (*HiroServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "APICreate",
+			Handler:    _Hiro_APICreate_Handler,
+		},
 		{
 			MethodName: "InstanceCreate",
 			Handler:    _Hiro_InstanceCreate_Handler,

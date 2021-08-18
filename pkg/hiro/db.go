@@ -64,9 +64,9 @@ type (
 		err error
 	}
 
-	// Migration is a db migration
-	Migration struct {
-		*migrate.AssetMigrationSource
+	// SchemaMigration is a db migration source with a schema
+	SchemaMigration struct {
+		migrate.MigrationSource
 		Schema string
 	}
 )

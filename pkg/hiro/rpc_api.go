@@ -2,7 +2,7 @@
  * This file is part of the Model Rocket Hiro Stack
  * Copyright (c) 2020 Model Rocket LLC.
  *
- * https://github.com/ModelRocket/hiro
+ * https://githuh.com/ModelRocket/hiro
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,43 +17,14 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package main
+package hiro
 
 import (
-	"fmt"
-	"io/ioutil"
-	"path"
+	"context"
 
-	"github.com/mitchellh/go-homedir"
-	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
+	"github.com/ModelRocket/hiro/pkg/hiro/pb"
 )
 
-func loadConfig(c *cli.Context) error {
-	hd, err := homedir.Dir()
-	if err != nil {
-		return err
-	}
-
-	p := path.Join(hd, ".hiro", "env.yml")
-	data, err := ioutil.ReadFile(p)
-	if err != nil {
-		return err
-	}
-
-	out := make(map[string]map[string]string)
-	if err := yaml.Unmarshal(data, &out); err != nil {
-		return err
-	}
-
-	env, ok := out[c.String("env")]
-	if !ok {
-		return fmt.Errorf("env %s not found in config", c.String("env"))
-	}
-
-	for k, v := range env {
-		c.Set(k, v)
-	}
-
-	return nil
+func (s *RPCServer) APICreate(ctx context.Context, params *pb.APICreateRequest) (*pb.API, error) {
+	return nil, nil
 }

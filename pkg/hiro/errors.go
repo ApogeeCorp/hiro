@@ -42,7 +42,7 @@ var (
 	ErrAuthFailed = api.ErrUnauthorized
 
 	// ErrDatabaseTimeout is returned when the database cannot be reached
-	ErrDatabaseTimeout = api.ErrServerError.WithDetail("database connection timeout")
+	ErrDatabaseTimeout = api.ErrTimeout.WithDetail("database connection timeout")
 
 	// ErrContextNotFound is returned when hiro is not in the context
 	ErrContextNotFound = api.ErrServerError.WithDetail("hiro not found in context")
@@ -55,8 +55,7 @@ func ParseSQLError(err error) error {
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		err = fmt.Errorf("%w", err)
-		return fmt.Errorf("%w: %s", err, ErrNotFound)
+		return fmt.Errorf("%w: %s", ErrNotFound, err)
 	}
 
 	if pe, ok := err.(*pq.Error); ok {

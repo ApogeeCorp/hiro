@@ -21,6 +21,7 @@ package common
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/ModelRocket/hiro/pkg/generic"
 	"github.com/spf13/cast"
@@ -164,4 +165,34 @@ func (s StringSlice) ContainsAny(values ...interface{}) bool {
 		}
 	}
 	return false
+}
+
+// Unique returns a scope withonly unique values
+func (s StringSlice) Unique() StringSlice {
+	p := make(StringSlice, 0)
+
+	for _, v := range s {
+		if !p.Contains(v) {
+			p = append(p, v)
+		}
+	}
+
+	return p
+}
+
+// FilterPrefix returns the expand list filtered on the prefix
+func (s StringSlice) FilterPrefix(prefix string) StringSlice {
+	rval := make(StringSlice, 0)
+
+	if !strings.HasPrefix(prefix, ".") {
+		prefix = prefix + "."
+	}
+
+	for _, v := range s {
+		if strings.HasPrefix(v, prefix) {
+			rval = append(rval, strings.TrimPrefix(v, prefix))
+		}
+	}
+
+	return rval
 }

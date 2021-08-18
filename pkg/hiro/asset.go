@@ -211,8 +211,8 @@ func (a AssetDeleteInput) ValidateWithContext(ctx context.Context) error {
 }
 
 // AssetCreate creates a new asset for the instance
-func (b *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset, error) {
-	if b.assetVolume == "" {
+func (h *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset, error) {
+	if h.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
@@ -228,7 +228,7 @@ func (b *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		stmt, args, err := sq.Insert("hiro.assets").
 			Columns(
 				"instance_id",
@@ -259,7 +259,7 @@ func (b *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset
 		}
 
 		if params.Payload != nil {
-			if err := b.assetWrite(ctx, &asset, params.Payload); err != nil {
+			if err := h.assetWrite(ctx, &asset, params.Payload); err != nil {
 				return err
 			}
 
@@ -293,10 +293,10 @@ func (b *Hiro) AssetCreate(ctx context.Context, params AssetCreateInput) (*Asset
 }
 
 // AssetGet returns the asset in the instance
-func (b *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, error) {
+func (h *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, error) {
 	var suffix string
 
-	if b.assetVolume == "" {
+	if h.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
@@ -311,7 +311,7 @@ func (b *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, erro
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	if IsTransaction(db) {
 		suffix = "FOR UPDATE"
@@ -351,7 +351,7 @@ func (b *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, erro
 	}
 
 	if params.WithPayload {
-		p := filepath.Join(b.assetVolume, asset.InstanceID.String(), asset.ID.String())
+		p := filepath.Join(h.assetVolume, asset.InstanceID.String(), asset.ID.String())
 
 		fd, err := os.Open(p)
 		if err != nil {
@@ -365,8 +365,8 @@ func (b *Hiro) AssetGet(ctx context.Context, params AssetGetInput) (*Asset, erro
 }
 
 // AssetList lists the assets in the instance
-func (b *Hiro) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, error) {
-	if b.assetVolume == "" {
+func (h *Hiro) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, error) {
+	if h.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
@@ -378,7 +378,7 @@ func (b *Hiro) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, 
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 
 	target := "*"
 	if params.Count != nil {
@@ -422,8 +422,8 @@ func (b *Hiro) AssetList(ctx context.Context, params AssetListInput) ([]*Asset, 
 }
 
 // AssetUpdate updates an asset
-func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset, error) {
-	if b.assetVolume == "" {
+func (h *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset, error) {
+	if h.assetVolume == "" {
 		return nil, api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
@@ -437,7 +437,7 @@ func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset
 
 	var asset *Asset
 
-	if err := b.Transact(ctx, func(ctx context.Context, tx DB) error {
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		var err error
 
 		log.Debugf("updating asset")
@@ -451,7 +451,7 @@ func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset
 			updates["metadata"] = sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata)
 		}
 
-		asset, err = b.AssetGet(ctx, AssetGetInput{
+		asset, err = h.AssetGet(ctx, AssetGetInput{
 			InstanceID: params.InstanceID,
 			AssetID:    &params.AssetID,
 		})
@@ -460,7 +460,7 @@ func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset
 		}
 
 		if params.Payload != nil {
-			if err := b.assetWrite(ctx, asset, params.Payload); err != nil {
+			if err := h.assetWrite(ctx, asset, params.Payload); err != nil {
 				return err
 			}
 
@@ -504,8 +504,8 @@ func (b *Hiro) AssetUpdate(ctx context.Context, params AssetUpdateInput) (*Asset
 }
 
 // AssetDelete deletes an asset
-func (b *Hiro) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
-	if b.assetVolume == "" {
+func (h *Hiro) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
+	if h.assetVolume == "" {
 		return api.ErrNotImplemented.WithMessage("asset volume not configured")
 	}
 
@@ -516,7 +516,7 @@ func (b *Hiro) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
 		return fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	db := b.DB(ctx)
+	db := h.DB(ctx)
 	if _, err := sq.Delete("hiro.assets").
 		Where(
 			sq.Eq{"id": params.AssetID},
@@ -532,10 +532,10 @@ func (b *Hiro) AssetDelete(ctx context.Context, params AssetDeleteInput) error {
 	return nil
 }
 
-func (b *Hiro) assetWrite(ctx context.Context, asset *Asset, payload io.Reader) error {
+func (h *Hiro) assetWrite(ctx context.Context, asset *Asset, payload io.Reader) error {
 	log := Log(ctx).WithField("operation", "assetWrite").WithField("asset", asset.ID)
 
-	p := filepath.Join(b.assetVolume, asset.InstanceID.String())
+	p := filepath.Join(h.assetVolume, asset.InstanceID.String())
 
 	if err := os.MkdirAll(p, 0755); err != nil && !os.IsExist(err) {
 		return err

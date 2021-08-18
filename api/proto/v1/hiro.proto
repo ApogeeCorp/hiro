@@ -9,6 +9,7 @@ import "google/protobuf/empty.proto";
 package hiro;
 
 service Hiro {
+    rpc APICreate(APICreateRequest) returns (API);
     rpc InstanceCreate(InstanceCreateRequest) returns (Instance);
     rpc InstanceUpdate(InstanceUpdateRequest) returns (Instance);
     rpc InstanceGet(InstanceGetRequest) returns (Instance);
@@ -25,10 +26,39 @@ service Hiro {
     rpc SecreteDelete(SecretDeleteRequest) returns (google.protobuf.Empty);
 }
 
+message PermissionCreateRequest {
+    string api_id = 1;
+    string scope = 2;
+    optional string description = 3;
+}
+
+message APICreateRequest {
+    string name = 1;
+    string version = 2;
+    optional string description = 3;
+    google.protobuf.Struct metadata = 4;
+    repeated PermissionCreateRequest permissions = 5;
+}
+
+message API {
+    message Permission {
+        string id = 1;
+        string api_id = 2;
+        string scope = 3;
+        optional string description = 4;
+    }
+
+    string name = 1;
+    string version = 2;
+    optional string description = 3;
+    google.protobuf.Struct metadata = 4;
+    repeated Permission permissions = 5;
+}
+
 message InstanceCreateRequest {
     string name = 1;
     optional string description = 2;
-    string audience = 3;
+    string domain = 3;
     optional uint64 token_lifetime = 4;
     optional Secret.TokenAlgorithm token_algorithm = 5;
     optional uint64 session_lifetime = 6;
@@ -50,7 +80,7 @@ message InstanceUpdateRequest {
     string id = 1;
     optional string name = 2;
     optional string description = 3;
-    optional string audience = 4;
+    optional string domain = 4;
     optional uint64 token_lifetime = 5;
     optional Secret.TokenAlgorithm token_algorithm = 6;
     optional uint64 session_lifetime = 7;
@@ -88,16 +118,15 @@ message Instance {
 
     string id = 1;
     string name = 2;
-    string slug = 3;
-    optional string description = 4;
-    repeated Secret secrets = 5;
-    Secret.TokenAlgorithm token_algorithm = 6;
-    uint64 token_lifetime = 7;
-    uint64 session_lifetime = 8;
-    google.protobuf.Timestamp created_at = 9;
-    google.protobuf.Timestamp updated_at = 10;
-    repeated Permission permissions = 11;
-    google.protobuf.Struct metadata = 12;
+    optional string description = 3;
+    repeated Secret secrets = 4;
+    Secret.TokenAlgorithm token_algorithm = 5;
+    uint64 token_lifetime = 6;
+    uint64 session_lifetime = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp updated_at = 9;
+    repeated Permission permissions = 10;
+    google.protobuf.Struct metadata = 11;
 }
 
 message SecretCreateRequest {

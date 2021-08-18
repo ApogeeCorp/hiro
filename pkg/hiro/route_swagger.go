@@ -90,5 +90,5 @@ func (SpecRoute) Methods() []string {
 
 // Path implements api.Route
 func (SpecRoute) Path() string {
-	return "/swagger.{format}"
+	return "/.well-known/swagger.{format}"
 }

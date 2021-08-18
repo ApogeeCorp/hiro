@@ -56,20 +56,22 @@ type (
 	// OptionUpdateInput is the option update input
 	OptionUpdateInput struct {
 		InstanceID       ID     `json:"instance_id"`
-		Name             string `json:"name"`
-		Option           Option `json:"-"`
+		Key              string `json:"key"`
+		Value            Option `json:"-"`
 		suppressHandlers bool
 	}
 
 	// OptionGetInput is the option get input
 	OptionGetInput struct {
-		Name  string      `json:"name"`
-		Value interface{} `json:"-"`
+		InstanceID ID          `json:"instance_id"`
+		Key        string      `json:"key"`
+		Value      interface{} `json:"-"`
 	}
 
 	// OptionRemoveInput is the option get input
 	OptionRemoveInput struct {
-		Name string `json:"name"`
+		InstanceID ID     `json:"instance_id"`
+		Key        string `json:"key"`
 	}
 
 	// OptionUpdateHandler is called when options are updated
@@ -77,14 +79,14 @@ type (
 
 	// Option An instance configuration option
 	Option interface {
-		Name() string
-		SetName(string)
+		Key() string
+		SetKey(string)
 		Instance() string
 		SetInstance(string)
 	}
 
 	option struct {
-		name     string
+		key      string
 		instance string
 		m        common.Map
 	}
@@ -106,51 +108,53 @@ var (
 func (o OptionUpdateInput) Validate() error {
 	return validation.Errors{
 		"instance_id": validation.Validate(o.InstanceID, validation.Required),
-		"name":        validation.Validate(o.Name, validation.Required),
+		"key":         validation.Validate(o.Key, validation.Required),
 	}.Filter()
 }
 
 // Validate validates OptionGetInput
 func (o OptionGetInput) Validate() error {
 	return validation.Errors{
-		"name": validation.Validate(o.Name, validation.Required),
+		"instance_id": validation.Validate(o.InstanceID, validation.Required),
+		"key":         validation.Validate(o.Key, validation.Required),
 	}.Filter()
 }
 
 // Validate validates OptionRemoveInput
 func (o OptionRemoveInput) Validate() error {
 	return validation.Errors{
-		"name": validation.Validate(o.Name, validation.Required),
+		"instance_id": validation.Validate(o.InstanceID, validation.Required),
+		"key":         validation.Validate(o.Key, validation.Required),
 	}.Filter()
 }
 
 // OptionUpdate stores a named option in the backend data store
 func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Option, error) {
-	log := api.Log(ctx).WithField("operation", "OptionUpdate").WithField("option", params.Name)
+	log := api.Log(ctx).WithField("operation", "OptionUpdate").WithField("option", params.Key)
 
 	if err := params.Validate(); err != nil {
 		log.Error(err.Error())
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	log.Debugf("updating options %s", params.Name)
+	log.Debugf("updating options %s", params.Key)
 
 	if _, err := b.db.ExecContext(
 		ctx,
-		`INSERT INTO options (instance_id, name, value) 
+		`INSERT INTO options (instance_id, key, value) 
 			VALUES($1, $2, COALESCE(value, '{}') || $3) 
-			ON CONFLICT (instance_id,name) SET value=COALESCE(value, '{}') || $3`,
+			ON CONFLICT (instance_id,key) SET value=COALESCE(value, '{}') || $3`,
 		params.InstanceID,
-		params.Name,
-		params.Option,
+		params.Key,
+		params.Value,
 	); err != nil {
-		log.Debugf("failed to update option %s: %s", params.Name, err)
+		log.Debugf("failed to update option %s: %s", params.Key, err)
 		return nil, ParseSQLError(err)
 	}
 
 	// get the latest version
 	op, err := b.OptionGet(ctx, &OptionGetInput{
-		Name: params.Name,
+		Key: params.Key,
 	})
 	if err != nil {
 		return nil, err
@@ -163,14 +167,14 @@ func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Opt
 	go func(op Option) {
 		optionLock.Lock()
 		defer func() {
-			optionCache.Delete(params.Name)
+			optionCache.Delete(params.Key)
 			optionLock.Unlock()
 		}()
 
-		if handlers, ok := optionUpdateHandlers[params.Name]; ok {
+		if handlers, ok := optionUpdateHandlers[params.Key]; ok {
 			for _, h := range handlers {
 				if err := h(ctx, op); err != nil {
-					log.Errorf("failed to process update handler for %s: %s", params.Name, err)
+					log.Errorf("failed to process update handler for %s: %s", params.Key, err)
 				}
 			}
 		}
@@ -183,16 +187,16 @@ func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Opt
 func (b *Hiro) OptionGet(ctx context.Context, params *OptionGetInput) (Option, error) {
 	data := make([]byte, 0)
 
-	if v, ok := optionCache.Get(params.Name); ok {
+	if v, ok := optionCache.Get(params.Key); ok {
 		data = v.([]byte)
 	} else {
-		query := b.db.QueryRowxContext(ctx, `SELECT value FROM options WHERE name=$1`, params.Name)
+		query := b.db.QueryRowxContext(ctx, `SELECT value FROM options WHERE key=$1`, params.Key)
 
 		if err := query.Scan(&data); err != nil {
 			return nil, ParseSQLError(err)
 		}
 
-		optionCache.Set(params.Name, data, cache.DefaultExpiration)
+		optionCache.Set(params.Key, data, cache.DefaultExpiration)
 	}
 
 	if params.Value != nil {
@@ -207,36 +211,36 @@ func (b *Hiro) OptionGet(ctx context.Context, params *OptionGetInput) (Option, e
 		return nil, fmt.Errorf("%w: value is not a valid option", ErrInputValidation)
 	}
 
-	return UnmarshalOption(bytes.NewReader(data), params.Name)
+	return UnmarshalOption(bytes.NewReader(data), params.Key)
 }
 
 // OptionRemove removes the named option from the backend
 func (b *Hiro) OptionRemove(ctx context.Context, params *OptionRemoveInput) error {
-	_, err := b.db.ExecContext(ctx, `DELETE FROM options WHERE name=$1`, params.Name)
+	_, err := b.db.ExecContext(ctx, `DELETE FROM options WHERE key=$1`, params.Key)
 
 	optionLock.Lock()
 	defer optionLock.Unlock()
 
-	optionCache.Delete(params.Name)
+	optionCache.Delete(params.Key)
 
 	return err
 }
 
 // RegisterOptionUpdateHandler registers an update handler for options
-func RegisterOptionUpdateHandler(name string, handler OptionUpdateHandler) {
+func RegisterOptionUpdateHandler(key string, handler OptionUpdateHandler) {
 	optionLock.Lock()
 
 	defer optionLock.Unlock()
 
-	if _, ok := optionUpdateHandlers[name]; !ok {
-		optionUpdateHandlers[name] = make([]OptionUpdateHandler, 0)
+	if _, ok := optionUpdateHandlers[key]; !ok {
+		optionUpdateHandlers[key] = make([]OptionUpdateHandler, 0)
 	}
 
-	optionUpdateHandlers[name] = append(optionUpdateHandlers[name], handler)
+	optionUpdateHandlers[key] = append(optionUpdateHandlers[key], handler)
 }
 
 // RegisterOption registers an option type
-func RegisterOption(name string, val interface{}) error {
+func RegisterOption(key string, val interface{}) error {
 	optionRegLock.Lock()
 	defer optionRegLock.Unlock()
 
@@ -248,23 +252,23 @@ func RegisterOption(name string, val interface{}) error {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
-	optionRegistry[strings.ToLower(name)] = typ
+	optionRegistry[strings.ToLower(key)] = typ
 
 	return nil
 }
 
-// Name gets the name of this polymorphic type
+// Name gets the key of this polymorphic type
 func (o *option) Name() string {
-	if o.name != "" {
-		return o.name
+	if o.key != "" {
+		return o.key
 	}
 
 	return "Option"
 }
 
-// SetName sets the name of this polymorphic type
+// SetName sets the key of this polymorphic type
 func (o *option) SetName(val string) {
-	o.name = val
+	o.key = val
 }
 
 // Instance returns the instance
@@ -298,25 +302,25 @@ func UnmarshalOptionSlice(reader io.Reader) ([]Option, error) {
 }
 
 // UnmarshalOption unmarshals polymorphic Option
-func UnmarshalOption(reader io.Reader, name ...string) (Option, error) {
+func UnmarshalOption(reader io.Reader, key ...string) (Option, error) {
 	// we need to read this twice, so first into a buffer
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	return unmarshalOption(data, name...)
+	return unmarshalOption(data, key...)
 }
 
-func unmarshalOption(data []byte, name ...string) (Option, error) {
+func unmarshalOption(data []byte, key ...string) (Option, error) {
 	buf := bytes.NewBuffer(data)
 	buf2 := bytes.NewBuffer(data)
 
 	var optionName string
 
-	if len(name) == 0 {
-		// the first time this is read is to fetch the value of the name property.
+	if len(key) == 0 {
+		// the first time this is read is to fetch the value of the key property.
 		var getType struct {
-			Name string `json:"name"`
+			Name string `json:"key"`
 		}
 		dec := json.NewDecoder(buf)
 		dec.UseNumber()
@@ -325,14 +329,14 @@ func unmarshalOption(data []byte, name ...string) (Option, error) {
 		}
 
 		if err := (validation.Errors{
-			"name": validation.Validate(getType.Name, validation.Required),
+			"key": validation.Validate(getType.Name, validation.Required),
 		}).Filter(); err != nil {
 			return nil, err
 		}
 
 		optionName = getType.Name
 	} else {
-		optionName = name[0]
+		optionName = key[0]
 	}
 
 	var result Option
@@ -347,7 +351,7 @@ func unmarshalOption(data []byte, name ...string) (Option, error) {
 
 	result = reflect.New(t).Interface().(Option)
 
-	result.SetName(optionName)
+	result.SetKey(optionName)
 
 	if err := dec.Decode(result); err != nil {
 		return nil, err

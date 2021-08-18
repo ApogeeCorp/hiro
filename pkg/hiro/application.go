@@ -77,7 +77,7 @@ type (
 	ApplicationEndpoint struct {
 		InstanceID ID                      `json:"instance_id"`
 		URI        string                  `json:"uri"`
-		Type       ApplicationEndpointType `json:L"type"`
+		Type       ApplicationEndpointType `json:"type"`
 	}
 
 	// ApplicationEndpointType is an application uri type
@@ -130,9 +130,9 @@ type (
 
 	// ApplicationGetInput is used to get an application for the id
 	ApplicationGetInput struct {
+		InstanceID    ID                 `json:"-"`
 		ApplicationID *ID                `json:"application_id,omitempty"`
 		Expand        common.StringSlice `json:"expand,omitempty"`
-		InstanceID    ID                 `json:"-"`
 		ClientID      *string            `json:"-"`
 		Name          *string            `json:"-"`
 	}
@@ -272,18 +272,7 @@ func (h *Hiro) ApplicationCreate(ctx context.Context, params ApplicationCreateIn
 
 		}
 
-		return h.applicationPatch(ctx, applicationPatchInput{
-			Application: &app,
-			Permissions: PermissionUpdate{
-				Add: params.Permissions,
-			},
-			Grants: GrantUpdate{
-				Add: params.Grants,
-			},
-			Endpoints: EndpointUpdate{
-				Add: params.Endpoints,
-			},
-		})
+		return nil
 	}); err != nil {
 		if errors.Is(err, ErrDuplicateObject) {
 			return h.ApplicationGet(ctx, ApplicationGetInput{
@@ -364,12 +353,7 @@ func (h *Hiro) ApplicationUpdate(ctx context.Context, params ApplicationUpdateIn
 			app = *a
 		}
 
-		return h.applicationPatch(ctx, applicationPatchInput{
-			Application: &app,
-			Permissions: params.Permissions,
-			Grants:      params.Grants,
-			Endpoints:   params.Endpoints,
-		})
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -507,132 +491,6 @@ func (h *Hiro) ApplicationDelete(ctx context.Context, params ApplicationDeleteIn
 		ExecContext(ctx); err != nil {
 		log.Errorf("failed to delete application %s: %s", params.ApplicationID, err)
 		return ParseSQLError(err)
-	}
-
-	return nil
-}
-
-func (h *Hiro) applicationPatch(ctx context.Context, params applicationPatchInput) error {
-	log := Log(ctx).WithField("operation", "applicationPatch").WithField("application", params.Application.ID)
-
-	db := h.DB(ctx)
-
-	for _, p := range params.Permissions.Add {
-		_, err := sq.Insert("hiro.application_permissions").
-			Columns(
-				"application_id",
-				"instance_id",
-				"permission").
-			Values(
-				params.Application.ID,
-				params.Application.InstanceID,
-				p.Permission,
-			).
-			Suffix("ON CONFLICT DO NOTHING").
-			RunWith(db).
-			PlaceholderFormat(sq.Dollar).
-			ExecContext(ctx)
-		if err != nil {
-			log.Errorf("failed to update permissions for application %s: %s", params.Application.ID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, p := range params.Permissions.Remove {
-		if _, err := sq.Delete("hiro.application_permissions").
-			Where(
-				sq.Eq{
-					"instance_id":    params.Application.InstanceID,
-					"application_id": params.Application.ID,
-					"permission":     p,
-				}).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete permissions for application %s: %s", params.Application.ID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, g := range params.Grants.Add {
-		if _, err := sq.Insert("hiro.application_grants").
-			Columns(
-				"application_id",
-				"instance_id",
-				"grant_type").
-			Values(
-				params.Application.ID,
-				g.InstanceID,
-				g.Type,
-			).
-			Suffix("ON CONFLICT DO NOTHING").
-			RunWith(db).
-			PlaceholderFormat(sq.Dollar).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to update instance grants %s: %s", g.InstanceID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, g := range params.Grants.Remove {
-		if _, err := sq.Delete("hiro.application_grants").
-			Where(
-				sq.Eq{
-					"instance_id":    g.InstanceID,
-					"application_id": params.Application.ID,
-					"grant_type":     g.Type,
-				}).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete grants for application %s: %s", params.Application.ID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, u := range params.Endpoints.Add {
-		if _, err := sq.Insert("hiro.application_uris").
-			Columns(
-				"application_id",
-				"instance_id",
-				"uri",
-				"uri_type").
-			Values(
-				params.Application.ID,
-				u.InstanceID,
-				u.URI,
-				u.Type,
-			).
-			Suffix("ON CONFLICT DO NOTHING").
-			RunWith(db).
-			PlaceholderFormat(sq.Dollar).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to update instance uris %s: %s", u.InstanceID, err)
-
-			return ParseSQLError(err)
-		}
-	}
-
-	for _, u := range params.Endpoints.Remove {
-		if _, err := sq.Delete("hiro.application_uris").
-			Where(
-				sq.Eq{
-					"instance_id":    u.InstanceID,
-					"application_id": params.Application.ID,
-					"uri":            u.URI,
-					"uri_type":       u.Type,
-				}).
-			PlaceholderFormat(sq.Dollar).
-			RunWith(db).
-			ExecContext(ctx); err != nil {
-			log.Errorf("failed to delete uris for application %s: %s", params.Application.ID, err)
-
-			return ParseSQLError(err)
-		}
 	}
 
 	return nil

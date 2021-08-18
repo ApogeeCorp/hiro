@@ -1,7 +1,6 @@
 -- +migrate Up
 -- SQL in section 'Up' is executed when this migration is applied
 CREATE TYPE hiro.GRANT_TYPE AS ENUM ('authorization_code', 'client_credentials', 'password', 'refresh_token');
-CREATE TYPE hiro.URI_TYPE AS ENUM ('application', 'redirect');
 
 CREATE TABLE IF NOT EXISTS hiro.applications(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -9,13 +8,15 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL,
-    slug VARCHAR(64) NOT NULL,
     description VARCHAR(1024),
     type TEXT NOT NULL DEFAULT 'web',
     client_id CHAR(22),
     client_secret CHAR(32),
     token_secret_id UUID,
-    uris JSONB,
+    login_uri VARCHAR(1024),
+    logout_uri VARCHAR(1024),
+    signup_uri VARCHAR(1024),
+    password_uri VARCHAR(1024),
     metadata JSONB,
     FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
     FOREIGN KEY (token_secret_id) REFERENCES hiro.secrets(id) ON DELETE SET NULL
@@ -23,7 +24,6 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
 
 CREATE UNIQUE INDEX IF NOT EXISTS application_client_id ON hiro.applications(instance_id, client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS application_name ON hiro.applications(instance_id, name);
-CREATE UNIQUE INDEX IF NOT EXISTS application_slug ON hiro.applications(instance_id, slug);
 
 DROP TRIGGER IF EXISTS update_timestamp ON hiro.applications;
 
@@ -32,37 +32,27 @@ CREATE TRIGGER update_timestamp
   FOR EACH ROW
   EXECUTE PROCEDURE hiro.update_timestamp("updated_at");
 
-DROP TRIGGER IF EXISTS update_slug ON hiro.applications;
-
-CREATE TRIGGER update_slug
-  BEFORE INSERT OR UPDATE ON hiro.applications
-  FOR EACH ROW
-  EXECUTE PROCEDURE hiro.update_slug("name", "slug");
-
 CREATE TABLE IF NOT EXISTS hiro.application_permissions(
-  application_id UUID NOT NULL REFERENCES hiro.applications(id) ON DELETE CASCADE,
+  application_id UUID NOT NULL,
   instance_id UUID NOT NULL,
-  permission TEXT NOT NULL,
-  FOREIGN KEY(instance_id, permission) 
-    REFERENCES hiro.instance_permissions(instance_id, permission) 
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-  PRIMARY KEY(application_id, instance_id, permission)
+  permission_id UUID NOT NULL,
+  PRIMARY KEY(application_id, instance_id, permission_id),
+  FOREIGN KEY (application_id) REFERENCES hiro.applications(id) ON DELETE CASCADE,
+  FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
+  FOREIGN KEY (permission_id) REFERENCES hiro.api_permissions(id) ON DELETE CASCADE  
 );
 
 CREATE TABLE IF NOT EXISTS hiro.application_grants(
   application_id UUID NOT NULL REFERENCES hiro.applications(id) ON DELETE CASCADE,
-  instance_id UUID NOT NULL REFERENCES hiro.instances(id) ON DELETE CASCADE,
   grant_type hiro.GRANT_TYPE NOT NULL,
-  PRIMARY KEY(application_id, instance_id, grant_type)
+  PRIMARY KEY(application_id, grant_type)
 );
 
 CREATE TABLE IF NOT EXISTS hiro.application_uris(
   application_id UUID NOT NULL REFERENCES hiro.applications(id) ON DELETE CASCADE,
   instance_id UUID NOT NULL REFERENCES hiro.instances(id) ON DELETE CASCADE,
   uri VARCHAR(1024) NOT NULL,
-  uri_type hiro.URI_TYPE NOT NULL,
-  PRIMARY KEY(application_id, instance_id, uri, uri_type)
+  PRIMARY KEY(application_id, instance_id, uri)
 );
 
 -- +migrate Down
