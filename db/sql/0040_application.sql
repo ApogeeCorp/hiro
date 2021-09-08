@@ -4,7 +4,7 @@ CREATE TYPE hiro.GRANT_TYPE AS ENUM ('authorization_code', 'client_credentials',
 
 CREATE TABLE IF NOT EXISTS hiro.applications(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    instance_id UUID NOT NULL,
+    domain_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(64) NOT NULL,
@@ -18,12 +18,12 @@ CREATE TABLE IF NOT EXISTS hiro.applications(
     signup_uri VARCHAR(1024),
     password_uri VARCHAR(1024),
     metadata JSONB,
-    FOREIGN KEY (instance_id) REFERENCES hiro.instances(id) ON DELETE CASCADE,
+    FOREIGN KEY (domain_id) REFERENCES hiro.domains(id) ON DELETE CASCADE,
     FOREIGN KEY (token_secret_id) REFERENCES hiro.secrets(id) ON DELETE SET NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS application_client_id ON hiro.applications(instance_id, client_id);
-CREATE UNIQUE INDEX IF NOT EXISTS application_name ON hiro.applications(instance_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS application_client_id ON hiro.applications(domain_id, client_id);
+CREATE UNIQUE INDEX IF NOT EXISTS application_name ON hiro.applications(domain_id, name);
 
 DROP TRIGGER IF EXISTS update_timestamp ON hiro.applications;
 

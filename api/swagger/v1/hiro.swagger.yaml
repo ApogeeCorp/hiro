@@ -11,7 +11,6 @@
 
 swagger: "2.0"
 schemes:
-  - "http"
   - "https"
 produces:
   - "application/json"
@@ -43,6 +42,8 @@ info:
     ```
 
 tags:
+  - name: "Api"
+    description: "API operations"
   - name: "Instance"
     description: "Instance operations"
   - name: "Application"
@@ -67,6 +68,9 @@ securityDefinitions:
     authorizationUrl: "https://auth.server.local/oauth/authorize"
     tokenUrl: "https://auth.server.local/api/token"
     scopes:
+      api:create: "Create API definitions"
+      api:write: "Update API definitions"
+      api:read: "Read API definitions"
       instance:read: "Read instances"
       instance:write: "Create or modify instances"
       application:read: "Read applications"
@@ -84,6 +88,9 @@ securityDefinitions:
       asset:write: "Write assets"
 
 definitions:
+  Api:
+    description: |
+      Apis define basic api attributes
   Instance:
     description: |
       Instances define a set of application, users, and other objects that are part of the same security domain.

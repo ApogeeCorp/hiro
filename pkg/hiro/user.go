@@ -231,7 +231,7 @@ func (h *Hiro) UserCreate(ctx context.Context, params UserCreateInput) (*User, e
 
 	log.Debugf("user %s created", user.ID)
 
-	return h.userExpand(ctx, &user, expandAll)
+	return h.userExpand(ctx, &user, ExpandAll)
 }
 
 // UserUpdate updates an user by id, including child objects
@@ -311,7 +311,7 @@ func (h *Hiro) UserUpdate(ctx context.Context, params UserUpdateInput) (*User, e
 
 	log.Debugf("user updated")
 
-	return h.userExpand(ctx, &user, expandAll)
+	return h.userExpand(ctx, &user, ExpandAll)
 }
 
 // UserGet gets an user by id and optionally preloads child objects
@@ -529,7 +529,7 @@ func (h *Hiro) userExpand(ctx context.Context, user *User, expand common.StringS
 
 	if expand.ContainsAny("roles.permissions", "*") {
 		for i, r := range user.Roles {
-			r, err := h.roleExpand(ctx, &r, expandAll)
+			r, err := h.roleExpand(ctx, &r, expand.FilterPrefix("roles"))
 			if err != nil {
 				return nil, err
 			}

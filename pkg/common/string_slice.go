@@ -66,6 +66,11 @@ func (s StringSlice) Len() int {
 	return len(s)
 }
 
+// Empty returns true if the slice is empty
+func (s StringSlice) Empty() bool {
+	return len(s) == 0
+}
+
 // Get returns the item at the index
 func (s StringSlice) Get(index int) interface{} {
 	if index < 0 || index >= len(s) {
@@ -155,11 +160,54 @@ func (s StringSlice) Contains(values ...interface{}) bool {
 	return true
 }
 
+// Contains returns true of the slice contains all of the values
+func (s StringSlice) ContainsPrefix(values ...interface{}) bool {
+	for _, elem := range values {
+		contains := false
+
+		for _, v := range s {
+			val := cast.ToString(elem)
+
+			if string(v) == val {
+				contains = true
+			}
+
+			if strings.HasPrefix(string(v), val+".") {
+				contains = true
+			}
+		}
+
+		if !contains {
+			return false
+		}
+	}
+
+	return true
+}
+
 // ContainsAny returns true of the slice contains any of the values
 func (s StringSlice) ContainsAny(values ...interface{}) bool {
 	for _, elem := range values {
 		for _, v := range s {
 			if string(v) == cast.ToString(elem) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ContainsAny returns true of the slice contains any of the values
+func (s StringSlice) ContainsAnyPrefix(values ...interface{}) bool {
+	for _, elem := range values {
+		for _, v := range s {
+			val := cast.ToString(elem)
+
+			if string(v) == val {
+				return true
+			}
+
+			if strings.HasPrefix(string(v), val+".") {
 				return true
 			}
 		}
@@ -184,7 +232,7 @@ func (s StringSlice) Unique() StringSlice {
 func (s StringSlice) FilterPrefix(prefix string) StringSlice {
 	rval := make(StringSlice, 0)
 
-	if !strings.HasPrefix(prefix, ".") {
+	if !strings.HasSuffix(prefix, ".") {
 		prefix = prefix + "."
 	}
 

@@ -23,7 +23,6 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.0
-	github.com/icza/dyno v0.0.0-20210726202311-f1bafe5d9996 // indirect
 	github.com/improbable-eng/grpc-web v0.13.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/johnsiilver/getcert v0.0.0-20201005022436-57fe9706afac
@@ -50,5 +49,5 @@ require (
 	google.golang.org/grpc/examples v0.0.0-20201226181154-53788aa5dcb4 // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.5.1
-	sigs.k8s.io/yaml v1.2.0 // indirect
+	sigs.k8s.io/yaml v1.1.0
 )

@@ -26,6 +26,7 @@ import (
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
 	"github.com/urfave/cli/v2"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -65,7 +66,7 @@ var (
 			{
 				Name:    "initialize",
 				Aliases: []string{"init"},
-				Usage:   "initialize the server",
+				Usage:   "initialize a new instance of hiro in the database",
 				Action:  serverInitialize,
 			},
 		},
@@ -107,10 +108,18 @@ func serverMain(c *cli.Context) error {
 }
 
 func serverInitialize(c *cli.Context) error {
-	_, err := h.APIImport(c.Context, hiro.APIImportParams{
-		Spec: string(swagger.HiroSwaggerSpec),
-	})
+	spec, err := yaml.YAMLToJSON(swagger.HiroSwaggerSpec)
 	if err != nil {
+		return fmt.Errorf("failed to convert spec to json: %w", err)
+	}
+
+	if _, err := h.APIImport(c.Context, hiro.APIImportParams{
+		SpecCreateParams: hiro.SpecCreateParams{
+			Spec:       spec,
+			SpecType:   hiro.SpecTypeOpenAPI,
+			SpecFormat: hiro.SpecFormatSwagger,
+		},
+	}); err != nil {
 		return fmt.Errorf("failed to create hiro api: %w", err)
 	}
 

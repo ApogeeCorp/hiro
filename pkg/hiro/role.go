@@ -219,7 +219,7 @@ func (h *Hiro) RoleCreate(ctx context.Context, params RoleCreateInput) (*Role, e
 
 	log.Debugf("role %s created", role.ID)
 
-	return h.roleExpand(ctx, &role, expandAll)
+	return h.roleExpand(ctx, &role, ExpandAll)
 }
 
 // RoleUpdate updates an role by id, including child objects
@@ -285,7 +285,7 @@ func (h *Hiro) RoleUpdate(ctx context.Context, params RoleUpdateInput) (*Role, e
 
 	log.Debugf("role %s updated", role.Name)
 
-	return h.roleExpand(ctx, &role, expandAll)
+	return h.roleExpand(ctx, &role, ExpandAll)
 }
 
 // RoleGet gets an role by id and optionally preloads child objects

@@ -22,6 +22,7 @@ package hiro
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/oauth"
@@ -36,15 +37,19 @@ type (
 
 	// Permission is an api permission object
 	Permission struct {
-		ID          ID      `json:"id" db:"id"`
-		ApiID       ID      `json:"api_id" db:"api_id"`
-		Definition  string  `jsoon:"definition" db:"definition"`
-		Scope       string  `json:"scope" db:"scope"`
-		Description *string `json:"description,omitempty" db:"description"`
+		ID          ID         `json:"id" db:"id"`
+		CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+		UpdatedAt   *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+		ApiID       ID         `json:"api_id" db:"api_id"`
+		SpecID      *ID        `json:"spec_id,omitempty" db:"spec_id"`
+		Definition  string     `jsoon:"definition" db:"definition"`
+		Scope       string     `json:"scope" db:"scope"`
+		Description *string    `json:"description,omitempty" db:"description"`
 	}
 
 	PermissionCreateInput struct {
 		ApiID       ID      `json:"api_id"`
+		SpecID      *ID     `json:"spec_id,omitempty"`
 		Definition  string  `jsoon:"definition"`
 		Scope       string  `json:"scope"`
 		Description *string `json:"description,omitempty"`
@@ -73,25 +78,25 @@ func (h *Hiro) PermissionCreate(ctx context.Context, params PermissionCreateInpu
 	}
 
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
-		log.Debugf("creating new api")
+		log.Debugf("creating new permission")
 
 		stmt, args, err := sq.Insert("hiro.api_permissions").
 			Columns(
 				"api_id",
+				"spec_id",
 				"definition",
 				"scope",
 				"description",
 			).
 			Values(
 				params.ApiID,
+				params.SpecID,
 				params.Definition,
 				params.Scope,
 				params.Description,
 			).
 			PlaceholderFormat(sq.Dollar).
-			Suffix(`ON CONFLICT ON CONSTRAINT api_permission_scope DO UPDATE SET description=$5 RETURNING *`,
-				params.Description,
-			).
+			Suffix(`RETURNING *`).
 			ToSql()
 		if err != nil {
 			return fmt.Errorf("%w: failed to build query statement", err)

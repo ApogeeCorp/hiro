@@ -20,6 +20,7 @@
 package hiro
 
 import (
+	"context"
 	"time"
 
 	"github.com/ModelRocket/hiro/pkg/common"
@@ -44,6 +45,10 @@ type (
 	}
 
 	Expand common.StringSlice
+
+	Expandable interface {
+		Expand(ctx context.Context, expand ...string) error
+	}
 )
 
 // AddExpand appends values to the expand

@@ -286,7 +286,7 @@ func (h *Hiro) ApplicationCreate(ctx context.Context, params ApplicationCreateIn
 
 	log.Debugf("application %s created", app.ID)
 
-	return h.applicationExpand(ctx, &app, expandAll)
+	return h.applicationExpand(ctx, &app, ExpandAll)
 }
 
 // ApplicationUpdate updates an application by id, including child objects
@@ -360,7 +360,7 @@ func (h *Hiro) ApplicationUpdate(ctx context.Context, params ApplicationUpdateIn
 
 	log.Debugf("application %s updated", app.Name)
 
-	return h.applicationExpand(ctx, &app, expandAll)
+	return h.applicationExpand(ctx, &app, ExpandAll)
 }
 
 // ApplicationGet gets an application by id and optionally preloads child objects

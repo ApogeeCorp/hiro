@@ -656,7 +656,7 @@ func (c *oauthController) UserUpdate(ctx context.Context, params oauth.UserUpdat
 func (c *oauthController) UserCreate(ctx context.Context, params oauth.UserCreateInput) (oauth.User, error) {
 	inst, err := c.InstanceGet(ctx, InstanceGetInput{
 		Params: Params{
-			Expand: expandAll,
+			Expand: ExpandAll,
 		},
 		Audience: &params.Audience,
 	})

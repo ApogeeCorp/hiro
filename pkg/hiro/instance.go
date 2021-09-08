@@ -263,7 +263,7 @@ func (h *Hiro) InstanceCreate(ctx context.Context, params InstanceCreateInput) (
 
 	log.Debugf("instance %s created", inst.ID)
 
-	return h.instanceExpand(ctx, &inst, expandAll)
+	return h.instanceExpand(ctx, &inst, ExpandAll)
 }
 
 // InstanceUpdate updates an application by id, including child objects
@@ -351,7 +351,7 @@ func (h *Hiro) InstanceUpdate(ctx context.Context, params InstanceUpdateInput) (
 
 	log.Debugf("instance %s updated", inst.Name)
 
-	return h.instanceExpand(ctx, &inst, expandAll)
+	return h.instanceExpand(ctx, &inst, ExpandAll)
 }
 
 // InstanceGet gets an instance by id and optionally preloads child objects
