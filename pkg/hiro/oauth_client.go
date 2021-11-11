@@ -34,7 +34,7 @@ func (c oauthClient) ID() string {
 }
 
 func (c oauthClient) Audience() string {
-	return c.inst.Audience
+	return c.Domain.Name
 }
 
 func (c oauthClient) Permissions() oauth.Scope {

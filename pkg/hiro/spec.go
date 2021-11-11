@@ -52,12 +52,13 @@ type (
 	}
 
 	SpecCreateParams struct {
-		ApiID       ID                      `json:"api_id"`
-		Version     *string                 `json:"version,omitempty"`
-		Spec        []byte                  `json:"spec"`
-		SpecType    SpecType                `json:"spec_type"`
-		SpecFormat  SpecFormat              `json:"spec_format"`
-		Permissions []PermissionCreateInput `json:"permissions,omitempty"`
+		Params
+		ApiID       ID                       `json:"api_id"`
+		Version     *string                  `json:"version,omitempty"`
+		Spec        []byte                   `json:"spec"`
+		SpecType    SpecType                 `json:"spec_type"`
+		SpecFormat  SpecFormat               `json:"spec_format"`
+		Permissions []PermissionCreateParams `json:"permissions,omitempty"`
 	}
 
 	// SpecType defines a specification type
@@ -110,7 +111,7 @@ func (h *Hiro) SpecCreate(ctx context.Context, params SpecCreateParams) (*Spec, 
 
 			params.Version = ptr.String(info.Version)
 
-			params.Permissions = make([]PermissionCreateInput, 0)
+			params.Permissions = make([]PermissionCreateParams, 0)
 
 			for def, sch := range doc.Spec().SecurityDefinitions {
 				if sch.Type != "oauth2" {
@@ -119,7 +120,7 @@ func (h *Hiro) SpecCreate(ctx context.Context, params SpecCreateParams) (*Spec, 
 
 				for scope, desc := range sch.Scopes {
 					desc := desc
-					params.Permissions = append(params.Permissions, PermissionCreateInput{
+					params.Permissions = append(params.Permissions, PermissionCreateParams{
 						Definition:  def,
 						Scope:       scope,
 						Description: &desc,
@@ -132,7 +133,7 @@ func (h *Hiro) SpecCreate(ctx context.Context, params SpecCreateParams) (*Spec, 
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new spec")
 
-		stmt, args, err := sq.Insert("hiro.api_specs").
+		query := sq.Insert("hiro.api_specs").
 			Columns(
 				"api_id",
 				"spec",
@@ -147,9 +148,15 @@ func (h *Hiro) SpecCreate(ctx context.Context, params SpecCreateParams) (*Spec, 
 				params.SpecFormat,
 				params.Version,
 			).
-			PlaceholderFormat(sq.Dollar).
-			Suffix("RETURNING *").
-			ToSql()
+			PlaceholderFormat(sq.Dollar)
+
+		if params.UpdateOnConflict {
+			query = query.Suffix(`ON CONFLICT ON CONSTRAINT spec_format DO UPDATE SET version=$6 RETURNING *`, params.Version)
+		} else {
+			query = query.Suffix("RETURNING *")
+		}
+
+		stmt, args, err := query.ToSql()
 		if err != nil {
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
@@ -160,6 +167,7 @@ func (h *Hiro) SpecCreate(ctx context.Context, params SpecCreateParams) (*Spec, 
 
 		// create any necessary permissions
 		for _, p := range params.Permissions {
+			p.Params = params.Params
 			p.ApiID = params.ApiID
 			p.SpecID = &spec.ID
 

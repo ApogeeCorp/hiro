@@ -58,7 +58,7 @@ func (h *Hiro) SessionCreate(ctx context.Context, sess *session.Session) error {
 
 	log := Log(ctx).WithField("operation", "SessionCreate").WithField("user_id", sess.Subject)
 
-	inst, err := h.InstanceGet(ctx, InstanceGetInput{
+	inst, err := h.InstanceGet(ctx, InstanceGetParams{
 		Audience: &sess.Audience,
 	})
 	if err != nil {
@@ -235,7 +235,7 @@ func (h *Hiro) SessionDestroy(ctx context.Context, id string) error {
 }
 
 func (h *Hiro) SessionOptions(ctx context.Context, id string) (session.Options, error) {
-	inst, err := h.InstanceGet(ctx, InstanceGetInput{
+	inst, err := h.InstanceGet(ctx, InstanceGetParams{
 		InstanceID: (*ID)(&id),
 	})
 	if err != nil {

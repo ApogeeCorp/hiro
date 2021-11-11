@@ -32,7 +32,7 @@ import (
 type (
 	// PermissionController is the permission API interface
 	PermissionController interface {
-		PermissionCreate(ctx context.Context, params PermissionCreateInput) (*Permission, error)
+		PermissionCreate(ctx context.Context, params PermissionCreateParams) (*Permission, error)
 	}
 
 	// Permission is an api permission object
@@ -47,7 +47,8 @@ type (
 		Description *string    `json:"description,omitempty" db:"description"`
 	}
 
-	PermissionCreateInput struct {
+	PermissionCreateParams struct {
+		Params
 		ApiID       ID      `json:"api_id"`
 		SpecID      *ID     `json:"spec_id,omitempty"`
 		Definition  string  `jsoon:"definition"`
@@ -57,7 +58,7 @@ type (
 )
 
 // ValidateWithContext validates the PermissionCreateInput type
-func (i PermissionCreateInput) ValidateWithContext(ctx context.Context) error {
+func (i PermissionCreateParams) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&i,
 		validation.Field(&i.ApiID, validation.Required),
 		validation.Field(&i.Definition, validation.Required),
@@ -66,7 +67,7 @@ func (i PermissionCreateInput) ValidateWithContext(ctx context.Context) error {
 	)
 }
 
-func (h *Hiro) PermissionCreate(ctx context.Context, params PermissionCreateInput) (*Permission, error) {
+func (h *Hiro) PermissionCreate(ctx context.Context, params PermissionCreateParams) (*Permission, error) {
 	var perm Permission
 
 	log := Log(ctx).WithField("operation", "PermissionCreate").WithField("params", params)
@@ -80,7 +81,7 @@ func (h *Hiro) PermissionCreate(ctx context.Context, params PermissionCreateInpu
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new permission")
 
-		stmt, args, err := sq.Insert("hiro.api_permissions").
+		query := sq.Insert("hiro.api_permissions").
 			Columns(
 				"api_id",
 				"spec_id",
@@ -95,9 +96,15 @@ func (h *Hiro) PermissionCreate(ctx context.Context, params PermissionCreateInpu
 				params.Scope,
 				params.Description,
 			).
-			PlaceholderFormat(sq.Dollar).
-			Suffix(`RETURNING *`).
-			ToSql()
+			PlaceholderFormat(sq.Dollar)
+
+		if params.UpdateOnConflict {
+			query = query.Suffix(`ON CONFLICT ON CONSTRAINT api_permission_scope DO UPDATE SET description=$6 RETURNING *`, params.Description)
+		} else {
+			query = query.Suffix("RETURNING *")
+		}
+
+		stmt, args, err := query.ToSql()
 		if err != nil {
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}

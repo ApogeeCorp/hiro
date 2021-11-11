@@ -23,15 +23,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/common"
 )
 
 type (
 	// Params contains common components for library methods
 	Params struct {
-		Expand   common.StringSlice `json:"expand,omitempty"`
-		Metadata common.Map         `json:"metadata,omitempty"`
-		DB       DB                 `json:"-"`
+		Expand           common.StringSlice `json:"expand,omitempty"`
+		Metadata         common.Map         `json:"metadata,omitempty"`
+		DB               DB                 `json:"-"`
+		NoCache          bool               `json:"nocache"`
+		UpdateOnConflict bool               `json:"-"`
+		Principal        api.Principal      `json:"-"`
 	}
 
 	// ListParams contains common components for list type methods

@@ -27,17 +27,17 @@ import (
 
 type (
 	oauthAudience struct {
-		*Instance
+		*Domain
 	}
 )
 
 func (a oauthAudience) ID() string {
-	return a.Audience
+	return a.Name
 }
 
 func (a oauthAudience) Secrets() []oauth.TokenSecret {
 	rval := make([]oauth.TokenSecret, 0)
-	for _, s := range a.Instance.Secrets {
+	for _, s := range a.Domain.Secrets {
 		if s.Type != SecretTypeToken {
 			continue
 		}
@@ -58,7 +58,7 @@ func (a oauthAudience) Secrets() []oauth.TokenSecret {
 func (a oauthAudience) Permissions() oauth.Scope {
 	rval := make(oauth.Scope, 0)
 
-	for _, p := range a.Instance.Permissions {
+	for _, p := range a.Domain.Permissions {
 		rval = append(rval, p.Scope)
 	}
 
@@ -66,5 +66,5 @@ func (a oauthAudience) Permissions() oauth.Scope {
 }
 
 func (a oauthAudience) RefreshTokenLifetime() time.Duration {
-	return a.SessionLifetime
+	return 0//a.SessionLifetime
 }

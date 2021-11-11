@@ -36,7 +36,7 @@ func (u oauthUser) ID() string {
 }
 
 func (u oauthUser) Audience() string {
-	return u.inst.Audience
+	return ""
 }
 
 func (u oauthUser) Permissions() oauth.Scope {

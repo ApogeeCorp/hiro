@@ -20,21 +20,16 @@
 package hiro
 
 import (
-	"bytes"
 	"context"
-	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"reflect"
-	"strings"
 	"sync"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/ModelRocket/hiro/pkg/api"
-	"github.com/ModelRocket/hiro/pkg/common"
+	"github.com/ModelRocket/hiro/pkg/generic"
+	"github.com/ModelRocket/hiro/pkg/safe"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/patrickmn/go-cache"
@@ -44,92 +39,116 @@ type (
 	// OptionController provides instance configuration
 	OptionController interface {
 		// OptionUpdate stores a named option in the backend data store, the value should be created if it does not exist
-		OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Option, error)
+		OptionUpdate(ctx context.Context, params *OptionUpdateParams) (*Option, error)
 
 		// OptionGet returns a named option from the backend, an error should be returned if the option does not exist
-		OptionGet(ctx context.Context, params *OptionGetInput) (Option, error)
+		OptionGet(ctx context.Context, params *OptionGetParams) (*Option, error)
+
+		// OptionList returns a list of options
+		OptionList(ctx context.Context, params *OptionListParams) (Options, error)
 
 		// OptionRemove removes the named option from the backend, and error should not be returned if the option does not exist
-		OptionRemove(ctx context.Context, params *OptionRemoveInput) error
+		OptionRemove(ctx context.Context, params *OptionRemoveParams) error
 	}
 
-	// OptionUpdateInput is the option update input
-	OptionUpdateInput struct {
-		InstanceID       ID     `json:"instance_id"`
-		Key              string `json:"key"`
-		Value            Option `json:"-"`
-		suppressHandlers bool
+	// OptionUpdateParams is the option update input
+	OptionUpdateParams struct {
+		Params
+		DomainID   ID              `json:"domain_id"`
+		InstanceID *ID             `json:"instance_id,omitempty"`
+		Key        string          `json:"key"`
+		Value      json.RawMessage `json:"value"`
+		TTL        *int            `json:"ttl,omitempty"`
 	}
 
-	// OptionGetInput is the option get input
-	OptionGetInput struct {
-		InstanceID ID          `json:"instance_id"`
-		Key        string      `json:"key"`
-		Value      interface{} `json:"-"`
+	// OptionGetParams is the option get input
+	OptionGetParams struct {
+		Params
+		DomainID   ID     `json:"domain_id"`
+		InstanceID *ID    `json:"instance_id,omitempty"`
+		Key        string `json:"key"`
 	}
 
-	// OptionRemoveInput is the option get input
-	OptionRemoveInput struct {
-		InstanceID ID     `json:"instance_id"`
+	// OptionListParams is the option list input
+	OptionListParams struct {
+		Params
+		DomainID   ID  `json:"domain_id"`
+		InstanceID *ID `json:"instance_id,omitempty"`
+	}
+
+	// OptionRemoveParams is the option get input
+	OptionRemoveParams struct {
+		Params
+		DomainID   ID     `json:"domain_id"`
+		InstanceID *ID    `json:"instance_id,omitempty"`
 		Key        string `json:"key"`
 	}
 
 	// OptionUpdateHandler is called when options are updated
-	OptionUpdateHandler func(context.Context, Option) error
+	OptionUpdateHandler func(context.Context, *Option) error
 
-	// Option An instance configuration option
-	Option interface {
-		Key() string
-		SetKey(string)
-		Instance() string
-		SetInstance(string)
+	// Option defines domain based option
+	Option struct {
+		ID         int             `json:"id" db:"id"`
+		DomainID   ID              `json:"domain_id" db:"domain_id"`
+		InstanceID *ID             `json:"instance_id,omitempty" db:"instance_id"`
+		Key        string          `json:"key" db:"key"`
+		RawValue   json.RawMessage `json:"value" db:"value"`
+		TTL        int             `json:"ttl" db:"ttl"`
 	}
 
-	option struct {
-		key      string
-		instance string
-		m        common.Map
-	}
+	// Options is a list of options
+	Options []Option
 )
 
 var (
 	optionUpdateHandlers = make(map[string][]OptionUpdateHandler)
-	optionLock           sync.Mutex
-
-	optionRegistry = make(map[string]reflect.Type)
-	optionRegLock  sync.Mutex
+	optionUpdateLock     sync.Mutex
 
 	optionCache = cache.New(5*time.Minute, 10*time.Minute)
-
-	optionType = reflect.TypeOf(option{})
 )
 
 // Validate validates OptionUpdateInput
-func (o OptionUpdateInput) Validate() error {
+func (o OptionUpdateParams) Validate() error {
 	return validation.Errors{
-		"instance_id": validation.Validate(o.InstanceID, validation.Required),
-		"key":         validation.Validate(o.Key, validation.Required),
+		"domain_id":   validation.Validate(&o.DomainID, validation.Required),
+		"instance_id": validation.Validate(&o.InstanceID, validation.NilOrNotEmpty),
+		"key":         validation.Validate(&o.Key, validation.Required),
+		"value":       validation.Validate(&o.Value, validation.Required),
+		"ttl":         validation.Validate(&o.TTL, validation.Min(60000)),
 	}.Filter()
 }
 
 // Validate validates OptionGetInput
-func (o OptionGetInput) Validate() error {
+func (o OptionGetParams) Validate() error {
 	return validation.Errors{
-		"instance_id": validation.Validate(o.InstanceID, validation.Required),
-		"key":         validation.Validate(o.Key, validation.Required),
+		"domain_id":   validation.Validate(&o.DomainID, validation.Required),
+		"instance_id": validation.Validate(&o.InstanceID, validation.NilOrNotEmpty),
+		"key":         validation.Validate(&o.Key, validation.Required),
+	}.Filter()
+}
+
+// Validate validates OptionGetInput
+func (o OptionListParams) Validate() error {
+	return validation.Errors{
+		"domain_id":   validation.Validate(&o.DomainID, validation.Required),
+		"instance_id": validation.Validate(&o.InstanceID, validation.NilOrNotEmpty),
 	}.Filter()
 }
 
 // Validate validates OptionRemoveInput
-func (o OptionRemoveInput) Validate() error {
+func (o OptionRemoveParams) Validate() error {
 	return validation.Errors{
-		"instance_id": validation.Validate(o.InstanceID, validation.Required),
-		"key":         validation.Validate(o.Key, validation.Required),
+		"domain_id":   validation.Validate(&o.DomainID, validation.Required),
+		"instance_id": validation.Validate(&o.InstanceID, validation.NilOrNotEmpty),
+		"key":         validation.Validate(&o.Key, validation.Required),
 	}.Filter()
 }
 
 // OptionUpdate stores a named option in the backend data store
-func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Option, error) {
+func (h *Hiro) OptionUpdate(ctx context.Context, params OptionUpdateParams) (*Option, error) {
+	var op Option
+
 	log := api.Log(ctx).WithField("operation", "OptionUpdate").WithField("option", params.Key)
 
 	if err := params.Validate(); err != nil {
@@ -137,38 +156,64 @@ func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Opt
 		return nil, fmt.Errorf("%w: %s", ErrInputValidation, err)
 	}
 
-	log.Debugf("updating options %s", params.Key)
+	log.Debugf("updating option %s", params.Key)
 
-	if _, err := b.db.ExecContext(
-		ctx,
-		`INSERT INTO options (instance_id, key, value) 
-			VALUES($1, $2, COALESCE(value, '{}') || $3) 
-			ON CONFLICT (instance_id,key) SET value=COALESCE(value, '{}') || $3`,
-		params.InstanceID,
-		params.Key,
-		params.Value,
-	); err != nil {
-		log.Debugf("failed to update option %s: %s", params.Key, err)
-		return nil, ParseSQLError(err)
+	query := sq.Insert("hiro.options").
+		Columns(
+			"domain_id",
+			"instance_id",
+			"key",
+			"value",
+		).
+		Values(
+			params.DomainID,
+			params.InstanceID,
+			params.Key,
+			params.Value,
+		).
+		PlaceholderFormat(sq.Dollar)
+
+	if params.TTL != nil {
+		query = query.Columns("ttl").Values(params.TTL)
 	}
 
-	// get the latest version
-	op, err := b.OptionGet(ctx, &OptionGetInput{
-		Key: params.Key,
-	})
+	if len(params.Metadata) > 0 {
+		query = query.
+			Columns("metadata").
+			Values(sq.Expr(fmt.Sprintf("COALESCE(metadata, '{}') || %s", sq.Placeholders(1)), params.Metadata))
+	}
+
+	if params.UpdateOnConflict {
+		query = query.SuffixExpr(sq.Expr(
+			`ON CONFLICT ON CONSTRAINT option_domain_key DO UPDATE SET value=$3, ttl=COALESCE(?, ttl) RETURNING *`,
+			params.TTL,
+		))
+	} else {
+		query = query.Suffix(`RETURNING *`)
+	}
+
+	stmt, args, err := query.ToSql()
 	if err != nil {
+		return nil, fmt.Errorf("%w: failed to build query statement", err)
+	}
+
+	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
+		if err := tx.GetContext(ctx, &op, stmt, args...); err != nil {
+			return ParseSQLError(err)
+		}
+
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	if params.suppressHandlers {
-		return op, nil
-	}
-
-	go func(op Option) {
-		optionLock.Lock()
+	go func(op *Option) {
+		optionUpdateLock.Lock()
 		defer func() {
-			optionCache.Delete(params.Key)
-			optionLock.Unlock()
+			if !params.NoCache {
+				optionCache.Delete(op.CacheKey())
+			}
+			optionUpdateLock.Unlock()
 		}()
 
 		if handlers, ok := optionUpdateHandlers[params.Key]; ok {
@@ -178,48 +223,77 @@ func (b *Hiro) OptionUpdate(ctx context.Context, params *OptionUpdateInput) (Opt
 				}
 			}
 		}
-	}(op)
+	}(&op)
 
-	return op, nil
+	return &op, nil
 }
 
 // OptionGet returns a named option from the backend
-func (b *Hiro) OptionGet(ctx context.Context, params *OptionGetInput) (Option, error) {
-	data := make([]byte, 0)
-
-	if v, ok := optionCache.Get(params.Key); ok {
-		data = v.([]byte)
-	} else {
-		query := b.db.QueryRowxContext(ctx, `SELECT value FROM options WHERE key=$1`, params.Key)
-
-		if err := query.Scan(&data); err != nil {
-			return nil, ParseSQLError(err)
+func (h *Hiro) OptionGet(ctx context.Context, params OptionGetParams) (*Option, error) {
+	if !params.NoCache {
+		if v, ok := optionCache.Get(params.CacheKey()); ok {
+			return v.(*Option), nil
 		}
-
-		optionCache.Set(params.Key, data, cache.DefaultExpiration)
 	}
 
-	if params.Value != nil {
-		if err := json.Unmarshal(data, params.Value); err != nil {
-			return nil, err
-		}
+	var op Option
 
-		if op, ok := params.Value.(Option); ok {
-			return op, nil
-		}
-
-		return nil, fmt.Errorf("%w: value is not a valid option", ErrInputValidation)
+	stmt, args, err := sq.
+		Select("*").
+		From("hiro.options").
+		Where(sq.Eq{
+			"domain_id":   params.DomainID,
+			"instance_id": params.InstanceID,
+			"key":         params.Key,
+		}).ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to build query statement", err)
 	}
 
-	return UnmarshalOption(bytes.NewReader(data), params.Key)
+	db := h.DB(ctx)
+
+	if err := db.GetContext(ctx, &op, stmt, args...); err != nil {
+		return nil, ParseSQLError(err)
+	}
+
+	if !params.NoCache {
+		optionCache.Set(params.Key, &op, time.Millisecond*time.Duration(op.TTL))
+	}
+
+	return &op, nil
+}
+
+// OptionGet returns a named option from the backend
+func (h *Hiro) OptionList(ctx context.Context, params OptionListParams) (Options, error) {
+
+	ops := make(Options, 0)
+
+	stmt, args, err := sq.
+		Select("*").
+		From("hiro.options").
+		Where(sq.Eq{
+			"domain_id":   params.DomainID,
+			"instance_id": params.InstanceID,
+		}).ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to build query statement", err)
+	}
+
+	db := h.DB(ctx)
+
+	if err := db.SelectContext(ctx, &ops, stmt, args...); err != nil {
+		return nil, ParseSQLError(err)
+	}
+
+	return ops, nil
 }
 
 // OptionRemove removes the named option from the backend
-func (b *Hiro) OptionRemove(ctx context.Context, params *OptionRemoveInput) error {
-	_, err := b.db.ExecContext(ctx, `DELETE FROM options WHERE key=$1`, params.Key)
+func (h *Hiro) OptionRemove(ctx context.Context, params OptionRemoveParams) error {
+	_, err := h.db.ExecContext(ctx, `DELETE FROM options WHERE key=$1`, params.Key)
 
-	optionLock.Lock()
-	defer optionLock.Unlock()
+	optionUpdateLock.Lock()
+	defer optionUpdateLock.Unlock()
 
 	optionCache.Delete(params.Key)
 
@@ -228,9 +302,9 @@ func (b *Hiro) OptionRemove(ctx context.Context, params *OptionRemoveInput) erro
 
 // RegisterOptionUpdateHandler registers an update handler for options
 func RegisterOptionUpdateHandler(key string, handler OptionUpdateHandler) {
-	optionLock.Lock()
+	optionUpdateLock.Lock()
 
-	defer optionLock.Unlock()
+	defer optionUpdateLock.Unlock()
 
 	if _, ok := optionUpdateHandlers[key]; !ok {
 		optionUpdateHandlers[key] = make([]OptionUpdateHandler, 0)
@@ -239,166 +313,28 @@ func RegisterOptionUpdateHandler(key string, handler OptionUpdateHandler) {
 	optionUpdateHandlers[key] = append(optionUpdateHandlers[key], handler)
 }
 
-// RegisterOption registers an option type
-func RegisterOption(key string, val interface{}) error {
-	optionRegLock.Lock()
-	defer optionRegLock.Unlock()
-
-	if _, ok := val.(Option); !ok {
-		return errors.New("invalid option type")
-	}
-
-	typ := reflect.TypeOf(val)
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	optionRegistry[strings.ToLower(key)] = typ
-
-	return nil
+func (o *Option) Value() generic.Value {
+	return generic.MakeValue(o.Value())
 }
 
-// Name gets the key of this polymorphic type
-func (o *option) Name() string {
-	if o.key != "" {
-		return o.key
-	}
-
-	return "Option"
+func (o *Option) CacheKey() string {
+	return fmt.Sprintf("%s:%s:%s", o.DomainID, safe.String(o.InstanceID, "-"), o.Key)
 }
 
-// SetName sets the key of this polymorphic type
-func (o *option) SetName(val string) {
-	o.key = val
-}
-
-// Instance returns the instance
-func (o *option) Instance() string {
-	return o.instance
-}
-
-// SetInstance sets the instance
-func (o *option) SetInstance(val string) {
-	o.instance = val
-}
-
-// UnmarshalOptionSlice unmarshals polymorphic slices of Option
-func UnmarshalOptionSlice(reader io.Reader) ([]Option, error) {
-	var elements []json.RawMessage
-	dec := json.NewDecoder(reader)
-	dec.UseNumber()
-	if err := dec.Decode(&elements); err != nil {
-		return nil, err
-	}
-
-	var result []Option
-	for _, element := range elements {
-		obj, err := unmarshalOption(element)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, obj)
-	}
-	return result, nil
-}
-
-// UnmarshalOption unmarshals polymorphic Option
-func UnmarshalOption(reader io.Reader, key ...string) (Option, error) {
-	// we need to read this twice, so first into a buffer
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	return unmarshalOption(data, key...)
-}
-
-func unmarshalOption(data []byte, key ...string) (Option, error) {
-	buf := bytes.NewBuffer(data)
-	buf2 := bytes.NewBuffer(data)
-
-	var optionName string
-
-	if len(key) == 0 {
-		// the first time this is read is to fetch the value of the key property.
-		var getType struct {
-			Name string `json:"key"`
-		}
-		dec := json.NewDecoder(buf)
-		dec.UseNumber()
-		if err := dec.Decode(&getType); err != nil {
-			return nil, err
-		}
-
-		if err := (validation.Errors{
-			"key": validation.Validate(getType.Name, validation.Required),
-		}).Filter(); err != nil {
-			return nil, err
-		}
-
-		optionName = getType.Name
-	} else {
-		optionName = key[0]
-	}
-
-	var result Option
-
-	dec := json.NewDecoder(buf2)
-	dec.UseNumber()
-
-	t, ok := optionRegistry[strings.ToLower(optionName)]
-	if !ok {
-		t = optionType
-	}
-
-	result = reflect.New(t).Interface().(Option)
-
-	result.SetKey(optionName)
-
-	if err := dec.Decode(result); err != nil {
-		return nil, err
-	}
-
-	if v, ok := result.(validation.Validatable); ok {
-		if err := v.Validate(); err != nil {
-			return nil, err
-		}
-	} else if v, ok := result.(validation.ValidatableWithContext); ok {
-		if err := v.ValidateWithContext(context.Background()); err != nil {
-			return nil, err
+func (o Options) Get(key string, def ...interface{}) generic.Value {
+	for _, v := range o {
+		if v.Key == key {
+			return v.Value()
 		}
 	}
 
-	return result, nil
-}
-
-// UnmarshalJSON unmarshals a map option from json
-func (o *option) UnmarshalJSON(data []byte) error {
-	if o.m == nil {
-		o.m = make(common.Map)
+	if len(def) == 0 {
+		return generic.MakeValue(0)
 	}
 
-	return json.Unmarshal(data, &o.m)
+	return generic.MakeValue(def[0])
 }
 
-// MarshalJSON marhals a map option to json
-func (o option) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.m)
-}
-
-// Value returns SendGridConfig as a value that can be stored as json in the database
-func (o option) Value() (driver.Value, error) {
-	return json.Marshal(o.m)
-}
-
-// Scan reads a json value from the database into a SendGridConfig
-func (o *option) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	if o.m == nil {
-		o.m = make(common.Map)
-	}
-
-	return json.Unmarshal(b, &o.m)
+func (o OptionGetParams) CacheKey() string {
+	return fmt.Sprintf("%s:%s:%s", o.DomainID, safe.String(o.InstanceID, "-"), o.Key)
 }

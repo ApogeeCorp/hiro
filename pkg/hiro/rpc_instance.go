@@ -145,7 +145,7 @@ func (a *Instance) FromProto(p *pb.Instance) {
 
 // InstanceCreate implements the pb.HiroServer interface
 func (s *RPCServer) InstanceCreate(ctx context.Context, params *pb.InstanceCreateRequest) (*pb.Instance, error) {
-	in := InstanceCreateInput{
+	in := InstanceCreateParams{
 		Name:        params.Name,
 		Description: params.Description,
 		Permissions: make([]Permission, 0),
@@ -210,7 +210,7 @@ func (s *RPCServer) InstanceUpdate(ctx context.Context, params *pb.InstanceUpdat
 		}
 	}
 
-	inst, err := s.Controller.InstanceUpdate(ctx, InstanceUpdateInput{
+	inst, err := s.Controller.InstanceUpdate(ctx, InstanceUpdateParams{
 		Name:            params.Name,
 		Description:     params.Description,
 		TokenLifetime:   tl,
@@ -236,7 +236,7 @@ func (s *RPCServer) InstanceGet(ctx context.Context, params *pb.InstanceGetReque
 		id = &tmp
 	}
 
-	a, err := s.Controller.InstanceGet(ctx, InstanceGetInput{
+	a, err := s.Controller.InstanceGet(ctx, InstanceGetParams{
 		InstanceID: id,
 		Name:       ptr.NilString(params.GetName()),
 	})
@@ -249,7 +249,7 @@ func (s *RPCServer) InstanceGet(ctx context.Context, params *pb.InstanceGetReque
 
 // InstanceList implements the pb.HiroServer interface
 func (s *RPCServer) InstanceList(req *pb.InstanceListRequest, stream pb.Hiro_InstanceListServer) error {
-	auds, err := s.Controller.InstanceList(stream.Context(), InstanceListInput{
+	auds, err := s.Controller.InstanceList(stream.Context(), InstanceListParams{
 		Limit:  &req.Limit,
 		Offset: &req.Offset,
 	})
@@ -270,7 +270,7 @@ func (s *RPCServer) InstanceList(req *pb.InstanceListRequest, stream pb.Hiro_Ins
 
 // InstanceDelete implements the pb.HiroServer interface
 func (s *RPCServer) InstanceDelete(ctx context.Context, params *pb.InstanceDeleteRequest) (*empty.Empty, error) {
-	err := s.Controller.InstanceDelete(ctx, InstanceDeleteInput{
+	err := s.Controller.InstanceDelete(ctx, InstanceDeleteParams{
 		InstanceID: ID(params.Id),
 	})
 

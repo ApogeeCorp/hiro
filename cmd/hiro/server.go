@@ -25,6 +25,7 @@ import (
 	"github.com/ModelRocket/hiro/api/swagger"
 	"github.com/ModelRocket/hiro/pkg/api"
 	"github.com/ModelRocket/hiro/pkg/hiro"
+	"github.com/ModelRocket/hiro/pkg/ptr"
 	"github.com/urfave/cli/v2"
 	"sigs.k8s.io/yaml"
 )
@@ -113,7 +114,11 @@ func serverInitialize(c *cli.Context) error {
 		return fmt.Errorf("failed to convert spec to json: %w", err)
 	}
 
+	// create the hiro api
 	if _, err := h.APIImport(c.Context, hiro.APIImportParams{
+		Params: hiro.Params{
+			UpdateOnConflict: true,
+		},
 		SpecCreateParams: hiro.SpecCreateParams{
 			Spec:       spec,
 			SpecType:   hiro.SpecTypeOpenAPI,
@@ -122,6 +127,20 @@ func serverInitialize(c *cli.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create hiro api: %w", err)
 	}
+
+	// create the initial domain
+	_, err = h.DomainCreate(c.Context, hiro.DomainCreateParams{
+		Params: hiro.Params{
+			UpdateOnConflict: true,
+		},
+		Name:        "hiro.local",
+		Description: ptr.String("Local hiro domain"),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create hiro.local domain: %w", err)
+	}
+
+	// create the initial hiro instance
 
 	return nil
 }

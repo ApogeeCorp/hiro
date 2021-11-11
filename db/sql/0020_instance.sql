@@ -9,20 +9,13 @@ CREATE TABLE IF NOT EXISTS hiro.instances(
     api_id UUID NOT NULL,
     name VARCHAR(256) NOT NULL,
     description VARCHAR(1024),
-    refresh_token_lifetime BIGINT NOT NULL DEFAULT 3600000000000, 
-    token_lifetime BIGINT NOT NULL DEFAULT 3600000000000,
-    session_lifetime BIGINT NOT NULL DEFAULT 3600000000000, 
-    login_token_lifetime BIGINT NOT NULL DEFAULT 3600000000000,
-    invite_token_lifetime BIGINT NOT NULL DEFAULT 3600000000000,
-    verify_token_lifetime BIGINT NOT NULL DEFAULT 3600000000000,
-    auth_code_lifetime BIGINT NOT NULL DEFAULT 600000000000,
     metadata JSONB,
     CONSTRAINT instance_api_fk FOREIGN KEY (api_id) REFERENCES hiro.apis(id) ON DELETE RESTRICT,
     CONSTRAINT instance_domain_fk FOREIGN KEY (domain_id) REFERENCES hiro.domains(id) ON DELETE RESTRICT,
     CONSTRAINT instance_domain_api UNIQUE(domain_id, api_id)
 );
 
-CREATE TABLE IF NOT EXISTS hiro.instance_endpoint(
+CREATE TABLE IF NOT EXISTS hiro.instance_endpoints(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

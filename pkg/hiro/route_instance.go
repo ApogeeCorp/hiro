@@ -30,25 +30,25 @@ import (
 
 type (
 	// InstanceCreateRoute is the instance create route definition
-	InstanceCreateRoute func(ctx context.Context, params *InstanceCreateInput) api.Responder
+	InstanceCreateRoute func(ctx context.Context, params *InstanceCreateParams) api.Responder
 
 	// InstanceGetRoute is the instance create route definition
-	InstanceGetRoute func(ctx context.Context, params *InstanceGetInput) api.Responder
+	InstanceGetRoute func(ctx context.Context, params *InstanceGetParams) api.Responder
 
 	// InstanceCountRoute is the instance count route definition
-	InstanceCountRoute func(ctx context.Context, params *InstanceListInput) api.Responder
+	InstanceCountRoute func(ctx context.Context, params *InstanceListParams) api.Responder
 
 	// InstanceListRoute is the instance count route definition
-	InstanceListRoute func(ctx context.Context, params *InstanceListInput) api.Responder
+	InstanceListRoute func(ctx context.Context, params *InstanceListParams) api.Responder
 
 	// InstanceUpdateRoute is the instance create route definition
-	InstanceUpdateRoute func(ctx context.Context, params *InstanceUpdateInput) api.Responder
+	InstanceUpdateRoute func(ctx context.Context, params *InstanceUpdateParams) api.Responder
 
 	// InstanceDeleteRoute is the instance create route definition
-	InstanceDeleteRoute func(ctx context.Context, params *InstanceDeleteInput) api.Responder
+	InstanceDeleteRoute func(ctx context.Context, params *InstanceDeleteParams) api.Responder
 )
 
-func instanceCreate(ctx context.Context, params *InstanceCreateInput) api.Responder {
+func instanceCreate(ctx context.Context, params *InstanceCreateParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	inst, err := ctrl.InstanceCreate(ctx, *params)
@@ -84,7 +84,7 @@ func (InstanceCreateRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeInstanceWrite)
 }
 
-func instanceGet(ctx context.Context, params *InstanceGetInput) api.Responder {
+func instanceGet(ctx context.Context, params *InstanceGetParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	inst, err := ctrl.InstanceGet(ctx, *params)
@@ -120,7 +120,7 @@ func (InstanceGetRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeInstanceRead)
 }
 
-func instanceCount(ctx context.Context, params *InstanceListInput) api.Responder {
+func instanceCount(ctx context.Context, params *InstanceListParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 	var count uint64
 
@@ -161,7 +161,7 @@ func (InstanceCountRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeInstanceRead)
 }
 
-func instanceList(ctx context.Context, params *InstanceListInput) api.Responder {
+func instanceList(ctx context.Context, params *InstanceListParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	auds, err := ctrl.InstanceList(ctx, *params)
@@ -197,7 +197,7 @@ func (InstanceListRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeInstanceRead)
 }
 
-func instanceUpdate(ctx context.Context, params *InstanceUpdateInput) api.Responder {
+func instanceUpdate(ctx context.Context, params *InstanceUpdateParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	inst, err := ctrl.InstanceUpdate(ctx, *params)
@@ -233,7 +233,7 @@ func (InstanceUpdateRoute) Scopes() oauth.ScopeList {
 	return oauth.BuildScope(ScopeInstanceWrite)
 }
 
-func instanceDelete(ctx context.Context, params *InstanceDeleteInput) api.Responder {
+func instanceDelete(ctx context.Context, params *InstanceDeleteParams) api.Responder {
 	ctrl := api.Context(ctx).(Controller)
 
 	if err := ctrl.InstanceDelete(ctx, *params); err != nil {

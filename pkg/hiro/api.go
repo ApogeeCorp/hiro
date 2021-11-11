@@ -54,10 +54,10 @@ type (
 	// APICreateParams is the input for APICreate
 	APICreateParams struct {
 		Params
-		Name        string                  `json:"name"`
-		Description *string                 `json:"description,omitempty"`
-		Specs       []SpecCreateParams      `json:"specs,omitempty"`
-		Permissions []PermissionCreateInput `json:"permissions,omitempty"`
+		Name        string                   `json:"name"`
+		Description *string                  `json:"description,omitempty"`
+		Specs       []SpecCreateParams       `json:"specs,omitempty"`
+		Permissions []PermissionCreateParams `json:"permissions,omitempty"`
 	}
 
 	// APIImportParams is the input for APIImport
@@ -102,7 +102,7 @@ func (h *Hiro) APICreate(ctx context.Context, params APICreateParams) (*API, err
 	if err := h.Transact(ctx, func(ctx context.Context, tx DB) error {
 		log.Debugf("creating new api")
 
-		stmt, args, err := sq.Insert("hiro.apis").
+		query := sq.Insert("hiro.apis").
 			Columns(
 				"name",
 				"description",
@@ -111,9 +111,18 @@ func (h *Hiro) APICreate(ctx context.Context, params APICreateParams) (*API, err
 				params.Name,
 				params.Description,
 			).
-			PlaceholderFormat(sq.Dollar).
-			Suffix("RETURNING *").
-			ToSql()
+			PlaceholderFormat(sq.Dollar)
+
+		if params.UpdateOnConflict {
+			query = query.Suffix(
+				`ON CONFLICT (name) DO UPDATE SET description=$3 RETURNING *`,
+				params.Description,
+			)
+		} else {
+			query = query.Suffix("RETURNING *")
+		}
+
+		stmt, args, err := query.ToSql()
 		if err != nil {
 			return fmt.Errorf("%w: failed to build query statement", err)
 		}
@@ -125,6 +134,7 @@ func (h *Hiro) APICreate(ctx context.Context, params APICreateParams) (*API, err
 		// create any necessary permissions
 		for _, p := range params.Permissions {
 			p.ApiID = api.ID
+			p.Params = params.Params
 
 			if _, err := h.PermissionCreate(ctx, p); err != nil {
 				return err
@@ -134,6 +144,7 @@ func (h *Hiro) APICreate(ctx context.Context, params APICreateParams) (*API, err
 		// create any necessary specs
 		for _, s := range params.Specs {
 			s.ApiID = api.ID
+			s.Params = params.Params
 
 			if _, err := h.SpecCreate(ctx, s); err != nil {
 				return err
@@ -162,6 +173,8 @@ func (p APIImportParams) ValidateWithContext(ctx context.Context) error {
 
 // APIImport imports an api definition
 func (h *Hiro) APIImport(ctx context.Context, params APIImportParams) (*API, error) {
+	log := Log(ctx).
+		WithField("operation", "APIImport")
 
 	switch params.SpecType {
 	case SpecTypeOpenAPI:
@@ -183,7 +196,12 @@ func (h *Hiro) APIImport(ctx context.Context, params APIImportParams) (*API, err
 		}
 	}
 
+	log.Debugf("importing api %s", params.Name)
+
 	return h.APICreate(ctx, APICreateParams{
+		Params: Params{
+			UpdateOnConflict: params.UpdateOnConflict,
+		},
 		Name:        params.Name,
 		Description: params.Description,
 		Specs: []SpecCreateParams{

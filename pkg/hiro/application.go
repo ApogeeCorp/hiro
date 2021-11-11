@@ -50,7 +50,7 @@ type (
 	// Application is the database model for an application
 	Application struct {
 		ID            ID                    `json:"id" db:"id"`
-		InstanceID    ID                    `json:"instance_id" db:"instance_id"`
+		DomainID      ID                    `json:"domain_id" db:"domain_id"`
 		Name          string                `json:"name" db:"name"`
 		Slug          string                `json:"slug" db:"slug"`
 		Description   *string               `json:"description,omitempty" db:"description"`
@@ -65,6 +65,7 @@ type (
 		CreatedAt     time.Time             `json:"created_at" db:"created_at"`
 		UpdatedAt     *time.Time            `json:"updated_at,omitempty" db:"updated_at"`
 		Metadata      common.Map            `json:"metadata,omitempty" db:"metadata"`
+		Domain        *Domain               `json:"domain,omitempty" db:"-"`
 	}
 
 	// ApplicationGrant is an application grant entry
@@ -130,7 +131,7 @@ type (
 
 	// ApplicationGetInput is used to get an application for the id
 	ApplicationGetInput struct {
-		InstanceID    ID                 `json:"-"`
+		DomainID      ID                 `json:"-"`
 		ApplicationID *ID                `json:"application_id,omitempty"`
 		Expand        common.StringSlice `json:"expand,omitempty"`
 		ClientID      *string            `json:"-"`
@@ -139,16 +140,16 @@ type (
 
 	// ApplicationListInput is the application list request
 	ApplicationListInput struct {
-		InstanceID ID                 `json:"-"`
-		Expand     common.StringSlice `json:"expand,omitempty"`
-		Limit      *uint64            `json:"limit,omitempty"`
-		Offset     *uint64            `json:"offset,omitempty"`
-		Count      *uint64            `json:"count,omitempty"`
+		DomainID ID                 `json:"-"`
+		Expand   common.StringSlice `json:"expand,omitempty"`
+		Limit    *uint64            `json:"limit,omitempty"`
+		Offset   *uint64            `json:"offset,omitempty"`
+		Count    *uint64            `json:"count,omitempty"`
 	}
 
 	// ApplicationDeleteInput is the application delete request input
 	ApplicationDeleteInput struct {
-		InstanceID    ID `json:"instance_id" db:"instance_id"`
+		DomainID      ID `json:"instance_id" db:"instance_id"`
 		ApplicationID ID `json:"application_id"`
 	}
 
@@ -199,7 +200,7 @@ func (a ApplicationUpdateInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the ApplicationGetInput struct
 func (a ApplicationGetInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.InstanceID, validation.Required),
+		validation.Field(&a.DomainID, validation.Required),
 		validation.Field(&a.ApplicationID, validation.When(a.Name == nil, validation.Required).Else(validation.Empty)),
 		validation.Field(&a.Name, validation.When(!a.ApplicationID.Valid(), validation.Required).Else(validation.Nil)),
 	)
@@ -208,14 +209,14 @@ func (a ApplicationGetInput) ValidateWithContext(ctx context.Context) error {
 // ValidateWithContext handles validation of the ApplicationListInput struct
 func (a ApplicationListInput) ValidateWithContext(context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.InstanceID, validation.Required),
+		validation.Field(&a.DomainID, validation.Required),
 	)
 }
 
 // ValidateWithContext handles validation of the ApplicationDeleteInput
 func (a ApplicationDeleteInput) ValidateWithContext(ctx context.Context) error {
 	return validation.ValidateStruct(&a,
-		validation.Field(&a.InstanceID, validation.Required),
+		validation.Field(&a.DomainID, validation.Required),
 		validation.Field(&a.ApplicationID, validation.Required),
 	)
 }
@@ -344,7 +345,7 @@ func (h *Hiro) ApplicationUpdate(ctx context.Context, params ApplicationUpdateIn
 			}
 		} else {
 			a, err := h.ApplicationGet(ctx, ApplicationGetInput{
-				InstanceID:    params.InstanceID,
+				DomainID:      params.InstanceID,
 				ApplicationID: &params.ApplicationID,
 			})
 			if err != nil {
@@ -382,7 +383,7 @@ func (h *Hiro) ApplicationGet(ctx context.Context, params ApplicationGetInput) (
 	query := sq.Select("*").
 		From("hiro.applications").
 		PlaceholderFormat(sq.Dollar).
-		Where(sq.Eq{"instance_id": params.InstanceID})
+		Where(sq.Eq{"instance_id": params.DomainID})
 
 	if params.ApplicationID != nil {
 		query = query.Where(sq.Eq{"id": params.ApplicationID})

@@ -88,19 +88,19 @@ func (h *Hiro) OAuthController() oauth.Controller {
 
 // AudienceGet returns an instance by id
 func (c *oauthController) AudienceGet(ctx context.Context, params oauth.AudienceGetInput) (oauth.Audience, error) {
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
-		Audience: &params.Audience,
+	dom, err := c.DomainGet(ctx, DomainGetParams{
+		Name: &params.Audience,
 	})
 	if err != nil {
 		return nil, oauth.ErrAudienceNotFound.WithError(err)
 	}
 
-	return &oauthAudience{inst}, nil
+	return &oauthAudience{dom}, nil
 }
 
 // ClientGet gets the client from the controller
 func (c *oauthController) ClientGet(ctx context.Context, params oauth.ClientGetInput) (oauth.Client, error) {
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+	inst, err := c.InstanceGet(ctx, InstanceGetParams{
 		Audience: &params.Audience,
 	})
 	if err != nil {
@@ -108,8 +108,8 @@ func (c *oauthController) ClientGet(ctx context.Context, params oauth.ClientGetI
 	}
 
 	app, err := c.ApplicationGet(ctx, ApplicationGetInput{
-		InstanceID: inst.ID,
-		ClientID:   &params.ClientID,
+		DomainID: inst.ID,
+		ClientID: &params.ClientID,
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -131,16 +131,19 @@ func (c *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 
 	log := Log(ctx).WithField("operation", "oauth.RequestTokenCreate").WithField("application", req.ClientID)
 
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
-		Audience: &req.Audience,
+	dom, err := c.DomainGet(ctx, DomainGetParams{
+		Params: Params{
+			Expand: []string{"options"},
+		},
+		Name: &req.Audience,
 	})
 	if err != nil {
 		return "", oauth.ErrAudienceNotFound.WithError(err)
 	}
 
 	app, err := c.ApplicationGet(ctx, ApplicationGetInput{
-		InstanceID: inst.ID,
-		ClientID:   &req.ClientID,
+		DomainID: dom.ID,
+		ClientID: &req.ClientID,
 	})
 	if err != nil {
 		return "", oauth.ErrClientNotFound.WithError(err)
@@ -148,7 +151,7 @@ func (c *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 
 	switch req.Type {
 	case oauth.RequestTokenTypeAuthCode:
-		req.ExpiresAt = time.Now().Add(inst.AuthCodeLifetime * time.Second).Unix()
+		req.ExpiresAt = time.Now().Add(dom.Options.Get("AUTHCODE_LIFETIME", 300).Duration() * time.Second).Unix()
 
 	case oauth.RequestTokenTypeLogin:
 		req.ExpiresAt = time.Now().Add(inst.LoginTokenLifetime * time.Second).Unix()
@@ -186,7 +189,7 @@ func (c *oauthController) RequestTokenCreate(ctx context.Context, req oauth.Requ
 			Values(
 				req.Type,
 				inst.ID,
-				inst.Audience,
+				inst.Domain.Name,
 				app.ID,
 				app.ClientID,
 				NewID(req.Subject),
@@ -316,7 +319,7 @@ func (c *oauthController) RequestTokenDelete(ctx context.Context, params oauth.R
 func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (oauth.Token, error) {
 	log := Log(ctx).WithField("operation", "TokenCreate").WithField("application", token.ClientID)
 
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+	inst, err := c.InstanceGet(ctx, InstanceGetParams{
 		Audience: &token.Audience,
 	})
 	if err != nil {
@@ -324,8 +327,8 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 	}
 
 	app, err := c.ApplicationGet(ctx, ApplicationGetInput{
-		InstanceID: inst.ID,
-		ClientID:   &token.ClientID,
+		DomainID: inst.ID,
+		ClientID: &token.ClientID,
 	})
 	if err != nil {
 		return token, oauth.ErrClientNotFound.WithError(err)
@@ -333,7 +336,7 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 
 	tokenID := NewID()
 	token.ID = tokenID.String()
-	token.Audience = inst.Audience
+	token.Audience = inst.Domain.Name
 	token.IssuedAt = time.Now().Unix()
 
 	if token.Claims == nil {
@@ -374,7 +377,7 @@ func (c *oauthController) TokenCreate(ctx context.Context, token oauth.Token) (o
 				tokenID,
 				token.Issuer,
 				inst.ID,
-				inst.Audience,
+				inst.Domain.Name,
 				app.ID,
 				app.ClientID,
 				NewID(token.Subject),
@@ -565,7 +568,7 @@ func (c *oauthController) TokenCleanup(ctx context.Context) error {
 func (c *oauthController) UserGet(ctx context.Context, params oauth.UserGetInput) (oauth.User, error) {
 	var in UserGetInput
 
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+	inst, err := c.InstanceGet(ctx, InstanceGetParams{
 		Audience: &params.Audience,
 	})
 	if err != nil {
@@ -616,7 +619,7 @@ func (c *oauthController) UserGet(ctx context.Context, params oauth.UserGetInput
 func (c *oauthController) UserUpdate(ctx context.Context, params oauth.UserUpdateInput) (oauth.User, error) {
 	var in UserGetInput
 
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+	inst, err := c.InstanceGet(ctx, InstanceGetParams{
 		Audience: &params.Audience,
 	})
 	if err != nil {
@@ -654,7 +657,7 @@ func (c *oauthController) UserUpdate(ctx context.Context, params oauth.UserUpdat
 
 // UserCreate creates a user
 func (c *oauthController) UserCreate(ctx context.Context, params oauth.UserCreateInput) (oauth.User, error) {
-	inst, err := c.InstanceGet(ctx, InstanceGetInput{
+	inst, err := c.InstanceGet(ctx, InstanceGetParams{
 		Params: Params{
 			Expand: ExpandAll,
 		},
